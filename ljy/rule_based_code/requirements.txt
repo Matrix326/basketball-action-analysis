@@ -1,0 +1,22 @@
+# Core numerical and video stack
+torch>=2.0.0
+torchvision>=0.15.0
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+PyYAML>=6.0
+tqdm>=4.65.0
+imageio-ffmpeg>=0.6.0
+
+# RF-DETR-Seg runtime
+supervision>=0.28.0
+
+# RTMPose runtime (MMPose source is vendored under third_party/)
+mmengine>=0.6.0,<1.0.0
+mmcv-lite>=2.0.0rc4,<=2.3.0
+
+# ReID and GPU inference
+insightface>=0.7.3
+onnxruntime-gpu==1.23.2
+tensorrt-cu12==11.2.1.2
