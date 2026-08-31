@@ -1,0 +1,12 @@
+{
+    "0": "Block: a basketball player without possession of the ball jumping vertically with arms stretched upward to deflect an opponent’s shot, hands reaching toward where the ball is released, body fully extended airborne to block the shot attempt",
+    "1": "Pass: a player extends one or both arms forward or sideways to propel the ball toward a teammate, with a clear outward passing motion.",
+    "2": "Run: a basketball player sprinting down the court with rapid leg turnover and forward‑leaning torso, performing high‑speed athletic movement",
+    "3": "Dribble: a basketball player controlling the ball, pushing it toward the ground with one hand and maintaining possession via ball bounce. Includes stationary dribble where body position stays mostly fixed, and moving dribble where the player travels while bouncing the ball",
+    "4": "Shoot: a player raises the ball and extends the arms upward with elbow extension, upward body movement, and a shooting follow-through.",
+    "5": "Ball in hand: a player holds the ball with one or both hands without sustained directional arm extension or active shooting or passing motion.",
+    "6": "Defense: a ball‑free basketball player in a low defensive stance with bent knees and wide‑spread arms, sliding laterally to follow the opponent, actively stopping offensive penetration",
+    "7": "Pick: a stationary basketball player acting as a physical barrier to screen a defender, arms kept close to the torso or crossed, intentionally obstructing the defender’s path to create space for a teammate (screen)",
+    "8": "No action: a basketball player without the ball standing still on the court, no intentional basketball‑related movement or active game participation",
+    "9": "Walk: a ball‑free basketball player moving at slow casual walking speed with upright posture and relaxed gait, no running‑level intensity"
+}

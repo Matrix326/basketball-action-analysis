@@ -1,0 +1,10 @@
+block: a basketball player jumping vertically with arms stretched upward to deflect a shot, hands reaching high toward the ball's release point, body fully extended in the air
+pass: a basketball player using one or both hands to thrust the ball horizontally or slightly downward toward a nearby teammate, arms extending straight forward from the chest without significant upward lift, the ball traveling in a flat and low trajectory directly to another player
+run: a basketball player sprinting down the court with rapid leg turnover and forward body lean, arms pumping rhythmically, showing high-speed athletic movement
+dribble: a basketball player repeatedly bouncing the ball on the floor with one hand while moving, maintaining continuous palm-to-ball contact, demonstrating ball control and forward progress
+shoot: a basketball player lifting the ball vertically upward with one hand and releasing it toward the basket with a high-arcing trajectory, featuring a distinct overhead arm extension and downward wrist snap, with the ball's primary target being the hoop regardless of whether other players are standing nearby
+ball in hand: a basketball player holding the ball securely with one or both hands without immediate passing or shooting, standing or moving casually, demonstrating a pause in active play
+defense: a basketball player in a low defensive stance with knees bent and arms spread wide, sliding laterally to mirror an opponent's movement, actively preventing penetration
+pick: a basketball player standing stationary with body positioned as a barrier to screen a defender, arms close to torso or crossed, deliberately blocking a defender's path to free a teammate (commonly known as a screen)
+no_action: a basketball player standing idly on the court without the ball and without engaging in any basketball-related activity, showing no purposeful movement or intent
+walk: a basketball player moving at a casual walking pace, possibly with or without the ball, not exhibiting running or sprinting intensity, body upright with relaxed gait

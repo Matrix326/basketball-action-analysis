@@ -1,0 +1,12 @@
+{
+    "0": "Block: a basketball player without possession of the ball jumping vertically with arms stretched upward to deflect an opponent’s shot, hands reaching toward where the ball is released, body fully extended airborne to block the shot attempt",
+    "1": "Pass: a basketball player using one or both hands to thrust the ball horizontally or slightly downward toward a nearby teammate, arms extending straight forward from the chest without significant upward lift, the ball travelling horizontally or slightly downward",
+    "2": "Run: a basketball player sprinting down the court with rapid leg turnover and forward‑leaning torso, performing high‑speed athletic movement",
+    "3": "Dribble: a basketball player controlling the ball, pushing it toward the ground with one hand and maintaining possession via ball bounce. Includes stationary dribble where body position stays mostly fixed, and moving dribble where the player travels while bouncing the ball",
+    "4": "Shoot: a basketball player holding the ball, bending arms to lift the ball upward, raising it to above head height with upper arms elevated, forearms extending upward, then flicking wrists to release the ball. The ball travels in an upward direction for an offensive shot attempt. ",
+    "5": "Ball in hand: a basketball player securely holding the ball with one or both hands, no immediate pass or shot action, standing or moving casually with play temporarily paused",
+    "6": "Defense: a ball‑free basketball player in a low defensive stance with bent knees and wide‑spread arms, sliding laterally to follow the opponent, actively stopping offensive penetration",
+    "7": "Pick: a stationary basketball player acting as a physical barrier to screen a defender, arms kept close to the torso or crossed, intentionally obstructing the defender’s path to create space for a teammate (screen)",
+    "8": "No action: a basketball player without the ball standing still on the court, no intentional basketball‑related movement or active game participation",
+    "9": "Walk: a ball‑free basketball player moving at slow casual walking speed with upright posture and relaxed gait, no running‑level intensity"
+}

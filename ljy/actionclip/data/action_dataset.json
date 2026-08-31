@@ -1,0 +1,5393 @@
+{
+  "samples": [
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        0,
+        4,
+        8,
+        12,
+        16,
+        20,
+        24,
+        28
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        32,
+        33,
+        34,
+        35,
+        37,
+        38,
+        39,
+        40
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        84,
+        88,
+        92,
+        96,
+        100,
+        104,
+        108,
+        112
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        138,
+        140,
+        143,
+        145,
+        148,
+        151,
+        153,
+        156
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        166,
+        170,
+        174,
+        178,
+        182,
+        186,
+        190,
+        194
+      ],
+      "segment_idx": 0,
+      "total_segments": 7
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        198,
+        202,
+        206,
+        210,
+        214,
+        218,
+        222,
+        226
+      ],
+      "segment_idx": 1,
+      "total_segments": 7
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        230,
+        234,
+        238,
+        242,
+        246,
+        250,
+        254,
+        258
+      ],
+      "segment_idx": 2,
+      "total_segments": 7
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        262,
+        266,
+        270,
+        274,
+        278,
+        282,
+        286,
+        290
+      ],
+      "segment_idx": 3,
+      "total_segments": 7
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        294,
+        298,
+        302,
+        306,
+        310,
+        314,
+        318,
+        322
+      ],
+      "segment_idx": 4,
+      "total_segments": 7
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        326,
+        330,
+        334,
+        338,
+        342,
+        346,
+        350,
+        354
+      ],
+      "segment_idx": 5,
+      "total_segments": 7
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        358,
+        360,
+        363,
+        365,
+        368,
+        371,
+        373,
+        376
+      ],
+      "segment_idx": 6,
+      "total_segments": 7
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        496,
+        500,
+        504,
+        508,
+        512,
+        516,
+        520,
+        524
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        528,
+        532,
+        536,
+        540,
+        544,
+        548,
+        552,
+        556
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        570,
+        573,
+        577,
+        580,
+        584,
+        588,
+        591,
+        595
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        995,
+        999,
+        1003,
+        1007,
+        1011,
+        1015,
+        1019,
+        1023
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        1027,
+        1031,
+        1035,
+        1039,
+        1043,
+        1047,
+        1051,
+        1055
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        1093,
+        1097,
+        1101,
+        1105,
+        1109,
+        1113,
+        1117,
+        1121
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        1355,
+        1359,
+        1363,
+        1367,
+        1371,
+        1375,
+        1379,
+        1383
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        1387,
+        1389,
+        1392,
+        1394,
+        1397,
+        1399,
+        1402,
+        1404
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        1482,
+        1486,
+        1490,
+        1494,
+        1498,
+        1502,
+        1506,
+        1510
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        1514,
+        1518,
+        1522,
+        1526,
+        1530,
+        1534,
+        1538,
+        1542
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        1546,
+        1550,
+        1554,
+        1558,
+        1562,
+        1566,
+        1570,
+        1574
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        1578,
+        1581,
+        1585,
+        1588,
+        1592,
+        1595,
+        1599,
+        1602
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        1623,
+        1627,
+        1631,
+        1635,
+        1639,
+        1643,
+        1647,
+        1651
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        1655,
+        1658,
+        1661,
+        1664,
+        1667,
+        1670,
+        1673,
+        1676
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        1917,
+        1921,
+        1925,
+        1929,
+        1933,
+        1937,
+        1941,
+        1945
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        1949,
+        1953,
+        1957,
+        1961,
+        1965,
+        1969,
+        1973,
+        1977
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        1981,
+        1985,
+        1989,
+        1993,
+        1997,
+        2001,
+        2005,
+        2009
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        2013,
+        2014,
+        2016,
+        2017,
+        2019,
+        2020,
+        2022,
+        2023
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        1969,
+        1973,
+        1977,
+        1981,
+        1985,
+        1989,
+        1993,
+        1997
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        2001,
+        2005,
+        2009,
+        2013,
+        2017,
+        2021,
+        2025,
+        2029
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        2207,
+        2211,
+        2215,
+        2219,
+        2223,
+        2227,
+        2231,
+        2235
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        2239,
+        2241,
+        2244,
+        2247,
+        2250,
+        2252,
+        2255,
+        2258
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        2297,
+        2301,
+        2305,
+        2309,
+        2313,
+        2317,
+        2321,
+        2325
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        2329,
+        2330,
+        2331,
+        2332,
+        2333,
+        2334,
+        2335,
+        2336
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        2385,
+        2389,
+        2393,
+        2397,
+        2401,
+        2405,
+        2409,
+        2413
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        2417,
+        2421,
+        2425,
+        2429,
+        2433,
+        2437,
+        2441,
+        2445
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        2385,
+        2389,
+        2393,
+        2397,
+        2401,
+        2405,
+        2409,
+        2413
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        2417,
+        2421,
+        2425,
+        2429,
+        2433,
+        2437,
+        2441,
+        2445
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        2649,
+        2653,
+        2657,
+        2661,
+        2665,
+        2669,
+        2673,
+        2677
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        2681,
+        2683,
+        2686,
+        2688,
+        2691,
+        2693,
+        2696,
+        2698
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        2705,
+        2709,
+        2713,
+        2717,
+        2721,
+        2725,
+        2729,
+        2733
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        2843,
+        2845,
+        2847,
+        2849,
+        2852,
+        2854,
+        2856,
+        2858
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        2980,
+        2984,
+        2988,
+        2992,
+        2996,
+        3000,
+        3004,
+        3008
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3043,
+        3047,
+        3051,
+        3055,
+        3059,
+        3063,
+        3067,
+        3071
+      ],
+      "segment_idx": 0,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3075,
+        3079,
+        3083,
+        3087,
+        3091,
+        3095,
+        3099,
+        3103
+      ],
+      "segment_idx": 1,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3107,
+        3111,
+        3115,
+        3119,
+        3123,
+        3127,
+        3131,
+        3135
+      ],
+      "segment_idx": 2,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3139,
+        3143,
+        3147,
+        3151,
+        3155,
+        3159,
+        3163,
+        3167
+      ],
+      "segment_idx": 3,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3171,
+        3175,
+        3179,
+        3183,
+        3187,
+        3191,
+        3195,
+        3199
+      ],
+      "segment_idx": 4,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3203,
+        3204,
+        3205,
+        3207,
+        3208,
+        3209,
+        3211,
+        3212
+      ],
+      "segment_idx": 5,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3215,
+        3219,
+        3223,
+        3227,
+        3231,
+        3235,
+        3239,
+        3243
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        3247,
+        3249,
+        3251,
+        3253,
+        3255,
+        3257,
+        3259,
+        3261
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3257,
+        3261,
+        3265,
+        3269,
+        3273,
+        3277,
+        3281,
+        3285
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3289,
+        3290,
+        3292,
+        3294,
+        3296,
+        3298,
+        3300,
+        3302
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3305,
+        3307,
+        3310,
+        3313,
+        3316,
+        3318,
+        3321,
+        3324
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3305,
+        3307,
+        3310,
+        3313,
+        3316,
+        3318,
+        3321,
+        3324
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        3334,
+        3338,
+        3342,
+        3346,
+        3350,
+        3354,
+        3358,
+        3362
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        3366,
+        3370,
+        3374,
+        3378,
+        3382,
+        3386,
+        3390,
+        3394
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        3398,
+        3402,
+        3406,
+        3410,
+        3414,
+        3418,
+        3422,
+        3426
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        3430,
+        3431,
+        3433,
+        3434,
+        3436,
+        3438,
+        3439,
+        3441
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        3645,
+        3648,
+        3651,
+        3654,
+        3658,
+        3661,
+        3664,
+        3667
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        3645,
+        3648,
+        3651,
+        3654,
+        3658,
+        3661,
+        3664,
+        3667
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3718,
+        3722,
+        3726,
+        3730,
+        3734,
+        3738,
+        3742,
+        3746
+      ],
+      "segment_idx": 0,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3750,
+        3754,
+        3758,
+        3762,
+        3766,
+        3770,
+        3774,
+        3778
+      ],
+      "segment_idx": 1,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3782,
+        3786,
+        3790,
+        3794,
+        3798,
+        3802,
+        3806,
+        3810
+      ],
+      "segment_idx": 2,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3814,
+        3818,
+        3822,
+        3826,
+        3830,
+        3834,
+        3838,
+        3842
+      ],
+      "segment_idx": 3,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3846,
+        3850,
+        3854,
+        3858,
+        3862,
+        3866,
+        3870,
+        3874
+      ],
+      "segment_idx": 4,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        3878,
+        3880,
+        3883,
+        3885,
+        3888,
+        3890,
+        3893,
+        3895
+      ],
+      "segment_idx": 5,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        3718,
+        3722,
+        3726,
+        3730,
+        3734,
+        3738,
+        3742,
+        3746
+      ],
+      "segment_idx": 0,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        3750,
+        3754,
+        3758,
+        3762,
+        3766,
+        3770,
+        3774,
+        3778
+      ],
+      "segment_idx": 1,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        3782,
+        3786,
+        3790,
+        3794,
+        3798,
+        3802,
+        3806,
+        3810
+      ],
+      "segment_idx": 2,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        3814,
+        3818,
+        3822,
+        3826,
+        3830,
+        3834,
+        3838,
+        3842
+      ],
+      "segment_idx": 3,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        3846,
+        3850,
+        3854,
+        3858,
+        3862,
+        3866,
+        3870,
+        3874
+      ],
+      "segment_idx": 4,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        3878,
+        3880,
+        3883,
+        3885,
+        3888,
+        3890,
+        3893,
+        3895
+      ],
+      "segment_idx": 5,
+      "total_segments": 6
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        4099,
+        4102,
+        4106,
+        4109,
+        4113,
+        4116,
+        4120,
+        4123
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        4331,
+        4335,
+        4339,
+        4343,
+        4347,
+        4351,
+        4355,
+        4359
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        4646,
+        4648,
+        4651,
+        4653,
+        4656,
+        4658,
+        4661,
+        4663
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        4789,
+        4793,
+        4797,
+        4801,
+        4805,
+        4809,
+        4813,
+        4817
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        4830,
+        4834,
+        4838,
+        4842,
+        4846,
+        4850,
+        4854,
+        4858
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        4862,
+        4863,
+        4865,
+        4866,
+        4868,
+        4870,
+        4871,
+        4873
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        4950,
+        4954,
+        4958,
+        4962,
+        4966,
+        4970,
+        4974,
+        4978
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        4950,
+        4954,
+        4958,
+        4962,
+        4966,
+        4970,
+        4974,
+        4978
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        5075,
+        5078,
+        5082,
+        5086,
+        5090,
+        5094,
+        5098,
+        5102
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        5107,
+        5111,
+        5115,
+        5119,
+        5123,
+        5127,
+        5131,
+        5135
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        5139,
+        5140,
+        5142,
+        5143,
+        5145,
+        5147,
+        5148,
+        5150
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        5342,
+        5346,
+        5350,
+        5354,
+        5358,
+        5362,
+        5366,
+        5370
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        5374,
+        5378,
+        5382,
+        5386,
+        5390,
+        5394,
+        5398,
+        5402
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        5406,
+        5410,
+        5414,
+        5418,
+        5422,
+        5426,
+        5430,
+        5434
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        5454,
+        5457,
+        5461,
+        5465,
+        5469,
+        5472,
+        5476,
+        5480
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        5497,
+        5499,
+        5501,
+        5503,
+        5505,
+        5507,
+        5509,
+        5511
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        5525,
+        5528,
+        5531,
+        5535,
+        5538,
+        5541,
+        5545,
+        5548
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        5569,
+        5573,
+        5577,
+        5581,
+        5585,
+        5589,
+        5593,
+        5597
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        5621,
+        5625,
+        5629,
+        5633,
+        5637,
+        5641,
+        5645,
+        5649
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        5621,
+        5625,
+        5629,
+        5633,
+        5637,
+        5641,
+        5645,
+        5649
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        5687,
+        5691,
+        5695,
+        5699,
+        5703,
+        5707,
+        5711,
+        5715
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        5719,
+        5723,
+        5727,
+        5731,
+        5735,
+        5739,
+        5743,
+        5747
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        5751,
+        5755,
+        5759,
+        5763,
+        5767,
+        5771,
+        5775,
+        5779
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        5783,
+        5786,
+        5790,
+        5794,
+        5798,
+        5801,
+        5805,
+        5809
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        5812,
+        5816,
+        5820,
+        5824,
+        5828,
+        5832,
+        5836,
+        5840
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        5844,
+        5846,
+        5849,
+        5852,
+        5855,
+        5858,
+        5861,
+        5864
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        6047,
+        6050,
+        6054,
+        6058,
+        6062,
+        6065,
+        6069,
+        6073
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        6102,
+        6105,
+        6108,
+        6111,
+        6114,
+        6117,
+        6120,
+        6123
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        6152,
+        6155,
+        6159,
+        6162,
+        6166,
+        6169,
+        6173,
+        6176
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        6162,
+        6166,
+        6170,
+        6174,
+        6178,
+        6182,
+        6186,
+        6190
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        6197,
+        6199,
+        6202,
+        6204,
+        6207,
+        6209,
+        6212,
+        6214
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        6231,
+        6235,
+        6239,
+        6243,
+        6247,
+        6251,
+        6255,
+        6259
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        6231,
+        6235,
+        6239,
+        6243,
+        6247,
+        6251,
+        6255,
+        6259
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        6375,
+        6379,
+        6383,
+        6387,
+        6391,
+        6395,
+        6399,
+        6403
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6410,
+        6413,
+        6416,
+        6420,
+        6423,
+        6426,
+        6430,
+        6433
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        6540,
+        6543,
+        6547,
+        6551,
+        6555,
+        6558,
+        6562,
+        6566
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        6596,
+        6600,
+        6604,
+        6608,
+        6612,
+        6616,
+        6620,
+        6624
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        6628,
+        6632,
+        6636,
+        6640,
+        6644,
+        6648,
+        6652,
+        6656
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        6660,
+        6662,
+        6664,
+        6666,
+        6668,
+        6670,
+        6672,
+        6674
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6656,
+        6660,
+        6664,
+        6668,
+        6672,
+        6676,
+        6680,
+        6684
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6688,
+        6689,
+        6691,
+        6692,
+        6694,
+        6695,
+        6697,
+        6698
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6656,
+        6660,
+        6664,
+        6668,
+        6672,
+        6676,
+        6680,
+        6684
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6688,
+        6689,
+        6691,
+        6692,
+        6694,
+        6695,
+        6697,
+        6698
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6705,
+        6708,
+        6711,
+        6714,
+        6717,
+        6720,
+        6723,
+        6726
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        6751,
+        6755,
+        6759,
+        6763,
+        6767,
+        6771,
+        6775,
+        6779
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        6793,
+        6797,
+        6801,
+        6805,
+        6809,
+        6813,
+        6817,
+        6821
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6856,
+        6860,
+        6864,
+        6868,
+        6872,
+        6876,
+        6880,
+        6884
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        6888,
+        6890,
+        6892,
+        6894,
+        6896,
+        6898,
+        6900,
+        6902
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        6919,
+        6923,
+        6927,
+        6931,
+        6935,
+        6939,
+        6943,
+        6947
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        6919,
+        6923,
+        6927,
+        6931,
+        6935,
+        6939,
+        6943,
+        6947
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        7166,
+        7170,
+        7174,
+        7178,
+        7182,
+        7186,
+        7190,
+        7194
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        7435,
+        7439,
+        7443,
+        7447,
+        7451,
+        7455,
+        7459,
+        7463
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        7467,
+        7468,
+        7469,
+        7470,
+        7471,
+        7472,
+        7473,
+        7474
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        7493,
+        7496,
+        7500,
+        7503,
+        7507,
+        7511,
+        7514,
+        7518
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        7548,
+        7551,
+        7554,
+        7557,
+        7560,
+        7563,
+        7566,
+        7569
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        7746,
+        7749,
+        7753,
+        7757,
+        7761,
+        7764,
+        7768,
+        7772
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        7800,
+        7804,
+        7808,
+        7812,
+        7816,
+        7820,
+        7824,
+        7828
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        7832,
+        7835,
+        7839,
+        7843,
+        7847,
+        7850,
+        7854,
+        7858
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        7869,
+        7873,
+        7877,
+        7881,
+        7885,
+        7889,
+        7893,
+        7897
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        7941,
+        7943,
+        7946,
+        7948,
+        7951,
+        7954,
+        7956,
+        7959
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        7962,
+        7966,
+        7970,
+        7974,
+        7978,
+        7982,
+        7986,
+        7990
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        7994,
+        7998,
+        8002,
+        8006,
+        8010,
+        8014,
+        8018,
+        8022
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        8026,
+        8030,
+        8034,
+        8038,
+        8042,
+        8046,
+        8050,
+        8054
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        8058,
+        8060,
+        8063,
+        8066,
+        8069,
+        8072,
+        8075,
+        8078
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        8080,
+        8083,
+        8086,
+        8089,
+        8092,
+        8095,
+        8098,
+        8101
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        8080,
+        8083,
+        8086,
+        8089,
+        8092,
+        8095,
+        8098,
+        8101
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        8186,
+        8190,
+        8194,
+        8198,
+        8202,
+        8206,
+        8210,
+        8214
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        8218,
+        8222,
+        8226,
+        8230,
+        8234,
+        8238,
+        8242,
+        8246
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        8250,
+        8253,
+        8257,
+        8261,
+        8265,
+        8268,
+        8272,
+        8276
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        8186,
+        8190,
+        8194,
+        8198,
+        8202,
+        8206,
+        8210,
+        8214
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        8218,
+        8222,
+        8226,
+        8230,
+        8234,
+        8238,
+        8242,
+        8246
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        8250,
+        8253,
+        8257,
+        8261,
+        8265,
+        8268,
+        8272,
+        8276
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        8448,
+        8451,
+        8454,
+        8457,
+        8460,
+        8463,
+        8466,
+        8469
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        8491,
+        8494,
+        8498,
+        8502,
+        8506,
+        8509,
+        8513,
+        8517
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        8679,
+        8681,
+        8684,
+        8686,
+        8689,
+        8691,
+        8694,
+        8696
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        8907,
+        8911,
+        8915,
+        8919,
+        8923,
+        8927,
+        8931,
+        8935
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        8952,
+        8956,
+        8960,
+        8964,
+        8968,
+        8972,
+        8976,
+        8980
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        8984,
+        8985,
+        8987,
+        8989,
+        8991,
+        8993,
+        8995,
+        8997
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        8981,
+        8985,
+        8989,
+        8993,
+        8997,
+        9001,
+        9005,
+        9009
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9013,
+        9015,
+        9017,
+        9019,
+        9022,
+        9024,
+        9026,
+        9028
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9216,
+        9220,
+        9224,
+        9228,
+        9232,
+        9236,
+        9240,
+        9244
+      ],
+      "segment_idx": 0,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9248,
+        9252,
+        9256,
+        9260,
+        9264,
+        9268,
+        9272,
+        9276
+      ],
+      "segment_idx": 1,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9280,
+        9284,
+        9288,
+        9292,
+        9296,
+        9300,
+        9304,
+        9308
+      ],
+      "segment_idx": 2,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9312,
+        9316,
+        9320,
+        9324,
+        9328,
+        9332,
+        9336,
+        9340
+      ],
+      "segment_idx": 3,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9344,
+        9348,
+        9352,
+        9356,
+        9360,
+        9364,
+        9368,
+        9372
+      ],
+      "segment_idx": 4,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9376,
+        9380,
+        9384,
+        9388,
+        9392,
+        9396,
+        9400,
+        9404
+      ],
+      "segment_idx": 5,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9408,
+        9412,
+        9416,
+        9420,
+        9424,
+        9428,
+        9432,
+        9436
+      ],
+      "segment_idx": 6,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        9440,
+        9443,
+        9446,
+        9450,
+        9453,
+        9456,
+        9460,
+        9463
+      ],
+      "segment_idx": 7,
+      "total_segments": 8
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        9216,
+        9220,
+        9224,
+        9228,
+        9232,
+        9236,
+        9240,
+        9244
+      ],
+      "segment_idx": 0,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        9248,
+        9252,
+        9256,
+        9260,
+        9264,
+        9268,
+        9272,
+        9276
+      ],
+      "segment_idx": 1,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        9280,
+        9284,
+        9288,
+        9292,
+        9296,
+        9300,
+        9304,
+        9308
+      ],
+      "segment_idx": 2,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        9312,
+        9316,
+        9320,
+        9324,
+        9328,
+        9332,
+        9336,
+        9340
+      ],
+      "segment_idx": 3,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        9344,
+        9348,
+        9352,
+        9356,
+        9360,
+        9364,
+        9368,
+        9372
+      ],
+      "segment_idx": 4,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        9448,
+        9451,
+        9455,
+        9459,
+        9463,
+        9467,
+        9471,
+        9475
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        9611,
+        9615,
+        9619,
+        9623,
+        9627,
+        9631,
+        9635,
+        9639
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        9671,
+        9675,
+        9679,
+        9683,
+        9687,
+        9691,
+        9695,
+        9699
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        9813,
+        9816,
+        9819,
+        9822,
+        9826,
+        9829,
+        9832,
+        9835
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        9865,
+        9868,
+        9872,
+        9876,
+        9880,
+        9883,
+        9887,
+        9891
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        10129,
+        10133,
+        10137,
+        10141,
+        10145,
+        10149,
+        10153,
+        10157
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        10161,
+        10165,
+        10169,
+        10173,
+        10177,
+        10181,
+        10185,
+        10189
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        10193,
+        10194,
+        10196,
+        10198,
+        10200,
+        10201,
+        10203,
+        10205
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        10206,
+        10210,
+        10214,
+        10218,
+        10222,
+        10226,
+        10230,
+        10234
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10252,
+        10256,
+        10260,
+        10264,
+        10268,
+        10272,
+        10276,
+        10280
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10284,
+        10288,
+        10292,
+        10296,
+        10300,
+        10304,
+        10308,
+        10312
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10316,
+        10320,
+        10324,
+        10328,
+        10332,
+        10336,
+        10340,
+        10344
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10348,
+        10349,
+        10350,
+        10351,
+        10353,
+        10354,
+        10355,
+        10356
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10542,
+        10546,
+        10550,
+        10554,
+        10558,
+        10562,
+        10566,
+        10570
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10574,
+        10575,
+        10577,
+        10578,
+        10580,
+        10582,
+        10583,
+        10585
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10591,
+        10593,
+        10596,
+        10599,
+        10602,
+        10604,
+        10607,
+        10610
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        10592,
+        10596,
+        10600,
+        10604,
+        10608,
+        10612,
+        10616,
+        10620
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        10624,
+        10627,
+        10630,
+        10633,
+        10636,
+        10639,
+        10642,
+        10645
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        10945,
+        10949,
+        10953,
+        10957,
+        10961,
+        10965,
+        10969,
+        10973
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        10977,
+        10981,
+        10985,
+        10989,
+        10993,
+        10997,
+        11001,
+        11005
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        11020,
+        11023,
+        11026,
+        11029,
+        11032,
+        11035,
+        11038,
+        11041
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        11224,
+        11228,
+        11232,
+        11236,
+        11240,
+        11244,
+        11248,
+        11252
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        11164,
+        11168,
+        11172,
+        11176,
+        11180,
+        11184,
+        11188,
+        11192
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        11196,
+        11200,
+        11204,
+        11208,
+        11212,
+        11216,
+        11220,
+        11224
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        11228,
+        11231,
+        11234,
+        11237,
+        11241,
+        11244,
+        11247,
+        11250
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        11274,
+        11278,
+        11282,
+        11286,
+        11290,
+        11294,
+        11298,
+        11302
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        11306,
+        11308,
+        11310,
+        11312,
+        11315,
+        11317,
+        11319,
+        11321
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        11578,
+        11582,
+        11586,
+        11590,
+        11594,
+        11598,
+        11602,
+        11606
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        11610,
+        11611,
+        11612,
+        11613,
+        11614,
+        11615,
+        11616,
+        11617
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        11647,
+        11650,
+        11654,
+        11657,
+        11661,
+        11665,
+        11668,
+        11672
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence-Contest",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        11647,
+        11650,
+        11654,
+        11657,
+        11661,
+        11665,
+        11668,
+        11672
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        11795,
+        11798,
+        11802,
+        11806,
+        11810,
+        11814,
+        11818,
+        11822
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        11795,
+        11798,
+        11802,
+        11806,
+        11810,
+        11814,
+        11818,
+        11822
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Three-pointer",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        11878,
+        11882,
+        11886,
+        11890,
+        11894,
+        11898,
+        11902,
+        11906
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        12197,
+        12201,
+        12205,
+        12209,
+        12213,
+        12217,
+        12221,
+        12225
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Three-pointer",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        12399,
+        12403,
+        12407,
+        12411,
+        12415,
+        12419,
+        12423,
+        12427
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting-Three-pointer",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        12431,
+        12432,
+        12434,
+        12435,
+        12437,
+        12438,
+        12440,
+        12441
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        12750,
+        12753,
+        12757,
+        12760,
+        12764,
+        12767,
+        12771,
+        12774
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        12787,
+        12790,
+        12793,
+        12797,
+        12800,
+        12803,
+        12807,
+        12810
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        12832,
+        12836,
+        12840,
+        12844,
+        12848,
+        12852,
+        12856,
+        12860
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Follow-up",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        12864,
+        12866,
+        12869,
+        12871,
+        12874,
+        12877,
+        12879,
+        12882
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        12923,
+        12927,
+        12931,
+        12935,
+        12939,
+        12943,
+        12947,
+        12951
+      ],
+      "segment_idx": 0,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        12955,
+        12959,
+        12963,
+        12967,
+        12971,
+        12975,
+        12979,
+        12983
+      ],
+      "segment_idx": 1,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        12987,
+        12991,
+        12995,
+        12999,
+        13003,
+        13007,
+        13011,
+        13015
+      ],
+      "segment_idx": 2,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13019,
+        13023,
+        13027,
+        13031,
+        13035,
+        13039,
+        13043,
+        13047
+      ],
+      "segment_idx": 3,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13051,
+        13052,
+        13054,
+        13055,
+        13057,
+        13058,
+        13060,
+        13061
+      ],
+      "segment_idx": 4,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13066,
+        13069,
+        13072,
+        13075,
+        13079,
+        13082,
+        13085,
+        13088
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        13094,
+        13097,
+        13100,
+        13104,
+        13107,
+        13110,
+        13114,
+        13117
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        13265,
+        13267,
+        13269,
+        13271,
+        13273,
+        13275,
+        13277,
+        13279
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        13295,
+        13299,
+        13303,
+        13307,
+        13311,
+        13315,
+        13319,
+        13323
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13324,
+        13327,
+        13330,
+        13333,
+        13336,
+        13339,
+        13342,
+        13345
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13427,
+        13431,
+        13435,
+        13439,
+        13443,
+        13447,
+        13451,
+        13455
+      ],
+      "segment_idx": 0,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13459,
+        13463,
+        13467,
+        13471,
+        13475,
+        13479,
+        13483,
+        13487
+      ],
+      "segment_idx": 1,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13491,
+        13495,
+        13499,
+        13503,
+        13507,
+        13511,
+        13515,
+        13519
+      ],
+      "segment_idx": 2,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13523,
+        13527,
+        13531,
+        13535,
+        13539,
+        13543,
+        13547,
+        13551
+      ],
+      "segment_idx": 3,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13555,
+        13556,
+        13557,
+        13558,
+        13559,
+        13560,
+        13561,
+        13562
+      ],
+      "segment_idx": 4,
+      "total_segments": 5
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        13522,
+        13526,
+        13530,
+        13534,
+        13538,
+        13542,
+        13546,
+        13550
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        13554,
+        13555,
+        13556,
+        13557,
+        13559,
+        13560,
+        13561,
+        13562
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        13570,
+        13573,
+        13577,
+        13581,
+        13585,
+        13589,
+        13593,
+        13597
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        13666,
+        13669,
+        13672,
+        13675,
+        13678,
+        13681,
+        13684,
+        13687
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        14099,
+        14103,
+        14107,
+        14111,
+        14115,
+        14119,
+        14123,
+        14127
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        14131,
+        14132,
+        14134,
+        14135,
+        14137,
+        14138,
+        14140,
+        14141
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        14099,
+        14103,
+        14107,
+        14111,
+        14115,
+        14119,
+        14123,
+        14127
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        14131,
+        14132,
+        14134,
+        14135,
+        14137,
+        14138,
+        14140,
+        14141
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        14148,
+        14152,
+        14156,
+        14160,
+        14164,
+        14168,
+        14172,
+        14176
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        14180,
+        14181,
+        14182,
+        14183,
+        14185,
+        14186,
+        14187,
+        14188
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        14191,
+        14194,
+        14198,
+        14201,
+        14205,
+        14209,
+        14212,
+        14216
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        14377,
+        14381,
+        14385,
+        14389,
+        14393,
+        14397,
+        14401,
+        14405
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        14682,
+        14686,
+        14690,
+        14694,
+        14698,
+        14702,
+        14706,
+        14710
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        14709,
+        14713,
+        14717,
+        14721,
+        14725,
+        14729,
+        14733,
+        14737
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        14741,
+        14745,
+        14749,
+        14753,
+        14757,
+        14761,
+        14765,
+        14769
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        14773,
+        14777,
+        14781,
+        14785,
+        14789,
+        14793,
+        14797,
+        14801
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        14773,
+        14777,
+        14781,
+        14785,
+        14789,
+        14793,
+        14797,
+        14801
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        14805,
+        14806,
+        14808,
+        14810,
+        14812,
+        14814,
+        14816,
+        14818
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        14828,
+        14832,
+        14836,
+        14840,
+        14844,
+        14848,
+        14852,
+        14856
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        14860,
+        14862,
+        14865,
+        14867,
+        14870,
+        14873,
+        14875,
+        14878
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        15002,
+        15006,
+        15010,
+        15014,
+        15018,
+        15022,
+        15026,
+        15030
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        15034,
+        15035,
+        15036,
+        15037,
+        15038,
+        15039,
+        15040,
+        15041
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        15281,
+        15283,
+        15285,
+        15288,
+        15290,
+        15292,
+        15295,
+        15297
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        15315,
+        15318,
+        15321,
+        15324,
+        15327,
+        15330,
+        15333,
+        15336
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        15360,
+        15364,
+        15368,
+        15372,
+        15376,
+        15380,
+        15384,
+        15388
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        15539,
+        15542,
+        15546,
+        15549,
+        15553,
+        15556,
+        15560,
+        15563
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        15624,
+        15627,
+        15631,
+        15635,
+        15639,
+        15642,
+        15646,
+        15650
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        15729,
+        15733,
+        15737,
+        15741,
+        15745,
+        15749,
+        15753,
+        15757
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        15765,
+        15767,
+        15769,
+        15771,
+        15773,
+        15775,
+        15777,
+        15779
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        15789,
+        15792,
+        15795,
+        15798,
+        15802,
+        15805,
+        15808,
+        15811
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        15810,
+        15813,
+        15817,
+        15821,
+        15825,
+        15829,
+        15833,
+        15837
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        16053,
+        16057,
+        16061,
+        16065,
+        16069,
+        16073,
+        16077,
+        16081
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        16223,
+        16227,
+        16231,
+        16235,
+        16239,
+        16243,
+        16247,
+        16251
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        16255,
+        16257,
+        16259,
+        16261,
+        16264,
+        16266,
+        16268,
+        16270
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        16278,
+        16281,
+        16285,
+        16289,
+        16293,
+        16296,
+        16300,
+        16304
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        16415,
+        16418,
+        16422,
+        16425,
+        16429,
+        16433,
+        16436,
+        16440
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting-Jump",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        16488,
+        16492,
+        16496,
+        16500,
+        16504,
+        16508,
+        16512,
+        16516
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        16478,
+        16482,
+        16486,
+        16490,
+        16494,
+        16498,
+        16502,
+        16506
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        16510,
+        16511,
+        16513,
+        16515,
+        16517,
+        16518,
+        16520,
+        16522
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        16719,
+        16723,
+        16727,
+        16731,
+        16735,
+        16739,
+        16743,
+        16747
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        16804,
+        16808,
+        16812,
+        16816,
+        16820,
+        16824,
+        16828,
+        16832
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        16836,
+        16838,
+        16841,
+        16843,
+        16846,
+        16849,
+        16851,
+        16854
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        16864,
+        16868,
+        16872,
+        16876,
+        16880,
+        16884,
+        16888,
+        16892
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        16804,
+        16808,
+        16812,
+        16816,
+        16820,
+        16824,
+        16828,
+        16832
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        16836,
+        16840,
+        16844,
+        16848,
+        16852,
+        16856,
+        16860,
+        16864
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        16868,
+        16871,
+        16875,
+        16878,
+        16882,
+        16886,
+        16889,
+        16893
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        17072,
+        17076,
+        17080,
+        17084,
+        17088,
+        17092,
+        17096,
+        17100
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        17104,
+        17105,
+        17106,
+        17107,
+        17108,
+        17109,
+        17110,
+        17111
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        17120,
+        17122,
+        17125,
+        17128,
+        17131,
+        17134,
+        17137,
+        17140
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        17072,
+        17076,
+        17080,
+        17084,
+        17088,
+        17092,
+        17096,
+        17100
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        17104,
+        17108,
+        17112,
+        17116,
+        17120,
+        17124,
+        17128,
+        17132
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        17273,
+        17277,
+        17281,
+        17285,
+        17289,
+        17293,
+        17297,
+        17301
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        17359,
+        17362,
+        17366,
+        17369,
+        17373,
+        17376,
+        17380,
+        17383
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        17399,
+        17403,
+        17407,
+        17411,
+        17415,
+        17419,
+        17423,
+        17427
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        17326,
+        17330,
+        17334,
+        17338,
+        17342,
+        17346,
+        17350,
+        17354
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        17358,
+        17362,
+        17366,
+        17370,
+        17374,
+        17378,
+        17382,
+        17386
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        17390,
+        17394,
+        17398,
+        17402,
+        17406,
+        17410,
+        17414,
+        17418
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        17510,
+        17514,
+        17518,
+        17522,
+        17526,
+        17530,
+        17534,
+        17538
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        17645,
+        17648,
+        17651,
+        17655,
+        17658,
+        17661,
+        17665,
+        17668
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        17841,
+        17844,
+        17847,
+        17850,
+        17853,
+        17856,
+        17859,
+        17862
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        17874,
+        17877,
+        17880,
+        17883,
+        17886,
+        17889,
+        17892,
+        17895
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        17874,
+        17877,
+        17880,
+        17883,
+        17886,
+        17889,
+        17892,
+        17895
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        18244,
+        18247,
+        18251,
+        18255,
+        18259,
+        18262,
+        18266,
+        18270
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Layup",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        18640,
+        18644,
+        18648,
+        18652,
+        18656,
+        18660,
+        18664,
+        18668
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing-Bounce",
+      "skeleton_id": 3,
+      "original_id": 7,
+      "frames": [
+        18793,
+        18796,
+        18800,
+        18804,
+        18808,
+        18812,
+        18816,
+        18820
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        18829,
+        18830,
+        18832,
+        18833,
+        18835,
+        18836,
+        18838,
+        18839
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        18845,
+        18849,
+        18853,
+        18857,
+        18861,
+        18865,
+        18869,
+        18873
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        18877,
+        18881,
+        18885,
+        18889,
+        18893,
+        18897,
+        18901,
+        18905
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 5,
+      "original_id": 9,
+      "frames": [
+        18909,
+        18913,
+        18917,
+        18921,
+        18925,
+        18929,
+        18933,
+        18937
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        18946,
+        18949,
+        18953,
+        18957,
+        18961,
+        18964,
+        18968,
+        18972
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        19088,
+        19092,
+        19096,
+        19100,
+        19104,
+        19108,
+        19112,
+        19116
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        19120,
+        19124,
+        19128,
+        19132,
+        19136,
+        19140,
+        19144,
+        19148
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        19152,
+        19155,
+        19159,
+        19162,
+        19166,
+        19170,
+        19173,
+        19177
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        19088,
+        19092,
+        19096,
+        19100,
+        19104,
+        19108,
+        19112,
+        19116
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        19120,
+        19124,
+        19128,
+        19132,
+        19136,
+        19140,
+        19144,
+        19148
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        19152,
+        19155,
+        19159,
+        19162,
+        19166,
+        19170,
+        19173,
+        19177
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Passing",
+      "skeleton_id": 2,
+      "original_id": 1,
+      "frames": [
+        19183,
+        19184,
+        19186,
+        19188,
+        19190,
+        19191,
+        19193,
+        19195
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        19256,
+        19260,
+        19264,
+        19268,
+        19272,
+        19276,
+        19280,
+        19284
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        19288,
+        19292,
+        19296,
+        19300,
+        19304,
+        19308,
+        19312,
+        19316
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        19320,
+        19324,
+        19328,
+        19332,
+        19336,
+        19340,
+        19344,
+        19348
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 4,
+      "original_id": 5,
+      "frames": [
+        19352,
+        19354,
+        19356,
+        19358,
+        19361,
+        19363,
+        19365,
+        19367
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        19256,
+        19260,
+        19264,
+        19268,
+        19272,
+        19276,
+        19280,
+        19284
+      ],
+      "segment_idx": 0,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        19288,
+        19292,
+        19296,
+        19300,
+        19304,
+        19308,
+        19312,
+        19316
+      ],
+      "segment_idx": 1,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        19320,
+        19324,
+        19328,
+        19332,
+        19336,
+        19340,
+        19344,
+        19348
+      ],
+      "segment_idx": 2,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        19352,
+        19354,
+        19356,
+        19358,
+        19361,
+        19363,
+        19365,
+        19367
+      ],
+      "segment_idx": 3,
+      "total_segments": 4
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        19384,
+        19388,
+        19392,
+        19396,
+        19400,
+        19404,
+        19408,
+        19412
+      ],
+      "segment_idx": 0,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Defence",
+      "skeleton_id": 6,
+      "original_id": 10,
+      "frames": [
+        19416,
+        19417,
+        19419,
+        19421,
+        19423,
+        19424,
+        19426,
+        19428
+      ],
+      "segment_idx": 1,
+      "total_segments": 2
+    },
+    {
+      "action_name": "Rebound",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        19436,
+        19440,
+        19444,
+        19448,
+        19452,
+        19456,
+        19460,
+        19464
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        19569,
+        19573,
+        19577,
+        19581,
+        19585,
+        19589,
+        19593,
+        19597
+      ],
+      "segment_idx": 0,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        19601,
+        19605,
+        19609,
+        19613,
+        19617,
+        19621,
+        19625,
+        19629
+      ],
+      "segment_idx": 1,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Dribbling",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        19633,
+        19636,
+        19639,
+        19642,
+        19645,
+        19648,
+        19651,
+        19654
+      ],
+      "segment_idx": 2,
+      "total_segments": 3
+    },
+    {
+      "action_name": "Shooting",
+      "skeleton_id": 1,
+      "original_id": 8,
+      "frames": [
+        19662,
+        19665,
+        19669,
+        19672,
+        19676,
+        19679,
+        19683,
+        19686
+      ],
+      "segment_idx": 0,
+      "total_segments": 1
+    }
+  ],
+  "action_categories": [
+    "Passing-Bounce",
+    "Shooting",
+    "Rebound",
+    "Dribbling",
+    "Layup",
+    "Shooting-Jump",
+    "Defence-Contest",
+    "Passing",
+    "Defence",
+    "Follow-up",
+    "Shooting-Three-pointer"
+  ],
+  "action_counts": {
+    "Passing-Bounce": 40,
+    "Shooting": 15,
+    "Rebound": 16,
+    "Dribbling": 95,
+    "Layup": 29,
+    "Shooting-Jump": 20,
+    "Defence-Contest": 11,
+    "Passing": 28,
+    "Defence": 43,
+    "Follow-up": 15,
+    "Shooting-Three-pointer": 3
+  },
+  "id_mapping": {
+    "8": 1,
+    "10": 6,
+    "7": 3,
+    "1": 2,
+    "5": 4,
+    "9": 5
+  }
+}
