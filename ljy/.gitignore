@@ -1,0 +1,14 @@
+# ---- 模型权重（hoop_yolo.pt 是公开小权重，保留）----
+rule_based_code/models/*.pth
+rule_based_code/models/*.onnx
+rule_based_code/models/*.pt
+!rule_based_code/models/hoop_yolo.pt
+rule_based_code/models/finetuned/
+rule_based_code/models/insightface/
+rule_based_code/models/rtmpose/
+rule_based_code/models/reid/
+# ---- Python 缓存 ----
+__pycache__/
+*.pyc
+# ---- 输出产物 ----
+rule_based_code/output/
