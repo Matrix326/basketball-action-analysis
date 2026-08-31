@@ -1,2 +1,2 @@
-# basketball_action-_analysis
+# basketball_action-analysis
 method for HAR in basketball scenerio
