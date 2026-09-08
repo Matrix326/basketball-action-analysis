@@ -475,10 +475,17 @@ class ActionRuleEngine:
         # flight arc into two segments — classification must see the whole arc)
         max_split_gap = int(self._cfg("flight_merge_gap_frames", 5))
         if flight_segments:
+            # Sort by start (longest first) so a child segment nested inside
+            # a parent arc (trajectory split artifact) merges into the parent
+            # instead of spawning a duplicate shot event.
+            flight_segments = sorted(
+                flight_segments,
+                key=lambda s: (int(s["start_frame"]), -int(s["end_frame"])),
+            )
             merged: list[dict] = [dict(flight_segments[0])]
             for seg in flight_segments[1:]:
-                if int(seg["start_frame"]) - int(merged[-1]["end_frame"]) - 1 <= max_split_gap:
-                    merged[-1]["end_frame"] = int(seg["end_frame"])
+                if int(seg["start_frame"]) <= int(merged[-1]["end_frame"]) + max_split_gap:
+                    merged[-1]["end_frame"] = max(int(merged[-1]["end_frame"]), int(seg["end_frame"]))
                 else:
                     merged.append(dict(seg))
             flight_segments = merged
@@ -880,6 +887,9 @@ class ActionRuleEngine:
                         "duration_s": duration_s,
                     },
                 )
+                action.params["result"] = _shot_result(
+                    ball_pos, frames_in, end, hoop, self._cfg, ctx_2d=ctx_2d
+                )
             elif deflected:
                 action = None
             
@@ -887,20 +897,24 @@ class ActionRuleEngine:
                 (near_hoop and near_rim
                  or release_dist_hoop >= float(self._cfg("three_point_radius_m")))
                 and approaches_hoop
-                and hoop_horizontal <= float(self._cfg("shot_max_miss_distance_m", 3.5))
+                and (hoop_horizontal
+                     <= (float(self._cfg("shot_high_arc_miss_distance_m", 1.6))
+                         if apex_z >= 3.5
+                         else float(self._cfg("shot_max_miss_distance_m", 0.7))))
                 and apex_z > float(self._cfg("shoot_min_apex_m"))
                 and release_actor is not None
                 # a caught arc is a pass UNLESS it crossed the rim (shot
                 # rebounded into a teammate's hands) or was released from
                 # behind the three-point arc (nobody passes from there to
-                # nobody — it is a shot attempt that fell short/wide).
+                # nobody — it is a shot attempt that fell short/wide). The
+                # 2D signal additionally rejects arcs caught right at the
+                # rim mouth (ball stops in the hoop's 2D projection).
                 and (apex_z >= float(self._cfg("shot_min_rim_apex_m", 2.9))
                      or not (
                          catch_actor is not None
                          and catch_actor != release_actor
                          and catch_d <= 0.5
                      )
-                     or near_rim
                      or release_dist_hoop >= float(self._cfg("three_point_radius_m")))
             ):
                 # shoot / layup — requires someone who released the ball (a
@@ -943,34 +957,40 @@ class ActionRuleEngine:
                 # within a short probe window (the rim contact can delay the
                 # grab a few frames past the flight segment).
                 if action.params.get("result") == "miss":
-                    rb_actor, rb_frame = catch_actor, catch_frame
-                    if rb_actor is None or rb_actor == release_actor:
-                        # Rebound contested by several players: vote over the
-                        # probe window instead of trusting a single nearest
-                        # hand (the momentary nearest hand is often a
-                        # bystander boxing out).
-                        from collections import Counter as _Counter
-                        proximity = _Counter()
-                        best_d: dict[int, float] = {}
-                        best_f: dict[int, int] = {}
+                    rb_actor, rb_frame = None, None
+                    # A rebound is an AIR grab near the rim: the ball must be
+                    # falling (not still rising), still airborne, and close to
+                    # the hoop. A shot that missed wide and is picked up on
+                    # the floor is not a rebound.
+                    def _air_grab(f: int) -> bool:
+                        if f not in ball_pos:
+                            return False
+                        return (float(ball_pos[f][2]) >= 0.8
+                                and float(np.linalg.norm(ball_pos[f][:2] - hoop[:2]))
+                                <= float(self._cfg("rebound_hoop_distance_m", 1.2)))
+                    # in-segment catch near the segment end (ball falling off
+                    # the rim) — a catch during the rising arc is a contest
+                    if (catch_actor is not None and catch_actor != release_actor
+                            and catch_frame is not None and catch_frame >= end - 15
+                            and catch_d <= float(self._cfg("catch_reach_m", 0.5)) * 1.5
+                            and _air_grab(catch_frame)):
+                        rb_actor, rb_frame = catch_actor, catch_frame
+                    else:
+                        # post-segment probe: ball still airborne near the rim
                         for probe_f in range(end + 1, end + 1 + int(self._cfg("rebound_probe_frames", 40))):
                             if probe_f not in ball_pos:
                                 continue
+                            if float(ball_pos[probe_f][2]) < 0.4:
+                                break  # ball hit the floor — no rebound after
                             pid, d = hands.nearest(probe_f, ball_pos[probe_f])
                             if (
                                 pid is not None
                                 and pid != release_actor
                                 and d <= float(self._cfg("catch_reach_m", 0.5)) * 1.5
-                                and float(np.linalg.norm(ball_pos[probe_f][:2] - hoop[:2]))
-                                <= float(self._cfg("rebound_hoop_distance_m", 2.0))
+                                and _air_grab(probe_f)
                             ):
-                                proximity[pid] += 1
-                                if pid not in best_d or d < best_d[pid]:
-                                    best_d[pid] = d
-                                    best_f[pid] = probe_f
-                        if proximity:
-                            rb_actor = max(proximity, key=lambda p: (proximity[p], -best_d[p]))
-                            rb_frame = best_f[rb_actor]
+                                rb_actor, rb_frame = pid, probe_f
+                                break
                     if rb_actor is not None and rb_actor != release_actor:
                         actions.append(Action(
                             "rebound", rb_frame, rb_frame, actor_id=rb_actor,
@@ -992,8 +1012,11 @@ class ActionRuleEngine:
                         "duration_s": duration_s,
                     },
                 )
-            elif action is None and near_hoop and release_actor is not None:
-                # a low flight near the hoop with no receiver -> layup attempt
+            elif action is None and near_hoop and release_actor is not None \
+                    and apex_z >= float(self._cfg("layup_min_apex_m", 1.5)) \
+                    and release_dist_hoop <= float(self._cfg("layup_release_dist_m", 2.5)):
+                # a real arc released close to the hoop with no receiver ->
+                # layup attempt (a flat ground pass near the hoop is not one)
                 action = Action(
                     "layup", start, end, actor_id=release_actor,
                     params={
@@ -1002,7 +1025,9 @@ class ActionRuleEngine:
                         "duration_s": duration_s,
                     },
                 )
-
+                action.params["result"] = _shot_result(
+                    ball_pos, frames_in, end, hoop, self._cfg, ctx_2d=ctx_2d
+                )
 
 
 
@@ -1022,6 +1047,9 @@ class ActionRuleEngine:
         return {
             "schema_version": "actions/v1",
             "actions": [a.to_dict() for a in actions],
+            # per-frame handler (the possession state machine's current
+            # player) — used by visualizations to draw the handler box
+            "possession": {str(k): v for k, v in sorted(possession.items()) if v is not None},
             "stats": stats,
         }
 
@@ -1076,7 +1104,10 @@ def _shot_result(
         z0 = float(ball_pos[f0][2])
         z1 = float(ball_pos[f1][2])
         drop = z0 - z1
-        if z0 > rim_height + 0.03 and z1 < rim_height and drop > 0.05:
+        # crossing pair: the frame pair straddles the rim plane while
+        # descending (the +0.03 margin previously let a frame at z=3.052
+        # fall through the crack and miss clean makes)
+        if z0 > rim_height and z1 <= rim_height and drop > 0.05:
             # interpolate the crossing point
             t = float(np.clip((rim_height - z0) / max(1e-9, z1 - z0), 0.0, 1.0))
             xy = ball_pos[f0][:2] + t * (ball_pos[f1][:2] - ball_pos[f0][:2])
@@ -1093,11 +1124,22 @@ def _shot_result(
         and float(np.linalg.norm(ball_pos[f][:2] - hoop[:2])) <= overhead
     ]
     if over_rim:
-        band = [
-            f for f in probe_frames
-            if f > over_rim[-1]
-            and 2.5 <= float(ball_pos[f][2]) <= rim_height + 0.05
-        ]
+        # band = frames right after the rim overpass while the ball keeps
+        # falling through the mouth (z 3.05 -> 2.5, monotonic down). Later
+        # frames of unrelated arcs (ball passed out, next play) must not
+        # enter the band.
+        band: list[int] = []
+        prev_z = None
+        for f in probe_frames:
+            if f <= over_rim[-1]:
+                continue
+            z = float(ball_pos[f][2])
+            if z < 2.5 or z > rim_height + 0.05:
+                break
+            if prev_z is not None and z > prev_z + 0.01:
+                break
+            band.append(f)
+            prev_z = z
         fall_through_ok = bool(band) and all(
             float(np.linalg.norm(ball_pos[f][:2] - hoop[:2])) <= fall_through
             for f in band

@@ -248,10 +248,10 @@ action_rules:
   possess_switch_frames: 5
   possess_hold_frames: 30
   flight_min_seconds: 0.3
-  follow_up_max_gap_frames: 90   # 重标定后补篮弧线时间对齐偏移 (60 不够)
+  follow_up_max_gap_frames: 60   # 重标定后补篮弧线时间对齐偏移 (60 不够)
   follow_up_max_seconds: 4.0     # 补篮含 grab-and-raise 阶段 (原 2.5)
   make_fall_through_reach_m: 0.5 # 穿口容差 (原0.4; 插值/平滑噪声吸收)
-  pass_min_horizontal_m: 0.8
+  pass_min_horizontal_m: 1.5
   shoot_hoop_distance_m: 2.0
   shoot_min_apex_m: 2.0
   layup_release_dist_m: 1.6

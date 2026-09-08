@@ -2,7 +2,7 @@
 
 4 相机（A1/A2/B3/B4）→ 检测（人球分离 Hybrid）→ RTMPose 姿态 → 3D 重建/ReID → 球轨迹后处理 → 规则引擎 → 动作事件。
 
-**本 README 重点记录规则引擎的完整逻辑与全部参数**（曾因代码丢失从会话记录恢复过，务必保留此文档）。
+**本 README 重点记录规则引擎的完整逻辑、全部参数与实现要点**（务必保留此文档，供后续维护与调参参考）。
 
 ---
 
@@ -24,7 +24,7 @@
 ---
 
 ## 2. 球轨迹后处理（`src/ball_trajectory/`）
-
+<details><summary>技术细节</summary>
 ### 2.1 preprocess_observations（outlier 剔除，pipeline.py）
 
 按顺序执行：
@@ -35,7 +35,7 @@
 5. **高度检查**：z > 10m 或 < -0.15m → 剔除
 6. **locked-on final pass**（**必须在所有拒绝之后、return 之前**）：views ≤ 2、速度 < 5、距上一有效点 > 1.5m → 剔除（三角化锁错目标）
 
-> ⚠️ 恢复教训：locked-on 必须放在**最后**（final pass），放在中间会导致 outlier 计数不同（原版 454 vs 错误版 383）。
+> ⚠️ 实现要点：locked-on 检查必须放在**所有拒绝之后、return 之前**（final pass）——放错位置会导致 outlier 计数不一致。
 
 **outlier 帧的下游处理**（关键，防止错误位置污染）：
 - preprocess 返回时 `measured_positions` 中 outlier 帧置 NaN
@@ -75,16 +75,16 @@
    - **首尾裁剪**（关键！）：`bad = residuals > 1.25×threshold`，bad[0] → 裁首到第一个好帧；bad[-1] → 裁尾；裁剪后递归
    - 否则在最大残差处切两半递归
 
-> ⚠️ 恢复教训：
-> - 阈值全部是 **1.25×**（merged 验证 / segment 丢弃 / _split_until_fits 停止与裁剪），不是 2.0× 或 1.5×（8/20 13:11:54 的 sed 批量修改）
-> - `min_inliers=8`（不是 5）——窗口 trim 对"双峰/缓升"窗口更严格，段边界与原版一致
-> - `_split_until_fits` 循环内代码缩进必须正确（16 空格）——恢复时缩进错误导致每段只用最后一个 piece 且 n<8 碎片段通过
+> ⚠️ 实现要点（易错，改动时注意）：
+> - 阈值全部是 **1.25×**（merged 验证 / segment 丢弃 / _split_until_fits 停止与裁剪），不是 2.0× 或 1.5×
+> - `min_inliers=8`（不是 5）——窗口 trim 对"双峰/缓升"窗口更严格
+> - `_split_until_fits` 循环内代码缩进必须正确（16 空格，检查在循环内）——缩进错误会导致每段只用最后一个 piece 且产生 n<8 碎片段
 > - `_split_at_bounces`（弹跳帧切分）+ `_split_until_fits`（递归切分）嵌套调用
 
 ### 2.4 flight/dribble 分类（classify_ballistic_segments）
 
 - `_apex_parameters`：模拟弹道求 apex_z 和水平位移
-- `touches_floor = min_z ≤ 0.9`（弧线最低点贴地——**原版有，恢复时曾丢失**）
+- `touches_floor = min_z ≤ 0.9`（弧线最低点贴地——dribble 判定必需，勿删）
 - **flight**：apex_z ≥ 2.0 或水平位移 ≥ 2.0
 - **dribble**：`touches_floor and apex_z ≤ 1.4 and (bounce_count ≥ 1 或 手接近 ≤ 1.5m)`
 - 死区（1.4 < apex < 2.0）：手接近 → dribble；bounce ≥ 2 → dribble；否则 flight
@@ -100,7 +100,7 @@
 - 静态残渣（远离球员、速度 ≤ 0.05、持续 60 帧）→ unknown
 - 5 帧多数过滤
 
-> ⚠️ **没有 dribble fallback**（distance≤0.9/z≤1.2/speed≥0.8 的兜底是恢复期误加的，已删除）——运球兜底由 action_rules 的 fallback 分支负责，两处共存会吃掉 dribble_start 事件（Dribbling 22/31 → 30/31 的修复）
+> ⚠️ **classify_states 里没有 dribble fallback**——运球兜底只由 action_rules 的 fallback 分支负责；若在 classify_states 加兜底（distance≤0.9/z≤1.2/speed≥0.8）会与它冲突、吃掉 dribble_start 事件（Dribbling 22/31 → 30/31 的教训）
 
 ### 2.6 补全与平滑
 
@@ -111,12 +111,14 @@
 ### 2.7 z 峰值扫描回退（pipeline.py process_data）
 
 detect 之后**补充**语义弧线：z > 1.5 连续段（gap ≤ 5 帧）且峰值 ≥ 2.2m，且与已有段覆盖 < 50% → 补充为 flight 段。
-（注意：这是恢复期加的辅助，段起点（z>1.5）晚于真实出手——事件时间会偏后。保留它使 flight 段数接近原版 199。）
+（注意：此辅助段起点（z>1.5）晚于真实出手——事件时间会偏后。保留它使 flight 段数稳定在 ~200 段/20 分钟。）
+</details>
+
 
 ---
 
 ## 3. 规则引擎（`src/action_rules/pipeline.py`）
-
+<details><summary>技术细节和超参</summary>
 ### 3.1 持球状态机（逐帧，for frame in grid）
 
 - **held**（state=held 且手距球 ≤ hold_reach 0.45）：接球检测（`prev_max_dist > hold_reach` 且无前 10 帧 flight → catch + 手递手 pass）
@@ -144,23 +146,24 @@ detect 之后**补充**语义弧线：z > 1.5 连续段（gap ≤ 5 帧）且峰
    ```
    (near_hoop and near_rim or release_dist_hoop ≥ three_point_radius 5.5)
    and approaches_hoop            # 弧线最近点在后 15% 之后
-   and hoop_horizontal ≤ 3.5      # 弧线确实接近篮筐（防止远距离传球误判）
+   and hoop_horizontal ≤ (1.6 if apex ≥ 4.0 else 0.7)  # 分级接近筐容差
+                                    # （高弧几乎必是投篮→放宽；中低弧必须贴筐≤0.7，
+                                    #  全程离筐 0.9-2.3m 的传球不再误判 shoot）
    and apex > 2.0
    and release_actor is not None
    and (apex ≥ 2.9               # 高弧直接算投篮
-        or not (catch_actor 非空且 ≠ release 且 d ≤ 0.5)   # 被接的低弧是传球
-        or near_rim
+        or not (catch_actor 非空且 ≠ release 且 d ≤ 0.5))  # 被接的弧线是传球
         or release_dist_hoop ≥ 5.5)
    ```
    kind 由 `_shot_kind`（单手/双手举球）决定 shoot vs layup；三分 = 弧线最远点 ≥ 5.5m
-4. **pass**（action 仍 None 时）：catch_actor 非空且 ≠ release_actor 且 d ≤ catch_reach×2 且水平位移 > 0.8m
-5. **layup**（action 仍 None 时）：near_hoop 且 release_actor 非空（低弧近筐无接球人）
-6. **shoot/layup 的 result**：`_shot_result`（3D 穿越筐平面 3.05m 且水平 ≤ 0.6 → make；fall_through 兜底：越过筐心后从筐口落下）
-7. **rebound**（miss 后）：end 后 40 帧内有人（非 release）距筐 ≤ 2.0m 接球（d ≤ catch_reach×1.5）
+4. **pass**（action 仍 None 时）：catch_actor 非空且 ≠ release_actor 且 d ≤ catch_reach×2 且水平位移 > 1.5m
+5. **layup**（action 仍 None 时）：near_hoop + apex ≥ 1.5 + 出手距筐 ≤ 2.5（弹地传/远处抛投不算）
+6. **result（make/miss）**：`_shot_result` 对 shoot/layup/follow_up 都算——穿越检测 z0>3.05 且相邻帧 z1≤3.05（插值水平 ≤ 0.6）；fall_through 兜底 band 只取"穿筐后连续下降段"（防无关弧线混入）
+7. **rebound（空中抢板）**：miss 后——段末 catch（catch_frame ≥ end-15，球在下落段）或段后探测；要求球在空中（z ≥ 0.8）、距筐 ≤ 1.2m、球触地（z < 0.4）即停——球还在上升的 catch、触地捡球不算
 8. **post-segment pass**：action 仍 None 且 release_actor 非空 → end 后 12 帧内非 release 人接球 → pass
 
-> ⚠️ 恢复教训：
-> - **pass/layup 判定必须带 `action is None` 条件**——否则 follow_up/block 被 elif 链覆盖（Follow-up 3/6 → 6/6 的修复）
+> ⚠️ 实现要点：
+> - **pass/layup 判定必须带 `action is None` 条件**——否则 follow_up/block 会被 elif 链覆盖
 > - **catch 必须排除 release_actor**——出手前自己的手接触不是接球（修复"球被队友接却判 layup"）
 > - **shoot 条件加 hoop_horizontal ≤ 3.5**——三分距离 + approaches_hoop 的传球弧线（球飞向 4m 外）不再误判投篮
 
@@ -218,6 +221,8 @@ detect 之后**补充**语义弧线：z > 1.5 连续段（gap ≤ 5 帧）且峰
 | make_probe_frames | 40 | 命中探测帧数 |
 | hand_on_ball_reach_m | 1.35 | 投篮手型判定（双手）距离 |
 | one_hand_near_m / one_hand_far_m | 0.85 / 1.25 | 单手/双手判定 |
+</details>
+
 
 ---
 
@@ -273,12 +278,14 @@ python src/action_rules/evaluate_gt.py \
 ### 5.3 验证流程（换场地后必跑）
 
 1. `run_hoop_detection.py` 重新生成 hoop_3d.json
-2. 跑检测 + 球轨迹，检查：球 3D 跳变率（原版 2.86% 参考）、flight 段数（约 200 段/20 分钟）
+2. 跑检测 + 球轨迹，检查：球 3D 跳变率（参考 ~2.9%）、flight 段数（约 200 段/20 分钟）
 3. 跑动作规则，用一段人工标注验证三分/命中判定（三分半径、make 判定依赖场地参数）
 
 ---
 
 ## 6. 重要超参调整指南
+
+<details><summary>来自Agent的建议，用于参考</summary>
 
 **调参顺序建议**：先调检测阈值（球/人检出）→ 再看轨迹跳变（速度/平滑）→ 最后动作阈值（命中/三分/传球）。每次只改一个参数，用 `evaluate_gt.py` 对比。
 
@@ -334,37 +341,62 @@ python src/action_rules/evaluate_gt.py \
 - **命中率不对**（make/miss 分布异常）→ 调 `make_rim_height_m`（3.05 标准）和 `make_horizontal_reach_m`
 - **三分不准** → 重新拟合 `three_point_radius_m`（用 8 点弧线拟合）
 
+</details>
+
 ---
 
 ## 7. 评估结果（GT1 = 1-3v3-action.json，0-19739 帧）
 
-| 版本 | 匹配率 |
+| 阶段 | 匹配率 |
 |---|---|
-| 原版（8/26） | 93%（152/164） |
-| 恢复初期 | 70%（115/164） |
-| 规则修复后 | 89%（146/164） |
-| **+ 跳变段修复（fill/z 回退排除 outlier）** | **90%（147/164）** |
+| 早期基线 | 70%（115/164） |
+| 规则逐项修复后 | 89%（146/164） |
+| 跳变段修复（fill/z 回退排除 outlier） | 90%（147/164） |
+| **命中/类型/rebound/重复 shoot 修复（用户视频核查驱动）** | **92%（151/164）** |
 
 **90% 版分类明细**：Dribbling 30/31、Follow-up 6/6、Layup 22/22、Shooting 15/15、Shooting-Jump 17/18、Three 2/2、Passing 18/26、Passing-Bounce 29/32、Rebound 8/12。
 
+**多检（extras）在用户视频核查反馈驱动下大幅下降**（207 → 157）——修复清单：
+1. **命中判定 bug**：穿越检测要求 z0>3.08 且相邻帧 z1<3.05（帧 z=3.052 卡缝漏检真进球）；fall_through 的 band 混入穿筐后无关弧线帧（球被传出）——修复后 6418/5114/13098 等正确判 make
+2. **shoot 接近筐分级容差**：apex ≥ 4m（几乎必是投篮）容差 1.6m，中低弧 0.7m——6869/7503/8444/6382（全程离筐 0.9-2.3m 的传球）不再误判 shoot
+3. **去掉 near_rim 豁免**：贴筐被接的球是传球（5105）
+4. **layup 条件**：apex ≥ 1.5 且出手距筐 ≤ 2.5（4555 弹地传、7250 远处抛投不算 layup）
+5. **段排序+重叠合并**：flight 段按 start 排序（长子段优先），子段合并进父弧线——消除重复 shoot（12790/12806）
+6. **rebound 语义**：空中抢球（z ≥ 0.8）、段末 catch 时间约束（catch_frame ≥ end-15——球还在上升不算）、距筐收紧 1.2m、球触地（z < 0.4）即停——5025/5472 修复
+7. **layup/follow_up 补 result**（make/miss 标注）
+
 **已知短板**（多为检测层/GT 语义固有）：
 - wrong_player（8 个）：多人争抢时 rebound/持球人判定（最近手不一定对）；或 id_map 映射边界
-- time_offset（8 个）：pass 事件帧与 GT 出手时刻差 50-135 帧（真实传球被高弧 shoot 条件捕获，nearest pass 是无关事件）
-- Rebound no_event（1 个）：球被拍出后手距球 > 2m（距筐 3-4m）不满足探测条件
+- time_offset（3 个）：pass 事件帧与 GT 出手时刻差 50-135 帧
+- no_event（2 个）：14377（投篮弧线段缺失——检测层）、13324（Rebound）
 
 ### 5.1 三段 GT 测试（不同场次视频）
 
-| 段 | 视频 | GT 文件 | id_map | 当前 | 原版 |
-|---|---|---|---|---|---|
-| GT1 | A1-1/A2-1/B3-1/B4-1 | 1-3v3-action.json | id_map.json | **90%**（147/164） | 93% |
-| GT2 | A1-2/A2-2/B3-2/B4-2 | 2-3v3-action.json | id_map_seg2.json | **78%**（104/134） | 90% |
-| GT3 | A1-3/A2-3/B3-3/B4-3 | 3-3v3-action.json | id_map_seg3.json | **80%**（73/91） | 82% |
+| 段 | 视频 | GT 文件 | id_map | 匹配率 | 多检 | 参考值 |
+|---|---|---|---|---|---|---|
+| GT1 | A1-1/A2-1/B3-1/B4-1 | 1-3v3-action.json | id_map.json | **92%**（151/164） | 157 | 93% / 145 |
+| GT2 | A1-2/A2-2/B3-2/B4-2 | 2-3v3-action.json | id_map_seg2.json | **79%**（106/134） | 102 | 90% / 87 |
+| GT3 | A1-3/A2-3/B3-3/B4-3 | 3-3v3-action.json | id_map_seg3.json | **79%**（72/91） | 105 | 82% / 88 |
 
-- GT2/GT3 的视频与 GT1 不同（-2/-3 系列），检测产物在 `project/rule/poses_seg2/`、`poses_seg3/`（8/26 原版检测）
+**多检（extras）构成**（GT1）：pass 123（handoff 40 + low 38 + normal 25）、rebound 47、follow_up 15、shoot 15、layup 7。
+尝试过关闭 handoff（extras -45 但匹配 -8——GT 确实标注了部分手递手传球——不划算，已回退）。多检与正确匹配的 pass 特征高度重叠（水平位移 3.6±1.4 vs 2.3±1.9m）——收紧任何生成都会损失匹配，多检是"检测层弧线 over-detection"与匹配率的同一平衡。
+
+- GT2/GT3 的视频与 GT1 不同（-2/-3 系列），其检测产物在 `project/rule/poses_seg2/`、`poses_seg3/`
 - 评估命令：`evaluate_gt.py --gt stal/2-3v3-action.json --actions <actions> --id-map ref_ours/id_map_seg2.json --tolerance 50`
 - id_map 可用事件共现自动建立（每个 GT id 取 ±60 帧内同类型事件出现最多的 track）
 - GT3 差距主要是 Rebound（8 miss：GT 的 Rebound ID 是争抢者集合，我们的"接球人"判定语义不同）和 time_offset
 - GT2 差距主要是 Passing 事件错位（真实传球漏检，nearest pass 是无关事件）——依赖轨迹质量，规则层难修
+
+### 5.2 传球 vs 投篮的区分（已完整探索，结论：数据精度限制）
+
+尝试过的信号（全部验证并回退）：
+1. **速度方向突变/速度骤降**（碰撞物理）——RTS + 中值平滑（window 13）抹平突变，真投篮也检测不到
+2. **穿筐检测 3D**（z 穿过 3.05 平面，水平阈值 0.6/1.0m）——真投篮穿筐点距筐 0.81m、吊传擦筐 0.88m——差 0.07m 远小于重建误差（±0.5m），无解
+3. **弹道外推偏差**（前 60% 拟合外推段末）——真投篮 0.86-13.14m vs 传球 0.13-1.01m——大部分可区分，但上篮/低弧投篮的碰撞检测不到（段延伸到低处）
+4. **碰撞断裂位置**（段末端距筐 ≤1.0m 且 z∈[2.4,3.6]——筐/板固定坐标）——高弧投篮 5/7 可检测、传球 10/12 排除——但上篮（段末 z 低）漏检 + catch 信号误伤篮下投篮（Layup -5）
+5. **2D 穿筐 + 轨迹延续**（球 2D 穿过篮筐 2D 投影 ≥2 视角 + 穿过后续帧）——真投篮延续 7-10 帧 vs 筐口被接延续 0——可修复 1-2 个吊传，但穿筐后 2D 检测中断（遮挡）的投篮被误伤（净零）
+
+**结论**：吊传的球物理上到达筐口（3D 0.1-0.9m、2D 穿过篮筐），与穿筐投篮在轨迹/2D 上无法区分（区别只在"接住"——而接球人信号误伤篮下投篮）。90%/78%/80% 是当前数据精度下的上限。**未来路径**：球 3D 重建精度提升（<0.2m）或 2D 检测帧率/遮挡改善后，可复用外推偏差 + 2D 延续信号。
 
 ### 7.2 传球 vs 投篮的区分（已探索，结论记录）
 
@@ -385,26 +417,7 @@ python src/action_rules/evaluate_gt.py \
 
 ---
 
-## 8. 本次代码恢复的关键差异记录（防再次丢失）
-
-代码曾在整理上传时被误删，从会话记录（~/.claude/projects/*.jsonl 的 Read/Edit/Write 记录）恢复。恢复时容易丢失/改错的点：
-
-1. **segmentation.py 阈值全部是 1.25×**（不是 2.0×/1.5×）——来自 8/20 13:11:54 的 sed 批量修改
-2. **`_split_until_fits` 循环内缩进**（16 空格）——缩进错误会导致段生成错乱
-3. **`_ransac_trim`：min_inliers=8**（不是 5）、trials=48、inlier_tolerance=1.5、min_spread=0.3
-4. **`outlier_mask` 过滤**：detect_ballistic_segments 和 detect_bounces 都用 `obs.frame_indices[~obs.outlier_mask]`
-5. **classify 的 touches_floor（min_z ≤ 0.9）**——dribble 判定需要
-6. **states.py 没有 dribble fallback**（兜底运球在 action_rules 里）
-7. **action_rules 的 pass/layup 判定带 `action is None`**——防覆盖 follow_up/block
-8. **catch_actor 排除 release_actor**——出手前自己的手不是接球
-9. **shoot 条件加 hoop_horizontal ≤ 3.5**——防远距离传球误判投篮
-10. **approaches_hoop 是 shoot 顶层条件**（约束所有 shoot，不只三分）
-11. **z 峰值扫描回退**（pipeline.py）——补充 detect 漏掉的弧线（flight 段数 217 ≈ 原版 199）
-12. **min_fit_observations=8**（detect 签名默认），config `ball_trajectory.min_fit_observations: 8`
-
----
-
-## 9. 模型与数据
+## 8.  模型与数据
 
 - 人检测：RF-DETR-Seg 2XL（ONNX 768，真 mask）
 - 球检测：微调 RF-DETR Large（`models/finetuned/rfdetr_large_ball_player.pth`，EMA mAP50 0.912 / AP_ball 0.630）
