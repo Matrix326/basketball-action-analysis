@@ -1,0 +1,22 @@
+{
+  "source": null,
+  "output": "models/rfdetr-seg-2xlarge.b4.mixed-fp16.onnx",
+  "keep_io_fp32": false,
+  "source_bytes": 140811146,
+  "output_bytes": 70834815,
+  "source_initializer_types": {
+    "float32": 479
+  },
+  "output_initializer_types": {
+    "float16": 479
+  },
+  "inputs": {
+    "input": "float16"
+  },
+  "outputs": {
+    "dets": "float16",
+    "labels": "float16",
+    "masks": "float16"
+  },
+  "conversion_seconds": 3.0
+}

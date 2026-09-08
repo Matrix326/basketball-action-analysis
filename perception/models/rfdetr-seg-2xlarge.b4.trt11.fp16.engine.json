@@ -1,0 +1,35 @@
+{
+  "tensorrt": "11.2.1.2",
+  "onnx": "models/rfdetr-seg-2xlarge.b4.mixed-fp16.onnx",
+  "engine": "models/rfdetr-seg-2xlarge.b4.trt11.fp16.engine",
+  "precision": "fp16",
+  "workspace_gb": 8.0,
+  "inputs": {
+    "input": [
+      4,
+      3,
+      768,
+      768
+    ]
+  },
+  "outputs": {
+    "dets": [
+      4,
+      300,
+      4
+    ],
+    "labels": [
+      4,
+      300,
+      91
+    ],
+    "masks": [
+      4,
+      300,
+      192,
+      192
+    ]
+  },
+  "build_seconds": 72.612,
+  "engine_bytes": 105017860
+}
