@@ -6,7 +6,7 @@
 
 ```text
 basketball-action-analysis/
-├── ljy/                         # 原有动作分析，未修改
+├── ljy/                         # 动作识别模块（下游，读 perception 的 poses_3d.json）
 └── perception/
     ├── README.md
     ├── docs/                    # 输入输出接口
@@ -20,7 +20,8 @@ basketball-action-analysis/
     │   ├── run_rfdetr_full_pipeline.py
     │   ├── rfdetr_pose_multiview.py
     │   ├── rfdetr_pipeline/
-    │   ├── track/
+    │   ├── track/                 # 轨迹生成与自适应跳变平滑（可视化用）
+    │   ├── hoop_detection/        # 可选：YOLO 篮筐检测 + 3D 三角化
     │   └── generate_reid_3d_multiview.py
     ├── tests/
     └── output/                  # 运行结果，不纳入 Git
@@ -90,6 +91,18 @@ python src/run_rfdetr_full_pipeline.py \
 
 复用时必须保留相同输入、标定、视角、帧区间和输出根目录。程序不会自动校验这些是否与旧结果一致。仅检测入口写出到 `--output-dir`；完整入口使用 `--output-base`，两者不是同一参数。
 
+可选的篮筐定位工具（输出 `<output.reid_3d_dir>/hoop_3d.json`，动作识别模块使用）：
+
+```bash
+python src/hoop_detection/run_hoop_detection.py \
+  --config config/config.yaml --start-frame 900 --end-frame 1800
+```
+
+用 YOLO（`models/hoop_yolo.pt`）在四视角检测篮筐 → 每视角候选聚类 →
+跨视角三角化（共识 + 球场范围/高度过滤）→ 用球的飞行轨迹锁定真篮筐。
+权重与球轨迹路径可在配置 `hoop_detection:` 段设置；也可由动作识别模块的
+桥接器直接从标注像素三角化（见 `ljy/rule_based_code/tools/`）。
+
 其他参数：
 
 - `--limit N`：从起始帧处理 N 个同步帧，优先于 `--end-frame`。
@@ -120,6 +133,7 @@ cd perception
 models/
 ├── rfdetr-seg-2xlarge.b4.trt11.fp16.engine
 ├── rfdetr-seg-2xlarge.b4.mixed-fp16.onnx
+├── finetuned/rfdetr_large_ball_player.pth   # 微调球检测（hybrid 后端用）
 ├── rtmpose/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.pth
 ├── reid/mobilenet_v2-b0353104.pth
 └── insightface/models/buffalo_l/
@@ -127,9 +141,23 @@ models/
     └── w600k_r50.onnx
 ```
 
-`rfdetr.backend: auto` 按 TensorRT、ONNX Runtime 顺序选择后端。TensorRT 引擎受 GPU、CUDA、TensorRT 版本约束；不兼容时可将后端设为 `onnx`，但仍需兼容的 ONNX Runtime GPU/CUDA 运行库。不能保证任意机器直接复用本地引擎。
+`rfdetr.backend` 可选值：
 
-`models/hoop_yolo.pt` 也随模型目录纳入版本控制，但当前感知主流程未使用它；RF-DETR 模型旁的 `.json` 文件为模型元数据。
+| 值 | 人检测 | 球检测 |
+|---|---|---|
+| `auto`（默认回退链） | 2XL（TRT → ONNX） | 同左（单模型） |
+| `onnx` / `tensorrt` | 2XL | 同左（单模型） |
+| **`hybrid`** | 2XL（TRT → ONNX） | **微调 Large（`ball_checkpoint_path`）** |
+
+`hybrid` 只替换球检测分支——姿态、ReID、3D 重建、轨迹与全部可视化流程不变，
+输出 schema 完全一致。实测（900-1800 帧）球 3D 观测覆盖 **88.7% vs 82.7%**，
+各视角球 2D 检出率提升 6-11pp。混合 fp16 导出的 ONNX 需要 fp16 输入
+（`OnnxRunner` 会按图输入类型自动转换）。
+
+TensorRT 引擎受 GPU、CUDA、TensorRT 版本约束；不兼容时可将后端设为 `onnx`，
+但仍需兼容的 ONNX Runtime GPU/CUDA 运行库。不能保证任意机器直接复用本地引擎。
+
+`models/hoop_yolo.pt` 是篮筐检测工具（`src/hoop_detection/`）的权重，随模型目录纳入版本控制；RF-DETR 模型旁的 `.json` 文件为模型元数据。
 
 已验证的环境为 Python 3.12 + NVIDIA GPU；依赖列表见 [requirements.txt](requirements.txt)。另建环境时在自己可写的位置创建虚拟环境，安装与机器驱动兼容的 PyTorch/CUDA 后，再运行 `python -m pip install -r requirements.txt`，并将其目录用于上文 `<ENV_PREFIX>`。该文件不是跨平台锁定环境；本次没有重新安装推理依赖或验证全新环境安装。
 

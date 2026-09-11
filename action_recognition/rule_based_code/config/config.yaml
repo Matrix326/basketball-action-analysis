@@ -1,0 +1,108 @@
+# 动作识别模块配置（action module）
+#
+# 本模块是感知层的下游消费者：读取 poses_3d.json（perception 模块输出或本
+# 仓库自带 pipeline 的输出），产出 actions.json。
+# 感知相关配置（rfdetr / pose / reid / ball / trajectory / visualization 等）
+# 在 perception/config/config.yaml 中，本文件不再重复。
+project_root: auto
+#
+
+
+
+# 数据根目录（仅可选工具 hoop_detection 使用）
+data_root: /data/ljy23/data/videodata/11.19
+
+
+camera:
+  intrinsics_path: ${project_root}/assets/intrinsics_parameters/undistorted_intrinsics_correct.json
+  extrinsics_path: ${project_root}/assets/extrinsic_parameters/extrinsics_new_calibration.json
+  view_to_camera:
+    view1: A1
+    view2: A2
+    view3: B3
+    view4: B4
+  # Add/subtract frames here if the recordings do not share frame zero.
+  frame_offsets:
+    view1: 0
+    view2: 0
+    view3: 0
+    view4: 0
+  # xmin, xmax, ymin, ymax in calibrated world metres. The videos cover one
+  # 15 x 14 m half court; negative-y sideline/bench people are excluded.
+  court_world_bounds: [0.0, 13.0, 0.0, 12.5]
+
+videos:
+  view1: ${data_root}/A1/A1-1_camera1_undistorted.mp4
+  view2: ${data_root}/A2/A2-1_camera1_undistorted.mp4
+  view3: ${data_root}/B3/B3-1_camera1_undistorted.mp4
+  view4: ${data_root}/B4/B4-1_camera1_undistorted.mp4
+
+output:
+  base_dir: ${project_root}/output/rfdetr_multiview
+  reid_3d_dir: ${project_root}/output/rfdetr_multiview/poses
+  pipeline_dir: ${project_root}/output/rfdetr_multiview/trajectory_pipeline
+  skeleton_dir: ${project_root}/output/rfdetr_multiview/skeletons_3d
+
+ball_trajectory:
+  poses_json: ${project_root}/output/rfdetr_multiview/poses/poses_3d.json
+  output_path: ${project_root}/output/rfdetr_multiview/poses/ball_trajectory.json
+  fps: 30                       # fallback; video_info.fps wins when present
+  gravity_m_s2: 9.81
+  ball_radius_m: 0.12
+  # outlier rejection
+  max_speed_m_s: 30.0
+  max_height_m: 10.0
+  # flight detection (sliding-window gravity fit + RANSAC trim)
+  window_seconds: 0.5
+  residual_threshold_m: 0.1
+  accel_z_range_m_s2: [-13.0, -6.0]
+  min_window_observations: 8
+  gap_bridge_frames: 25
+  min_fit_observations: 8
+  # flight vs dribble split
+  flight_min_apex_m: 2.0
+  flight_min_horizontal_m: 2.0
+  dribble_max_apex_m: 1.4
+  dribble_max_player_distance_m: 1.5
+  # gap filling / physics
+  max_fill_gap_frames: 24
+  max_extrapolate_frames: 12
+  flank_frames_back: 15
+  bounce_restitution: 0.8
+  bounce_min_impact_speed_m_s: 1.0
+  use_drag_fit: false
+  # RTS smoother
+  measurement_noise_m: 0.03
+  process_noise_flight_m_s2: 1.5
+  process_noise_other_m_s2: 6.0
+  bounce_q_multiplier: 10.0
+  # rule-based states
+  hold_reach_m: 0.45
+  hold_min_frames: 6
+  hold_max_speed_m_s: 1.5
+  ground_z_m: 0.15
+  static_speed_m_s: 0.05
+  player_distance_for_static_m: 1.5
+  state_extension_frames: 6
+  # output
+  margin_frames: 60
+
+action_rules:
+  three_point_radius_m: 5.5    # 实际三分弧 (8点拟合: R=6.54, 圆心(6.488,1.844), 直线3.38m)
+  hold_reach_m: 0.45            # ball in hand
+  release_distance_m: 0.6       # ball left the hand
+  catch_reach_m: 0.5            # ball caught within this distance
+  dribble_reach_m: 1.2
+  possess_switch_frames: 5
+  possess_hold_frames: 30
+  flight_min_seconds: 0.3
+  follow_up_max_gap_frames: 60   # 重标定后补篮弧线时间对齐偏移 (60 不够)
+  follow_up_max_seconds: 4.0     # 补篮含 grab-and-raise 阶段 (原 2.5)
+  make_fall_through_reach_m: 0.5 # 穿口容差 (原0.4; 插值/平滑噪声吸收)
+  pass_min_horizontal_m: 1.5
+  shoot_hoop_distance_m: 2.0
+  shoot_min_apex_m: 2.0
+  layup_release_dist_m: 1.6
+  layup_max_seconds: 0.8
+  rebound_hoop_distance_m: 2.0
+  flight_merge_gap_frames: 5

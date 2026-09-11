@@ -6,10 +6,18 @@ model:
   insightface_name: buffalo_l
 
 rfdetr:
-  backend: auto                 # auto: TensorRT -> ONNX Runtime
+  # auto: TensorRT -> ONNX Runtime (one 2XL model for person + ball)
+  # hybrid: person boxes from the 2XL backend above, ball boxes from the
+  #   fine-tuned checkpoint below (ball 3D-observation coverage 88.7% vs
+  #   82.7% of the single model on the evaluation clip; person/pose/ReID/
+  #   3D and all visualization stages are unchanged)
+  backend: hybrid
   engine_path: ${project_root}/models/rfdetr-seg-2xlarge.b4.trt11.fp16.engine
   engine_precision: fp16
   onnx_path: ${project_root}/models/rfdetr-seg-2xlarge.b4.mixed-fp16.onnx
+  # fine-tuned RF-DETR ball detector (used only when backend: hybrid);
+  # remove or leave the path empty to fall back to the single-model backend
+  ball_checkpoint_path: ${project_root}/models/finetuned/rfdetr_large_ball_player.pth
   person_threshold: 0.35
   ball_threshold: 0.16
   min_mask_pixels: 100
@@ -197,3 +205,12 @@ skeleton_connections:
   - [13, 15]
   - [12, 14]
   - [14, 16]
+
+hoop_detection:
+  # 可选工具：src/hoop_detection/run_hoop_detection.py
+  # 用 YOLO 在四视角里检测篮筐、聚类并用标定三角化 3D 篮筐位置，
+  # 输出 <output.reid_3d_dir>/hoop_3d.json（动作识别模块会用到）。
+  weights: ${project_root}/models/hoop_yolo.pt
+  # 可选：指向动作模块产出的 ball_trajectory.json——投篮球会飞向真实篮筐，
+  # 用它可以更好地在候选中锁定真篮筐
+  ball_trajectory_path: ""

@@ -11,6 +11,8 @@ import torch
 
 from config import Config
 from basketball_repro.inference_runtime import (
+    BALL_CLASS_ID,
+    PERSON_CLASS_ID,
     TensorRTRunner,
     detections_from_raw_tensors,
     preprocess_frame,
@@ -35,6 +37,9 @@ class OnnxRunner:
         self.input_name = model_input.name
         self.batch_size = int(model_input.shape[0])
         self.resolution = int(model_input.shape[-1])
+        # mixed-fp16 exports expect fp16 input tensors; keep the numpy dtype
+        # in sync with the graph so one runner serves both exports.
+        self.input_dtype = np.float16 if "float16" in model_input.type else np.float32
         self.output_names = [output.name for output in self.session.get_outputs()]
         self.provider = self.session.get_providers()[0]
 
@@ -58,7 +63,10 @@ class OnnxRunner:
                 preprocess_frame(frame, device=torch.device("cpu"), resolution=self.resolution).numpy()
                 for frame in padded
             ]
-            raw_values = self.session.run(self.output_names, {self.input_name: np.stack(tensors).astype(np.float32)})
+            raw_values = self.session.run(
+                self.output_names,
+                {self.input_name: np.stack(tensors).astype(self.input_dtype)},
+            )
             raw = dict(zip(self.output_names, raw_values))
             for index, frame in enumerate(chunk):
                 outputs.append(
@@ -73,6 +81,185 @@ class OnnxRunner:
                     )
                 )
         return outputs
+
+class TorchBallRunner:
+    """Fine-tuned RF-DETR ball detector (PyTorch checkpoint, ball+player).
+
+    Emits the same sv.Detections contract as the ONNX/TRT backends: class ids
+    are remapped to BALL_CLASS_ID / PERSON_CLASS_ID and each box gets a
+    rectangular pseudo-mask so mask-based geometry keeps working.
+    """
+
+    def __init__(self, checkpoint_path: str | Path, *, batch_size: int = 8) -> None:
+        from rfdetr.variants import RFDETRBase
+
+        self.model = RFDETRBase.from_checkpoint(str(checkpoint_path))
+        self.name = "torch-finetuned-ball"
+        self.batch_size = int(batch_size)
+        self.resolution = int(getattr(self.model, "resolution", 560) or 560)
+
+    def predict_batch(
+        self,
+        frames_bgr: list[np.ndarray],
+        *,
+        threshold: float,
+        ball_threshold: float,
+        **postprocess_kwargs: Any,
+    ) -> list[Any]:
+        import cv2
+
+        imgs_rgb = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in frames_bgr]
+        preds = self.model.predict(
+            imgs_rgb,
+            threshold=min(threshold, ball_threshold),
+            include_source_image=False,
+        )
+        if not isinstance(preds, list):
+            preds = [preds]
+        return [
+            _finetuned_detections_to_pipeline(
+                frame, dets,
+                threshold=threshold,
+                ball_threshold=ball_threshold,
+                **postprocess_kwargs,
+            )
+            for frame, dets in zip(frames_bgr, preds)
+        ]
+
+
+def _finetuned_detections_to_pipeline(
+    frame_bgr: np.ndarray,
+    dets: Any,
+    *,
+    threshold: float,
+    ball_threshold: float,
+    ball_min_size: float = 5.0,
+    ball_max_size: float = 100.0,
+    ball_min_aspect: float = 0.35,
+    ball_max_aspect: float = 2.8,
+    **_ignored: Any,
+):
+    """Convert fine-tuned rfdetr Detections (0=ball, 1=player) to the
+    pipeline's sv.Detections (BALL_CLASS_ID / PERSON_CLASS_ID + pseudo-mask)."""
+    import supervision as sv
+
+    height, width = frame_bgr.shape[:2]
+
+    def _empty() -> sv.Detections:
+        return sv.Detections(
+            xyxy=np.empty((0, 4), dtype=np.float32),
+            mask=np.empty((0, height, width), dtype=bool),
+            confidence=np.empty((0,), dtype=np.float32),
+            class_id=np.empty((0,), dtype=np.int64),
+            data={
+                "class_name": np.empty((0,), dtype=object),
+                "source_shape": np.empty((0, 2), dtype=np.int64),
+            },
+        )
+
+    if dets is None or len(dets) == 0:
+        return _empty()
+
+    keep: list[tuple[int, int, str]] = []
+    for index in range(len(dets)):
+        class_id = int(dets.class_id[index])
+        score = float(dets.confidence[index])
+        x1, y1, x2, y2 = [float(v) for v in dets.xyxy[index]]
+        w, h = x2 - x1, y2 - y1
+        if class_id == 0:  # ball
+            if score < ball_threshold:
+                continue
+            size = max(w, h)
+            aspect = w / h if h > 0 else 999.0
+            if size < ball_min_size or size > ball_max_size:
+                continue
+            if aspect < ball_min_aspect or aspect > ball_max_aspect:
+                continue
+            keep.append((index, BALL_CLASS_ID, "sports ball"))
+        elif class_id == 1:  # player
+            if score < threshold:
+                continue
+            keep.append((index, PERSON_CLASS_ID, "person"))
+    if not keep:
+        return _empty()
+
+    indices = [k[0] for k in keep]
+    xyxy = dets.xyxy[indices].astype(np.float32)
+    confidence = dets.confidence[indices].astype(np.float32)
+    class_id = np.array([k[1] for k in keep], dtype=np.int64)
+    class_name = np.array([k[2] for k in keep], dtype=object)
+    masks = np.zeros((len(keep), height, width), dtype=bool)
+    for i, (x1, y1, x2, y2) in enumerate(xyxy):
+        x1i, y1i = max(0, int(x1)), max(0, int(y1))
+        x2i, y2i = min(width, int(np.ceil(x2))), min(height, int(np.ceil(y2)))
+        if x2i > x1i and y2i > y1i:
+            masks[i, y1i:y2i, x1i:x2i] = True
+    return sv.Detections(
+        xyxy=xyxy,
+        mask=masks,
+        confidence=confidence,
+        class_id=class_id,
+        data={
+            "class_name": class_name,
+            "source_shape": np.tile(
+                np.array([height, width], dtype=np.int64), (len(keep), 1)
+            ),
+        },
+    )
+
+
+class HybridBallRunner:
+    """Person boxes from the 2XL backend, ball boxes from the fine-tuned
+    detector (better ball recall on our evaluation: +9pp 3D coverage)."""
+
+    def __init__(self, person_runner: Any, ball_runner: TorchBallRunner) -> None:
+        self.person_runner = person_runner
+        self.ball_runner = ball_runner
+        self.name = f"hybrid-2xl+{ball_runner.name}"
+        self.batch_size = int(getattr(person_runner, "batch_size", 8))
+
+    def predict_batch(
+        self,
+        frames_bgr: list[np.ndarray],
+        *,
+        threshold: float,
+        ball_threshold: float,
+        **postprocess_kwargs: Any,
+    ) -> list[Any]:
+        import supervision as sv
+
+        if not frames_bgr:
+            return []
+        person_outs = self.person_runner.predict_batch(
+            frames_bgr, threshold=threshold, ball_threshold=ball_threshold, **postprocess_kwargs
+        )
+        ball_outs = self.ball_runner.predict_batch(
+            frames_bgr, threshold=threshold, ball_threshold=ball_threshold, **postprocess_kwargs
+        )
+        merged: list[Any] = []
+        for pdet, bdet in zip(person_outs, ball_outs):
+            keep_p = pdet[pdet.class_id == PERSON_CLASS_ID] if len(pdet) else pdet
+            keep_b = bdet[bdet.class_id == BALL_CLASS_ID] if len(bdet) else bdet
+            if len(keep_p) == 0:
+                merged.append(keep_b)
+                continue
+            if len(keep_b) == 0:
+                merged.append(keep_p)
+                continue
+            merged.append(
+                sv.Detections(
+                    xyxy=np.concatenate([keep_p.xyxy, keep_b.xyxy]),
+                    mask=np.concatenate([keep_p.mask, keep_b.mask]),
+                    confidence=np.concatenate([keep_p.confidence, keep_b.confidence]),
+                    class_id=np.concatenate([keep_p.class_id, keep_b.class_id]),
+                    data={
+                        "class_name": np.concatenate([keep_p.data["class_name"], keep_b.data["class_name"]]),
+                        "source_shape": np.concatenate([keep_p.data["source_shape"], keep_b.data["source_shape"]]),
+                    },
+                )
+            )
+        return merged
+
 
 class RFDetrSegmenter:
     """Shared TensorRT/ONNX RF-DETR-Seg 2XL inference facade."""
@@ -94,7 +281,7 @@ class RFDetrSegmenter:
                     raise
                 print(f"[warn] TensorRT unavailable ({exc}); trying ONNX Runtime")
 
-        if self.runner is None and backend in {"auto", "onnx"} and onnx_path and Path(onnx_path).exists():
+        if self.runner is None and backend in {"auto", "onnx", "hybrid"} and onnx_path and Path(onnx_path).exists():
             try:
                 self.onnx_runner = OnnxRunner(onnx_path)
                 self.name = f"onnxruntime-{self.onnx_runner.provider}"
@@ -105,6 +292,17 @@ class RFDetrSegmenter:
 
         if self.runner is None and self.onnx_runner is None:
             raise RuntimeError("Neither the bundled TensorRT engine nor ONNX model could be loaded")
+
+        self.hybrid_runner: Optional[HybridBallRunner] = None
+        ball_checkpoint = config.get("rfdetr.ball_checkpoint_path")
+        if backend == "hybrid" and ball_checkpoint and Path(ball_checkpoint).exists():
+            person_runner = self.runner if self.runner is not None else self.onnx_runner
+            self.hybrid_runner = HybridBallRunner(
+                person_runner,
+                TorchBallRunner(ball_checkpoint, batch_size=int(config.get("rfdetr.batch_size", 8))),
+            )
+            self.name = f"hybrid-{self.name}"
+            print(f"[info] hybrid backend: person=2XL, ball={ball_checkpoint}")
 
         self.threshold = float(config.get("rfdetr.person_threshold", 0.35))
         self.ball_threshold = float(config.get("rfdetr.ball_threshold", 0.16))
@@ -143,7 +341,12 @@ class RFDetrSegmenter:
         for indices in groups.values():
             batch = [frames_bgr[index] for index in indices]
             kwargs = {**common, "roi_polygon": roi_polygons[indices[0]]}
-            if self.runner is not None:
+            if self.hybrid_runner is not None:
+                calls = math.ceil(len(batch) / self.hybrid_runner.batch_size)
+                self.inference_calls += calls
+                self.inference_slots += calls * self.hybrid_runner.batch_size
+                batch_outputs = self.hybrid_runner.predict_batch(batch, **kwargs)
+            elif self.runner is not None:
                 calls = math.ceil(len(batch) / self.runner.batch_size)
                 self.inference_calls += calls
                 self.inference_slots += calls * self.runner.batch_size

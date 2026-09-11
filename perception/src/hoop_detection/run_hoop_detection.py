@@ -51,7 +51,12 @@ def triangulate(P_list: list[np.ndarray], pixels: list[np.ndarray]) -> np.ndarra
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hoop detection and 3D triangulation")
     parser.add_argument("--config", default=str(PROJECT_ROOT / "config" / "config.yaml"))
-    parser.add_argument("--weights", default="/data/ljy23/project/rule/AI-Basketball-Shot-Detection-Tracker/best.pt")
+    parser.add_argument(
+        "--weights",
+        default=None,
+        help="YOLO hoop weights (default: hoop_detection.weights in the config, "
+             "else <project_root>/models/hoop_yolo.pt)",
+    )
     parser.add_argument("--start-frame", type=int, default=900)
     parser.add_argument("--end-frame", type=int, default=1800)
     parser.add_argument("--hoop-conf", type=float, default=0.30)
@@ -62,7 +67,13 @@ def main() -> None:
     from ultralytics import YOLO
 
     config = load_config(args.config)
-    model = YOLO(args.weights)
+    weights = (
+        args.weights
+        or config.get("hoop_detection.weights")
+        or str(PROJECT_ROOT / "models" / "hoop_yolo.pt")
+    )
+    print(f"hoop weights: {weights}")
+    model = YOLO(weights)
     print("classes:", model.names)
 
     views = list(config.video_paths)
@@ -178,8 +189,12 @@ def main() -> None:
     # Prefer the candidate the BALL actually approaches: during shots and
     # layups the ball flies to (and through) the real hoop, so the true hoop
     # has a much smaller min horizontal distance to the ball trajectory.
-    ball_traj_path = Path(config.get("ball_trajectory.output_path", "")) or (
-        Path(config.get("output.reid_3d_dir")) / "ball_trajectory.json"
+    # The ball trajectory is produced by the action module (ljy/rule_based_code);
+    # point this at that output when it is available — it helps pick the true
+    # hoop among candidates (shots fly toward it).
+    ball_traj_path = Path(
+        config.get("hoop_detection.ball_trajectory_path")
+        or (Path(config.get("output.reid_3d_dir")) / "ball_trajectory.json")
     )
     ball_positions: list[list[float]] = []
     if ball_traj_path.exists():

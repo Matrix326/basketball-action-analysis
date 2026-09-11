@@ -1,0 +1,9 @@
+# 动作识别模块（action module）依赖
+# 只需要数值计算 —— 检测/姿态/ReID 在 perception 模块中运行，
+# 本模块消费其 poses_3d.json 输出，无需 torch / onnxruntime / mmpose。
+numpy>=1.24.0,<2.0.0
+scipy>=1.10.0
+PyYAML>=6.0
+
+# 可选：hoop_detection 工具（从视频检测篮筐）与可视化
+opencv-python>=4.8.0

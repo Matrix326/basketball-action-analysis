@@ -263,6 +263,12 @@ Temporary Items
 !/models/
 !/models/**
 
+# 微调球检测权重（hybrid 后端用）不随仓库分发：
+#   * 未经 LFS 提交时会超出 GitHub 单文件 100MB 限制；
+#   * 需要时从训练产物复制到 models/finetuned/，或用 `git lfs track` 后
+#     删除本规则再提交。
+/models/finetuned/
+
 # Runtime logs and temporary files
 nohup.out
 *.tmp
