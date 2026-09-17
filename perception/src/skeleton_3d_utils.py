@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-
 BALL_COLOR = (1.0, 0.55, 0.0)
 
 
@@ -41,8 +40,12 @@ def ball_trail_segments(
         previous_frame = sample_frame
 
     current_value = frame_value(balls_3d, frame_number)
-    current = None if current_value is None else np.asarray(current_value, dtype=np.float32)
-    if current is not None and (current.shape != (3,) or not np.isfinite(current).all()):
+    current = (
+        None if current_value is None else np.asarray(current_value, dtype=np.float32)
+    )
+    if current is not None and (
+        current.shape != (3,) or not np.isfinite(current).all()
+    ):
         current = None
     return [np.stack(segment) for segment in segments], current
 
@@ -61,15 +64,24 @@ def draw_ball_trajectory_3d(
     for segment in segments:
         if len(segment) >= 2:
             ax.plot(
-                segment[:, 0], segment[:, 1], segment[:, 2],
-                color=BALL_COLOR, linewidth=3.0, alpha=0.85,
+                segment[:, 0],
+                segment[:, 1],
+                segment[:, 2],
+                color=BALL_COLOR,
+                linewidth=3.0,
+                alpha=0.85,
             )
     if current is None:
         return
     predicted = bool(frame_value(balls_3d_predicted, frame_number, False))
     ax.scatter(
-        current[0], current[1], current[2],
-        c=[BALL_COLOR], s=36.0, marker="o", depthshade=True,
+        current[0],
+        current[1],
+        current[2],
+        c=[BALL_COLOR],
+        s=36.0,
+        marker="o",
+        depthshade=True,
         edgecolors="white" if predicted else BALL_COLOR,
         linewidths=1.2 if predicted else 0.0,
     )

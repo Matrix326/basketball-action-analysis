@@ -3,7 +3,7 @@
 多视角篮球视频的**感知 + 动作识别**：四路同步视频 → 检测/姿态/ReID/3D 重建 →
 轨迹与可视化 → 规则动作识别（动作事件 + 命中判定 + 逐帧持球人）。
 
-```
+```text
 四路同步视频 + 相机标定
         │
         ▼
@@ -15,7 +15,8 @@
            │  poses_3d.json（3D 骨架 + 球 + quality）
            ▼
 ┌───────────────────────────┐
-│ a_r/rule_based_code/       │  球轨迹后处理（弹道分段/弹跳/状态）
+│ action_recognition/        │
+│  rule_based_code/          │  球轨迹后处理（弹道分段/弹跳/状态）
 │  动作识别模块              │  → 规则引擎（持球状态机 + 事件判定）
 └──────────┬────────────────┘
            │  actions.json（pass/shoot/layup/rebound/follow_up/block
@@ -159,3 +160,7 @@ basketball-action-analysis/
   完整逻辑、全部参数、评估结果、实现要点）、
   `action_recognition/rule_based_code/docs/integration.md`（模块接入、坐标约定、对比实验）
 - 对比方案：`action_recognition/actionclip/README.md`、`action_recognition/FROSTER/README.md`
+
+## 6. 开发规范
+
+Python 格式、类型检查、测试及文档约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。

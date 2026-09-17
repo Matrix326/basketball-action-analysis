@@ -1,16 +1,18 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union, cast, overload
 
+from mmengine.utils import is_seq_of
 import numpy as np
 import torch
-from mmengine.utils import is_seq_of
 from torch import Tensor
 
 
-def to_numpy(x: Union[Tensor, Sequence[Tensor]],
-             return_device: bool = False,
-             unzip: bool = False) -> Union[np.ndarray, tuple]:
+def to_numpy(
+    x: Union[Tensor, Sequence[Tensor], np.ndarray, Sequence[np.ndarray]],
+    return_device: bool = False,
+    unzip: bool = False,
+) -> Union[np.ndarray, Sequence[np.ndarray], list[tuple[np.ndarray, ...]], tuple]:
     """Convert torch tensor to numpy.ndarray.
 
     Args:
@@ -26,26 +28,28 @@ def to_numpy(x: Union[Tensor, Sequence[Tensor]],
         return the numpy array(s)
     """
 
+    arrays: Union[np.ndarray, Sequence[np.ndarray], list[tuple[np.ndarray, ...]]]
     if isinstance(x, Tensor):
         arrays = x.detach().cpu().numpy()
         device = x.device
     elif isinstance(x, np.ndarray) or is_seq_of(x, np.ndarray):
-        arrays = x
-        device = 'cpu'
+        arrays = cast(Union[np.ndarray, Sequence[np.ndarray]], x)
+        device = "cpu"
     elif is_seq_of(x, Tensor):
+        x = cast(Sequence[Tensor], x)
         if unzip:
             # convert (A, B) -> [(A[0], B[0]), (A[1], B[1]), ...]
             arrays = [
-                tuple(to_numpy(_x[None, :]) for _x in _each)
+                tuple(cast(np.ndarray, to_numpy(_x[None, :])) for _x in _each)
                 for _each in zip(*x)
             ]
         else:
-            arrays = [to_numpy(_x) for _x in x]
+            arrays = [cast(np.ndarray, to_numpy(_x)) for _x in x]
 
         device = x[0].device
 
     else:
-        raise ValueError(f'Invalid input type {type(x)}')
+        raise ValueError(f"Invalid input type {type(x)}")
 
     if return_device:
         return arrays, device
@@ -53,14 +57,25 @@ def to_numpy(x: Union[Tensor, Sequence[Tensor]],
         return arrays
 
 
-def to_tensor(x: Union[np.ndarray, Sequence[np.ndarray]],
-              device: Optional[Any] = None) -> Union[Tensor, Sequence[Tensor]]:
+@overload
+def to_tensor(x: np.ndarray, device: Optional[Any] = None) -> Tensor: ...
+
+
+@overload
+def to_tensor(
+    x: Sequence[np.ndarray], device: Optional[Any] = None
+) -> Sequence[Tensor]: ...
+
+
+def to_tensor(
+    x: Union[np.ndarray, Sequence[np.ndarray]], device: Optional[Any] = None
+) -> Union[Tensor, Sequence[Tensor]]:
     """Convert numpy.ndarray to torch tensor.
 
     Args:
         x (np.ndarray | Sequence[np.ndarray]): A single np.ndarray or a
             sequence of tensors
-        tensor (Any, optional): The device indicator. Defaults to ``None``
+        device (Any, optional): The device indicator. Defaults to ``None``
 
     Returns:
         tuple:
@@ -69,6 +84,6 @@ def to_tensor(x: Union[np.ndarray, Sequence[np.ndarray]],
     if isinstance(x, np.ndarray):
         return torch.tensor(x, device=device)
     elif is_seq_of(x, np.ndarray):
-        return [to_tensor(_x, device=device) for _x in x]
+        return [to_tensor(_x, device=device) for _x in cast(Sequence[np.ndarray], x)]
     else:
-        raise ValueError(f'Invalid input type {type(x)}')
+        raise ValueError(f"Invalid input type {type(x)}")

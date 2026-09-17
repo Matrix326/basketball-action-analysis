@@ -2,8 +2,8 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, List, Optional, Tuple
 
-import numpy as np
 from mmengine.utils import is_method_overridden
+import numpy as np
 
 
 class BaseKeypointCodec(metaclass=ABCMeta):
@@ -23,9 +23,9 @@ class BaseKeypointCodec(metaclass=ABCMeta):
     label_mapping_table = dict()
 
     @abstractmethod
-    def encode(self,
-               keypoints: np.ndarray,
-               keypoints_visible: Optional[np.ndarray] = None) -> dict:
+    def encode(
+        self, keypoints: np.ndarray, keypoints_visible: Optional[np.ndarray] = None
+    ) -> dict:
         """Encode keypoints.
 
         Note:
@@ -44,7 +44,7 @@ class BaseKeypointCodec(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def decode(self, encoded: Any) -> Tuple[np.ndarray, np.ndarray]:
+    def decode(self, *encoded: Any, **kwargs: Any) -> Tuple[np.ndarray, Any]:
         """Decode keypoints.
 
         Args:
@@ -57,8 +57,9 @@ class BaseKeypointCodec(metaclass=ABCMeta):
                 (N, K, D)
         """
 
-    def batch_decode(self, batch_encoded: Any
-                     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    def batch_decode(
+        self, batch_encoded: Any
+    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """Decode keypoints.
 
         Args:
@@ -77,5 +78,4 @@ class BaseKeypointCodec(metaclass=ABCMeta):
     @property
     def support_batch_decoding(self) -> bool:
         """Return whether the codec support decoding from batch data."""
-        return is_method_overridden('batch_decode', BaseKeypointCodec,
-                                    self.__class__)
+        return is_method_overridden("batch_decode", BaseKeypointCodec, self.__class__)

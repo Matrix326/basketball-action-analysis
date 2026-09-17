@@ -2,7 +2,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 """Configs."""
+
 import math
+
 from fvcore.common.config import CfgNode
 
 from . import custom_config
@@ -408,7 +410,7 @@ _C.MODEL.SINGLE_PATHWAY_ARCH = [
     "x3d",
     "mvit",
     "maskmvit",
-    "vitb32", 
+    "vitb32",
     "vitb16",
     "vitl14",
 ]
@@ -799,7 +801,7 @@ _C.DATA.IN22K_TRAINVAL = False
 _C.DATA.IN22k_VAL_IN1K = ""
 
 # Large resolution models may use different crop ratios
-_C.DATA.IN_VAL_CROP_RATIO = 0.875 # 224/256 = 0.875
+_C.DATA.IN_VAL_CROP_RATIO = 0.875  # 224/256 = 0.875
 
 # don't use real video for kinetics.py
 _C.DATA.DUMMY_LOAD = False

@@ -1,26 +1,29 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-import numpy as np
 import pickle
-import torch
-import tqdm
+from typing import BinaryIO, cast
+
+import numpy as np
+from slowfast.datasets import loader
 import slowfast.datasets.utils as data_utils
+from slowfast.models import build_model
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
+from slowfast.utils.env import pathmgr
 import slowfast.utils.logging as logging
 import slowfast.utils.misc as misc
-import slowfast.visualization.tensorboard_vis as tb
-from slowfast.datasets import loader
-from slowfast.models import build_model
-from slowfast.utils.env import pathmgr
 from slowfast.visualization.gradcam_utils import GradCAM
 from slowfast.visualization.prediction_vis import WrongPredictionVis
+import slowfast.visualization.tensorboard_vis as tb
 from slowfast.visualization.utils import (
     GetWeightAndActivation,
     process_layer_index_data,
 )
 from slowfast.visualization.video_visualizer import VideoVisualizer
+import torch
+import tqdm
+
 logger = logging.get_logger(__name__)
 
 
@@ -60,8 +63,7 @@ def run_visualization(vis_loader, model, cfg, writer=None):
     )
     if n_devices > 1:
         grad_cam_layer_ls = [
-            "module/" + layer
-            for layer in cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST
+            "module/" + layer for layer in cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST
         ]
     else:
         grad_cam_layer_ls = cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST
@@ -93,9 +95,7 @@ def run_visualization(vis_loader, model, cfg, writer=None):
                     meta[key] = val.cuda(non_blocking=True)
 
         if cfg.DETECTION.ENABLE:
-            activations, preds = model_vis.get_activations(
-                inputs, meta["boxes"]
-            )
+            activations, preds = model_vis.get_activations(inputs, meta["boxes"])
         else:
             activations, preds = model_vis.get_activations(inputs)
         if cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.ENABLE:
@@ -139,9 +139,7 @@ def run_visualization(vis_loader, model, cfg, writer=None):
                     ):
                         for path_idx, input_pathway in enumerate(cur_input):
                             if cfg.TEST.DATASET == "ava" and cfg.AVA.BGR:
-                                video = input_pathway[
-                                    cur_batch_idx, [2, 1, 0], ...
-                                ]
+                                video = input_pathway[cur_batch_idx, [2, 1, 0], ...]
                             else:
                                 video = input_pathway[cur_batch_idx]
 
@@ -154,9 +152,7 @@ def run_visualization(vis_loader, model, cfg, writer=None):
                             else:
                                 # Permute from (T, C, H, W) to (T, H, W, C)
                                 video = video.permute(0, 2, 3, 1)
-                            bboxes = (
-                                None if cur_boxes is None else cur_boxes[:, 1:]
-                            )
+                            bboxes = None if cur_boxes is None else cur_boxes[:, 1:]
                             cur_prediction = (
                                 cur_preds
                                 if cfg.DETECTION.ENABLE
@@ -244,12 +240,14 @@ def perform_wrong_prediction_vis(vis_loader, model, cfg):
     )
     wrong_prediction_visualizer.clean()
 
+
 def reshape_transform(tensor, height=14, width=14):
-    tensor = tensor.transpose(0,1)
-    result = tensor[:,1:,:].reshape(tensor.size(0), height, width, tensor.size(-1))
+    tensor = tensor.transpose(0, 1)
+    result = tensor[:, 1:, :].reshape(tensor.size(0), height, width, tensor.size(-1))
 
     result = result.permute(0, 3, 1, 2)
     return result
+
 
 # def visualize_c(cfg):
 #     if cfg.TENSORBOARD.ENABLE and (
@@ -258,7 +256,7 @@ def reshape_transform(tensor, height=14, width=14):
 #     ):
 #         # Set up environment.
 #         # try:
-#         #     du.init_distributed_training(cfg)
+#         #     du.init_distributed_training(cfg.NUM_GPUS, cfg.SHARD_ID)
 #         # except:
 #         #     du.init_distributed_training(cfg.NUM_GPUS, cfg.SHARD_ID)
 #         # Set random seed from configs.
@@ -298,13 +296,12 @@ def visualize(cfg):
             slowfast/config/defaults.py
     """
     if cfg.TENSORBOARD.ENABLE and (
-        cfg.TENSORBOARD.MODEL_VIS.ENABLE
-        or cfg.TENSORBOARD.WRONG_PRED_VIS.ENABLE
+        cfg.TENSORBOARD.MODEL_VIS.ENABLE or cfg.TENSORBOARD.WRONG_PRED_VIS.ENABLE
     ):
         # Set up environment.
         try:
-            du.init_distributed_training(cfg)
-        except:
+            du.init_distributed_training(cfg.NUM_GPUS, cfg.SHARD_ID)
+        except BaseException:  # Preserve the original catch-all behavior.
             du.init_distributed_training(cfg.NUM_GPUS, cfg.SHARD_ID)
         # Set random seed from configs.
         np.random.seed(cfg.RNG_SEED)
@@ -338,31 +335,31 @@ def visualize(cfg):
             writer = None
         if cfg.TENSORBOARD.PREDICTIONS_PATH != "":
             assert not cfg.DETECTION.ENABLE, "Detection is not supported."
-            logger.info(
-                "Visualizing class-level performance from saved results..."
-            )
+            logger.info("Visualizing class-level performance from saved results...")
             if writer is not None:
-                with pathmgr.open(cfg.TENSORBOARD.PREDICTIONS_PATH, "rb") as f:
+                with cast(
+                    BinaryIO, pathmgr.open(cfg.TENSORBOARD.PREDICTIONS_PATH, "rb")
+                ) as f:
                     preds, labels = pickle.load(f, encoding="latin1")
 
                 writer.plot_eval(preds, labels)
 
         if cfg.TENSORBOARD.MODEL_VIS.ENABLE:
             if cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.ENABLE:
-                assert (
-                    not cfg.DETECTION.ENABLE
-                ), "Detection task is currently not supported for Grad-CAM visualization."
+                assert not cfg.DETECTION.ENABLE, (
+                    "Detection task is currently not supported for Grad-CAM visualization."
+                )
                 if cfg.MODEL.ARCH in cfg.MODEL.SINGLE_PATHWAY_ARCH:
-                    assert (
-                        len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST) == 1
-                    ), "The number of chosen CNN layers must be equal to the number of pathway(s), given {} layer(s).".format(
-                        len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST)
+                    assert len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST) == 1, (
+                        "The number of chosen CNN layers must be equal to the number of pathway(s), given {} layer(s).".format(
+                            len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST)
+                        )
                     )
                 elif cfg.MODEL.ARCH in cfg.MODEL.MULTI_PATHWAY_ARCH:
-                    assert (
-                        len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST) == 2
-                    ), "The number of chosen CNN layers must be equal to the number of pathway(s), given {} layer(s).".format(
-                        len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST)
+                    assert len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST) == 2, (
+                        "The number of chosen CNN layers must be equal to the number of pathway(s), given {} layer(s).".format(
+                            len(cfg.TENSORBOARD.MODEL_VIS.GRAD_CAM.LAYER_LIST)
+                        )
                     )
                 else:
                     raise NotImplementedError(
@@ -373,17 +370,13 @@ def visualize(cfg):
                         )
                     )
             logger.info(
-                "Visualize model analysis for {} iterations".format(
-                    len(vis_loader)
-                )
+                "Visualize model analysis for {} iterations".format(len(vis_loader))
             )
             # Run visualization on the model
             run_visualization(vis_loader, model, cfg, writer)
         if cfg.TENSORBOARD.WRONG_PRED_VIS.ENABLE:
             logger.info(
-                "Visualize Wrong Predictions for {} iterations".format(
-                    len(vis_loader)
-                )
+                "Visualize Wrong Predictions for {} iterations".format(len(vis_loader))
             )
             perform_wrong_prediction_vis(vis_loader, model, cfg)
 

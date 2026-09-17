@@ -2,6 +2,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 
+from typing import cast
+
 import numpy
 import torch
 import torch.nn as nn
@@ -27,9 +29,7 @@ def attention_pool(tensor, pool, thw_shape, has_cls_embed=True, norm=None):
 
     B, N, L, C = tensor.shape
     T, H, W = thw_shape
-    tensor = (
-        tensor.reshape(B * N, T, H, W, C).permute(0, 4, 1, 2, 3).contiguous()
-    )
+    tensor = tensor.reshape(B * N, T, H, W, C).permute(0, 4, 1, 2, 3).contiguous()
 
     tensor = pool(tensor)
 
@@ -80,15 +80,13 @@ def cal_rel_pos_spatial(
     q_h_ratio = max(k_h / q_h, 1.0)
     k_h_ratio = max(q_h / k_h, 1.0)
     dist_h = (
-        torch.arange(q_h)[:, None] * q_h_ratio
-        - torch.arange(k_h)[None, :] * k_h_ratio
+        torch.arange(q_h)[:, None] * q_h_ratio - torch.arange(k_h)[None, :] * k_h_ratio
     )
     dist_h += (k_h - 1) * k_h_ratio
     q_w_ratio = max(k_w / q_w, 1.0)
     k_w_ratio = max(q_w / k_w, 1.0)
     dist_w = (
-        torch.arange(q_w)[:, None] * q_w_ratio
-        - torch.arange(k_w)[None, :] * k_w_ratio
+        torch.arange(q_w)[:, None] * q_w_ratio - torch.arange(k_w)[None, :] * k_w_ratio
     )
     dist_w += (k_w - 1) * k_w_ratio
 
@@ -101,12 +99,8 @@ def cal_rel_pos_spatial(
     B, n_head, q_N, dim = q.shape
 
     r_q = q[:, :, sp_idx:].reshape(B, n_head, q_t, q_h, q_w, dim)
-    rel_h_q = torch.einsum(
-        "bythwc,hkc->bythwk", r_q, Rh
-    )  # [B, H, q_t, qh, qw, k_h]
-    rel_w_q = torch.einsum(
-        "bythwc,wkc->bythwk", r_q, Rw
-    )  # [B, H, q_t, qh, qw, k_w]
+    rel_h_q = torch.einsum("bythwc,hkc->bythwk", r_q, Rh)  # [B, H, q_t, qh, qw, k_h]
+    rel_w_q = torch.einsum("bythwc,wkc->bythwk", r_q, Rw)  # [B, H, q_t, qh, qw, k_w]
 
     attn[:, :, sp_idx:, sp_idx:] = (
         attn[:, :, sp_idx:, sp_idx:].view(B, -1, q_t, q_h, q_w, k_t, k_h, k_w)
@@ -132,8 +126,7 @@ def cal_rel_pos_temporal(attn, q, has_cls_embed, q_shape, k_shape, rel_pos_t):
     q_t_ratio = max(k_t / q_t, 1.0)
     k_t_ratio = max(q_t / k_t, 1.0)
     dist_t = (
-        torch.arange(q_t)[:, None] * q_t_ratio
-        - torch.arange(k_t)[None, :] * k_t_ratio
+        torch.arange(q_t)[:, None] * q_t_ratio - torch.arange(k_t)[None, :] * k_t_ratio
     )
     dist_t += (k_t - 1) * k_t_ratio
     Rt = rel_pos_t[dist_t.long()]
@@ -142,9 +135,7 @@ def cal_rel_pos_temporal(attn, q, has_cls_embed, q_shape, k_shape, rel_pos_t):
 
     r_q = q[:, :, sp_idx:].reshape(B, n_head, q_t, q_h, q_w, dim)
     # [B, H, q_t, q_h, q_w, dim] -> [q_t, B, H, q_h, q_w, dim] -> [q_t, B*H*q_h*q_w, dim]
-    r_q = r_q.permute(2, 0, 1, 3, 4, 5).reshape(
-        q_t, B * n_head * q_h * q_w, dim
-    )
+    r_q = r_q.permute(2, 0, 1, 3, 4, 5).reshape(q_t, B * n_head * q_h * q_w, dim)
 
     # [q_t, B*H*q_h*q_w, dim] * [q_t, dim, k_t] = [q_t, B*H*q_h*q_w, k_t] -> [B*H*q_h*q_w, q_t, k_t]
     rel = torch.matmul(r_q, Rt.transpose(1, 2)).transpose(0, 1)
@@ -194,8 +185,8 @@ class MultiScaleAttention(nn.Module):
         self.scale = head_dim**-0.5
         self.has_cls_embed = has_cls_embed
         self.mode = mode
-        padding_q = [int(q // 2) for q in kernel_q]
-        padding_kv = [int(kv // 2) for kv in kernel_kv]
+        padding_q = cast(tuple[int, int, int], tuple(int(q // 2) for q in kernel_q))
+        padding_kv = cast(tuple[int, int, int], tuple(int(kv // 2) for kv in kernel_kv))
 
         if pool_first or separate_qkv:
             self.q = nn.Linear(dim, dim_out, bias=qkv_bias)
@@ -296,9 +287,7 @@ class MultiScaleAttention(nn.Module):
                 trunc_normal_(self.rel_pos_h, std=0.02)
                 trunc_normal_(self.rel_pos_w, std=0.02)
         if self.rel_pos_temporal:
-            self.rel_pos_t = nn.Parameter(
-                torch.zeros(2 * input_size[0] - 1, head_dim)
-            )
+            self.rel_pos_t = nn.Parameter(torch.zeros(2 * input_size[0] - 1, head_dim))
             if not rel_pos_zero_init:
                 trunc_normal_(self.rel_pos_t, std=0.02)
 
@@ -325,21 +314,9 @@ class MultiScaleAttention(nn.Module):
                 q, k, v = qkv[0], qkv[1], qkv[2]
             else:
                 q = k = v = x
-                q = (
-                    self.q(q)
-                    .reshape(B, N, self.num_heads, -1)
-                    .permute(0, 2, 1, 3)
-                )
-                k = (
-                    self.k(k)
-                    .reshape(B, N, self.num_heads, -1)
-                    .permute(0, 2, 1, 3)
-                )
-                v = (
-                    self.v(v)
-                    .reshape(B, N, self.num_heads, -1)
-                    .permute(0, 2, 1, 3)
-                )
+                q = self.q(q).reshape(B, N, self.num_heads, -1).permute(0, 2, 1, 3)
+                k = self.k(k).reshape(B, N, self.num_heads, -1).permute(0, 2, 1, 3)
+                v = self.v(v).reshape(B, N, self.num_heads, -1).permute(0, 2, 1, 3)
 
         q, q_shape = attention_pool(
             q,
@@ -364,42 +341,18 @@ class MultiScaleAttention(nn.Module):
         )
 
         if self.pool_first:
-            q_N = (
-                numpy.prod(q_shape) + 1
-                if self.has_cls_embed
-                else numpy.prod(q_shape)
-            )
-            k_N = (
-                numpy.prod(k_shape) + 1
-                if self.has_cls_embed
-                else numpy.prod(k_shape)
-            )
-            v_N = (
-                numpy.prod(v_shape) + 1
-                if self.has_cls_embed
-                else numpy.prod(v_shape)
-            )
+            q_N = numpy.prod(q_shape) + 1 if self.has_cls_embed else numpy.prod(q_shape)
+            k_N = numpy.prod(k_shape) + 1 if self.has_cls_embed else numpy.prod(k_shape)
+            v_N = numpy.prod(v_shape) + 1 if self.has_cls_embed else numpy.prod(v_shape)
 
             q = q.permute(0, 2, 1, 3).reshape(B, q_N, -1)
-            q = (
-                self.q(q)
-                .reshape(B, q_N, self.num_heads, -1)
-                .permute(0, 2, 1, 3)
-            )
+            q = self.q(q).reshape(B, q_N, self.num_heads, -1).permute(0, 2, 1, 3)
 
             v = v.permute(0, 2, 1, 3).reshape(B, v_N, -1)
-            v = (
-                self.v(v)
-                .reshape(B, v_N, self.num_heads, -1)
-                .permute(0, 2, 1, 3)
-            )
+            v = self.v(v).reshape(B, v_N, self.num_heads, -1).permute(0, 2, 1, 3)
 
             k = k.permute(0, 2, 1, 3).reshape(B, k_N, -1)
-            k = (
-                self.k(k)
-                .reshape(B, k_N, self.num_heads, -1)
-                .permute(0, 2, 1, 3)
-            )
+            k = self.k(k).reshape(B, k_N, self.num_heads, -1).permute(0, 2, 1, 3)
 
         N = q.shape[2]
         attn = (q * self.scale) @ k.transpose(-2, -1)
@@ -502,9 +455,7 @@ class MultiScaleBlock(nn.Module):
             residual_pooling=residual_pooling,
             separate_qkv=separate_qkv,
         )
-        self.drop_path = (
-            DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
-        )
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(att_dim)
         mlp_hidden_dim = int(att_dim * mlp_ratio)
         self.has_cls_embed = has_cls_embed
@@ -536,7 +487,7 @@ class MultiScaleBlock(nn.Module):
 
         self.pool_skip = (
             nn.MaxPool3d(
-                kernel_skip, stride_skip, padding_skip, ceil_mode=False
+                tuple(kernel_skip), stride_skip, tuple(padding_skip), ceil_mode=False
             )
             if len(stride_skip) > 0 and numpy.prod(stride_skip) > 1
             else None

@@ -13,10 +13,11 @@ Output: output/rfdetr_multiview/poses/hoop_3d.json
 from __future__ import annotations
 
 import argparse
-import json
-import sys
 from collections import defaultdict
+import json
 from pathlib import Path
+import sys
+from typing import TYPE_CHECKING, cast
 
 import cv2
 import numpy as np
@@ -28,8 +29,13 @@ for _path in (str(PROJECT_ROOT), str(PROJECT_ROOT / "src")):
 
 from config import load_config  # noqa: E402
 
+if TYPE_CHECKING:
+    from ultralytics.engine.results import Boxes, Results
 
-def triangulate(P_list: list[np.ndarray], pixels: list[np.ndarray]) -> np.ndarray | None:
+
+def triangulate(
+    P_list: list[np.ndarray], pixels: list[np.ndarray]
+) -> np.ndarray | None:
     """DLT triangulation from >=2 views; returns 3D point or None."""
     if len(P_list) < 2 or len(P_list) != len(pixels):
         return None
@@ -50,17 +56,21 @@ def triangulate(P_list: list[np.ndarray], pixels: list[np.ndarray]) -> np.ndarra
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hoop detection and 3D triangulation")
-    parser.add_argument("--config", default=str(PROJECT_ROOT / "config" / "config.yaml"))
+    parser.add_argument(
+        "--config", default=str(PROJECT_ROOT / "config" / "config.yaml")
+    )
     parser.add_argument(
         "--weights",
         default=None,
         help="YOLO hoop weights (default: hoop_detection.weights in the config, "
-             "else <project_root>/models/hoop_yolo.pt)",
+        "else <project_root>/models/hoop_yolo.pt)",
     )
     parser.add_argument("--start-frame", type=int, default=900)
     parser.add_argument("--end-frame", type=int, default=1800)
     parser.add_argument("--hoop-conf", type=float, default=0.30)
-    parser.add_argument("--sample-every", type=int, default=5, help="process every Nth frame")
+    parser.add_argument(
+        "--sample-every", type=int, default=5, help="process every Nth frame"
+    )
     parser.add_argument("--output", default=None)
     args = parser.parse_args()
 
@@ -77,25 +87,34 @@ def main() -> None:
     print("classes:", model.names)
 
     views = list(config.video_paths)
-    boxes_by_view: dict[str, list[list[float]]] = defaultdict(list)  # view -> [cx, y2, w, conf]
+    boxes_by_view: dict[str, list[list[float]]] = defaultdict(
+        list
+    )  # view -> [cx, y2, w, conf]
 
     for view in views:
         path = config.video_paths.get(view)
         cap = cv2.VideoCapture(str(path))
         offset = int(config.get(f"camera.frame_offsets.{view}", 0))
         print(f"[{view}] detecting frames {args.start_frame}-{args.end_frame} ...")
-        for frame_number in range(args.start_frame, args.end_frame + 1, args.sample_every):
+        for frame_number in range(
+            args.start_frame, args.end_frame + 1, args.sample_every
+        ):
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number + offset)
             ok, frame = cap.read()
             if not ok:
                 break
-            results = model(frame, verbose=False)
-            for box in results[0].boxes:
+            results = cast("list[Results]", model(frame, verbose=False))
+            for box in cast("Boxes", results[0].boxes):
                 if int(box.cls[0]) != 1 or float(box.conf[0]) < args.hoop_conf:
                     continue
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 boxes_by_view[view].append(
-                    [float((x1 + x2) / 2.0), float((y1 + y2) / 2.0), float(x2 - x1), float(box.conf[0])]
+                    [
+                        float((x1 + x2) / 2.0),
+                        float((y1 + y2) / 2.0),
+                        float(x2 - x1),
+                        float(box.conf[0]),
+                    ]
                 )
         cap.release()
         print(f"[{view}] {len(boxes_by_view[view])} hoop detections")
@@ -120,7 +139,9 @@ def main() -> None:
                 np.median(arr[arr[:, 0] >= mid], axis=0).tolist(),
             ]
         view_clusters[view] = [c for c in clusters if len(c)]
-        print(f"[{view}] clusters: {[[round(v, 1) for v in c] for c in view_clusters[view]]}")
+        print(
+            f"[{view}] clusters: {[[round(v, 1) for v in c] for c in view_clusters[view]]}"
+        )
 
     # ---- stage 3: cross-view triangulation ----
     intrinsics = json.load(open(config.get("camera.intrinsics_path"), encoding="utf-8"))
@@ -137,7 +158,7 @@ def main() -> None:
     view_names = [v for v in views if view_clusters.get(v)]
     for first_idx, first_view in enumerate(view_names):
         for first_cluster in view_clusters[first_view]:
-            for second_view in view_names[first_idx + 1:]:
+            for second_view in view_names[first_idx + 1 :]:
                 for second_cluster in view_clusters[second_view]:
                     point = triangulate(
                         [P_by_view[first_view], P_by_view[second_view]],
@@ -155,12 +176,15 @@ def main() -> None:
 
     bounds = config.get("camera.court_world_bounds", [0.0, 15.0, 0.0, 14.0])
     plausible = [
-        c for c in candidates
+        c
+        for c in candidates
         if bounds[0] - 2 <= c["point"][0] <= bounds[1] + 2
         and bounds[2] - 2 <= c["point"][1] <= bounds[3] + 2
         and 2.5 <= c["point"][2] <= 3.6
     ]
-    print(f"{len(candidates)} pairwise candidates, {len(plausible)} in court+height range")
+    print(
+        f"{len(candidates)} pairwise candidates, {len(plausible)} in court+height range"
+    )
 
     # Consensus: the true hoop reprojects onto a detected cluster in every
     # view that can see it (B3 sees none). Count supporting views per point.
@@ -181,8 +205,12 @@ def main() -> None:
         if len(supporting) >= max(2, len(view_names) - 1):
             c["supporting_views"] = sorted(supporting)
             supported.append(c)
-            print("  consensus candidate:", [round(v, 2) for v in c["point"]],
-                  "views:", sorted(supporting))
+            print(
+                "  consensus candidate:",
+                [round(v, 2) for v in c["point"]],
+                "views:",
+                sorted(supporting),
+            )
     if not supported:
         raise SystemExit("no consensus hoop 3D found")
 
@@ -219,17 +247,33 @@ def main() -> None:
         # at its vertex, which is not necessarily directly below the rim).
         if len(best) > 1:
             y_min, y_max = bounds[2], bounds[3]
-            best.sort(key=lambda c: min(abs(c["point"][1] - y_min), abs(c["point"][1] - y_max)))
-            nearest_y = min(
-                min(abs(c["point"][1] - y_min), abs(c["point"][1] - y_max)) for c in best
+            best.sort(
+                key=lambda c: min(
+                    abs(c["point"][1] - y_min), abs(c["point"][1] - y_max)
+                )
             )
-            best = [c for c in best if min(abs(c["point"][1] - y_min), abs(c["point"][1] - y_max)) <= nearest_y + 0.5]
-        print(f"ball-based selection: min ball distance {min_ball_d:.2f} m "
-              f"({len(best)}/{len(supported)} candidates)")
+            nearest_y = min(
+                min(abs(c["point"][1] - y_min), abs(c["point"][1] - y_max))
+                for c in best
+            )
+            best = [
+                c
+                for c in best
+                if min(abs(c["point"][1] - y_min), abs(c["point"][1] - y_max))
+                <= nearest_y + 0.5
+            ]
+        print(
+            f"ball-based selection: min ball distance {min_ball_d:.2f} m "
+            f"({len(best)}/{len(supported)} candidates)"
+        )
     else:
         # fallback: the most-supported candidate group
         max_support = max(len(c.get("supporting_views", c["views"])) for c in supported)
-        best = [c for c in supported if len(c.get("supporting_views", c["views"])) == max_support]
+        best = [
+            c
+            for c in supported
+            if len(c.get("supporting_views", c["views"])) == max_support
+        ]
     points = np.asarray([c["point"] for c in best])
     hoop = np.median(points, axis=0).tolist()
 
@@ -240,13 +284,18 @@ def main() -> None:
         "height_m": round(float(hoop[2]), 3),
         "frame_range": [args.start_frame, args.end_frame],
         "candidates": [
-            {"point": [round(v, 3) for v in c["point"]], "views": c.get("supporting_views", c["views"])}
+            {
+                "point": [round(v, 3) for v in c["point"]],
+                "views": c.get("supporting_views", c["views"]),
+            }
             for c in supported
         ],
         "coordinate_system": "calibrated world metres, z up",
     }
-    output_path = Path(args.output) if args.output else (
-        Path(config.get("output.reid_3d_dir")) / "hoop_3d.json"
+    output_path = (
+        Path(args.output)
+        if args.output
+        else (Path(config.get("output.reid_3d_dir")) / "hoop_3d.json")
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as handle:

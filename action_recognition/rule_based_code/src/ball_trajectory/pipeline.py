@@ -9,11 +9,11 @@ Stage order:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional as Optional, cast
 
 import numpy as np
 
-from .ballistics import fit_ballistic, GRAVITY
+from .ballistics import GRAVITY, fit_ballistic
 from .fill import fill_gaps
 from .io import (
     BallObservations,
@@ -75,6 +75,7 @@ DEFAULTS: dict[str, Any] = {
     "output_path": "",
 }
 
+
 class BallTrajectoryPostProcessor:
     """End-to-end offline ball-trajectory post-processor."""
 
@@ -86,15 +87,23 @@ class BallTrajectoryPostProcessor:
             return DEFAULTS.get(key, default)
         if hasattr(self.config, "get"):
             try:
-                return self.config.get(f"ball_trajectory.{key}", DEFAULTS.get(key, default))
+                return self.config.get(
+                    f"ball_trajectory.{key}", DEFAULTS.get(key, default)
+                )
             except Exception:
                 return DEFAULTS.get(key, default)
-        section = self.config.get("ball_trajectory", {}) if isinstance(self.config, dict) else {}
+        section = (
+            self.config.get("ball_trajectory", {})
+            if isinstance(self.config, dict)
+            else {}
+        )
         return section.get(key, DEFAULTS.get(key, default))
 
     # ------------------------------------------------------------------ stage
 
-    def preprocess_observations(self, obs: BallObservations, fps: float) -> BallObservations:
+    def preprocess_observations(
+        self, obs: BallObservations, fps: float
+    ) -> BallObservations:
         """Outlier rejection: isolated spikes (two consecutive huge speeds),
         physically impossible heights, view-combination jump runs, and
         locked-on-wrong-target runs (few views, still, far from the last
@@ -115,14 +124,17 @@ class BallTrajectoryPostProcessor:
         max_height = float(self._cfg("max_height_m", 10.0))
         delta_t = np.diff(frames).astype(np.float64) / fps
         speeds = np.zeros(len(positions))
-        speeds[1:] = np.linalg.norm(np.diff(positions, axis=0), axis=1) / np.maximum(delta_t, 1e-6)
+        speeds[1:] = np.linalg.norm(np.diff(positions, axis=0), axis=1) / np.maximum(
+            delta_t, 1e-6
+        )
 
         # View-combination switches leave a RUN of 15-25 m/s points; a real
         # basketball never exceeds ~12 m/s.
         flight_max_speed = float(self._cfg("flight_max_speed_m_s", 14.0))
         for i in range(1, len(positions) - 1):
-            if (speeds[i] > flight_max_speed
-                    and (speeds[i - 1] > flight_max_speed or speeds[i + 1] > flight_max_speed)):
+            if speeds[i] > flight_max_speed and (
+                speeds[i - 1] > flight_max_speed or speeds[i + 1] > flight_max_speed
+            ):
                 mask[i] = True
 
         last_valid = -1
@@ -135,7 +147,9 @@ class BallTrajectoryPostProcessor:
                 mask[i] = True
             if not mask[i] and last_valid >= 0:
                 gap_s = max(1e-6, (frames[i] - frames[last_valid]) / fps)
-                displacement = float(np.linalg.norm(positions[i] - positions[last_valid]))
+                displacement = float(
+                    np.linalg.norm(positions[i] - positions[last_valid])
+                )
                 if displacement > 2.0 and displacement / gap_s > 13.0:
                     mask[i] = True
             # spike: jumps away from the a->c segment
@@ -145,7 +159,9 @@ class BallTrajectoryPostProcessor:
                 disp_after = float(np.linalg.norm(c - b))
                 if max(disp_before, disp_after) > 0.6:
                     ab, ac = b - a, c - a
-                    t = float(np.clip(np.dot(ab, ac) / max(np.dot(ac, ac), 1e-9), 0.0, 1.0))
+                    t = float(
+                        np.clip(np.dot(ab, ac) / max(np.dot(ac, ac), 1e-9), 0.0, 1.0)
+                    )
                     distance = float(np.linalg.norm(ab - t * ac))
                     if distance > 0.4:
                         mask[i] = True
@@ -204,7 +220,10 @@ class BallTrajectoryPostProcessor:
             fps,
             window_seconds=float(self._cfg("window_seconds")),
             residual_threshold=float(self._cfg("residual_threshold_m")),
-            accel_z_range=tuple(float(value) for value in self._cfg("accel_z_range_m_s2")),
+            accel_z_range=cast(
+                tuple[float, float],
+                tuple(float(value) for value in self._cfg("accel_z_range_m_s2")),
+            ),
             min_window_observations=int(self._cfg("min_window_observations")),
             gap_bridge_frames=int(self._cfg("gap_bridge_frames")),
             min_fit_observations=int(self._cfg("min_fit_observations")),
@@ -237,14 +256,18 @@ class BallTrajectoryPostProcessor:
         if start is not None and prev is not None and prev - start >= 5:
             runs_z.append((start, prev))
         from .segmentation import BallisticSegment
+
         existing_ranges = {(int(s.start), int(s.end)) for s in segments}
         for rs, re_ in runs_z:
-            sel = (obs.frame_indices >= rs) & (obs.frame_indices <= re_) & (~obs.outlier_mask)
+            sel = (
+                (obs.frame_indices >= rs)
+                & (obs.frame_indices <= re_)
+                & (~obs.outlier_mask)
+            )
             zs = obs.positions[sel, 2]
             if len(zs) >= 5 and float(np.max(zs)) >= peak_z:
                 covered = sum(
-                    max(0, min(re_, es) - max(rs, ss) + 1)
-                    for ss, es in existing_ranges
+                    max(0, min(re_, es) - max(rs, ss) + 1) for ss, es in existing_ranges
                 )
                 if covered >= 0.5 * (re_ - rs + 1):
                     continue
@@ -254,11 +277,16 @@ class BallTrajectoryPostProcessor:
                     p0, v0, rms = fit_ballistic(pf, pp, float(pf[0]), fps)
                 except ValueError:
                     continue
-                segments.append(BallisticSegment(
-                    start=int(pf[0]), end=int(pf[-1]),
-                    p0=p0.astype(np.float64), v0=v0.astype(np.float64),
-                    rms=float(rms), observed_frames=int(len(pf)),
-                ))
+                segments.append(
+                    BallisticSegment(
+                        start=int(pf[0]),
+                        end=int(pf[-1]),
+                        p0=p0.astype(np.float64),
+                        v0=v0.astype(np.float64),
+                        rms=float(rms),
+                        observed_frames=int(len(pf)),
+                    )
+                )
         hand_centers = parse_hand_centers(input_data.skeleton)
         classify_ballistic_segments(
             segments,
@@ -268,7 +296,9 @@ class BallTrajectoryPostProcessor:
             flight_min_apex_m=float(self._cfg("flight_min_apex_m")),
             flight_min_horizontal_m=float(self._cfg("flight_min_horizontal_m")),
             dribble_max_apex_m=float(self._cfg("dribble_max_apex_m")),
-            dribble_max_player_distance_m=float(self._cfg("dribble_max_player_distance_m")),
+            dribble_max_player_distance_m=float(
+                self._cfg("dribble_max_player_distance_m")
+            ),
             residual_threshold=float(self._cfg("residual_threshold_m")),
         )
 
@@ -359,10 +389,10 @@ class BallTrajectoryPostProcessor:
             hold_max_speed_m_s=float(self._cfg("hold_max_speed_m_s")),
             ground_z_m=float(self._cfg("ground_z_m")),
             static_speed_m_s=float(self._cfg("static_speed_m_s")),
-            static_min_frames=int(
-                float(self._cfg("static_min_frames_s", 2.0)) * fps
+            static_min_frames=int(float(self._cfg("static_min_frames_s", 2.0)) * fps),
+            player_distance_for_static_m=float(
+                self._cfg("player_distance_for_static_m")
             ),
-            player_distance_for_static_m=float(self._cfg("player_distance_for_static_m")),
         )
 
         # ---- null out long unsupported runs ----
@@ -381,13 +411,29 @@ class BallTrajectoryPostProcessor:
         # ---- final median smoothing (window 13: removes detector jump
         # excursions while preserving genuine fast flight arcs) ----
         smooth_window = int(self._cfg("final_median_window", 13))
-        positions_final = _median_smooth_positions(grid, smoothed_pos, window=smooth_window)
+        positions_final = _median_smooth_positions(
+            grid, smoothed_pos, window=smooth_window
+        )
         # ---- assemble interface ----
         return self._assemble(
-            grid, positions_grid, observed_grid, outlier_grid, filled_grid,
-            filled_source_grid, views_grid, positions_final, smoothed_vel,
-            states, state_conf, nulled, segments, bounces, input_data, fps,
-            ball_radius, obs,
+            grid,
+            positions_grid,
+            observed_grid,
+            outlier_grid,
+            filled_grid,
+            filled_source_grid,
+            views_grid,
+            positions_final,
+            smoothed_vel,
+            states,
+            state_conf,
+            nulled,
+            segments,
+            bounces,
+            input_data,
+            fps,
+            ball_radius,
+            obs,
         )
 
     # ------------------------------------------------------------- assemble
@@ -415,7 +461,7 @@ class BallTrajectoryPostProcessor:
     ) -> dict:
         frames_out: dict[str, dict[str, Any]] = {}
         obs_by_frame = {int(frame): i for i, frame in enumerate(obs.frame_indices)}
-        null_position = None
+        _null_position = None
 
         for i, frame in enumerate(grid):
             record: dict[str, Any] = {
@@ -434,7 +480,9 @@ class BallTrajectoryPostProcessor:
 
             raw_idx = obs_by_frame.get(int(frame))
             if raw_idx is not None and (observed_grid[i] or outlier_grid[i]):
-                record["measured"] = [float(value) for value in obs.measured_positions[raw_idx]]
+                record["measured"] = [
+                    float(value) for value in obs.measured_positions[raw_idx]
+                ]
 
             if nulled[i]:
                 record["state"] = STATE_UNKNOWN
@@ -454,7 +502,9 @@ class BallTrajectoryPostProcessor:
             elif filled_grid[i]:
                 if np.isfinite(positions_grid[i]).all():
                     record["position"] = [float(value) for value in positions_grid[i]]
-                    record["velocity"] = [float(value) for value in smoothed_vel[i]] if support else None
+                    record["velocity"] = (
+                        [float(value) for value in smoothed_vel[i]] if support else None
+                    )
                 record["filled"] = True
                 record["filled_source"] = str(filled_source_grid[i])
             elif support:
@@ -492,15 +542,23 @@ class BallTrajectoryPostProcessor:
         ]
 
         # ---- stats ----
-        activity = (grid >= int(grid[0]) + int(self._cfg("margin_frames", 60))) & (
+        _activity = (grid >= int(grid[0]) + int(self._cfg("margin_frames", 60))) & (
             grid <= int(grid[-1]) - int(self._cfg("margin_frames", 60))
         )
         non_null = np.array(
-            [not nulled[i] and (
-                (observed_grid[i] and np.isfinite(smoothed_pos[i]).all())
-                or (filled_grid[i] and np.isfinite(positions_grid[i]).all())
-                or (not observed_grid[i] and not filled_grid[i] and np.isfinite(smoothed_pos[i]).all())
-            ) for i in range(len(grid))],
+            [
+                not nulled[i]
+                and (
+                    (observed_grid[i] and np.isfinite(smoothed_pos[i]).all())
+                    or (filled_grid[i] and np.isfinite(positions_grid[i]).all())
+                    or (
+                        not observed_grid[i]
+                        and not filled_grid[i]
+                        and np.isfinite(smoothed_pos[i]).all()
+                    )
+                )
+                for i in range(len(grid))
+            ],
             dtype=bool,
         )
 
@@ -521,7 +579,13 @@ class BallTrajectoryPostProcessor:
                 run_start = None
 
         state_counts: dict[str, int] = {}
-        for state in (STATE_FLIGHT, STATE_HELD, STATE_DRIBBLE, STATE_GROUND, STATE_UNKNOWN):
+        for state in (
+            STATE_FLIGHT,
+            STATE_HELD,
+            STATE_DRIBBLE,
+            STATE_GROUND,
+            STATE_UNKNOWN,
+        ):
             state_counts[state] = int(np.sum(states == state))
 
         stats = {
@@ -562,7 +626,9 @@ class BallTrajectoryPostProcessor:
 
     # ------------------------------------------------------------------ cli
 
-    def process(self, poses_json_path: str | Path, output_path: str | Path | None = None) -> dict:
+    def process(
+        self, poses_json_path: str | Path, output_path: str | Path | None = None
+    ) -> dict:
         poses_json_path = Path(poses_json_path)
         if output_path is None:
             output_path = Path(self._cfg("output_path", "")) or (
@@ -575,18 +641,9 @@ class BallTrajectoryPostProcessor:
         return result
 
 
-
-
-
-
-
-
-
-
-
-
-
-def _central_velocity(frames: np.ndarray, positions: np.ndarray, fps: float) -> np.ndarray:
+def _central_velocity(
+    frames: np.ndarray, positions: np.ndarray, fps: float
+) -> np.ndarray:
     """3-point central-difference velocity (m/s) from a smoothed trajectory."""
     n = len(positions)
     velocity = np.full_like(positions, np.nan)
@@ -604,7 +661,9 @@ def _central_velocity(frames: np.ndarray, positions: np.ndarray, fps: float) -> 
     return velocity
 
 
-def _median_smooth_positions(frames: np.ndarray, positions: np.ndarray, window: int = 5) -> np.ndarray:
+def _median_smooth_positions(
+    frames: np.ndarray, positions: np.ndarray, window: int = 5
+) -> np.ndarray:
     """Replace each position with the median of the neighbouring frames
     (only over frames that have a finite position)."""
     n = len(positions)
@@ -639,7 +698,11 @@ def _interpolate_switches(
     for i in range(n):
         if not observed[i] or not np.isfinite(positions[i]).all():
             continue
-        window = [j for j in range(max(0, i - 7), i) if observed[j] and np.isfinite(positions[j]).all()]
+        window = [
+            j
+            for j in range(max(0, i - 7), i)
+            if observed[j] and np.isfinite(positions[j]).all()
+        ]
         if len(window) < 3:
             continue
         median_pos = np.median(positions[window], axis=0)
@@ -660,5 +723,3 @@ def _interpolate_switches(
         t = float(frames[i] - frames[prev_idx]) / span
         result[i] = prev_pos + t * (next_pos - prev_pos)
     return result
-
-

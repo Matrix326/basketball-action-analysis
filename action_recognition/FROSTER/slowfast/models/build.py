@@ -3,8 +3,8 @@
 
 """Model construction functions."""
 
-import torch
 from fvcore.common.registry import Registry
+import torch
 from torch.distributed.algorithms.ddp_comm_hooks import (
     default as comm_hooks_default,
 )
@@ -31,13 +31,13 @@ def build_model(cfg, gpu_id=None):
         gpu_id (Optional[int]): specify the gpu index to build model.
     """
     if torch.cuda.is_available():
-        assert (
-            cfg.NUM_GPUS <= torch.cuda.device_count()
-        ), "Cannot use more GPU devices than available"
+        assert cfg.NUM_GPUS <= torch.cuda.device_count(), (
+            "Cannot use more GPU devices than available"
+        )
     else:
-        assert (
-            cfg.NUM_GPUS == 0
-        ), "Cuda is not available. Please set `NUM_GPUS: 0 for running on CPUs."
+        assert cfg.NUM_GPUS == 0, (
+            "Cuda is not available. Please set `NUM_GPUS: 0 for running on CPUs."
+        )
 
     # Construct the model
     name = cfg.MODEL.MODEL_NAME
@@ -46,6 +46,7 @@ def build_model(cfg, gpu_id=None):
     if cfg.BN.NORM_TYPE == "sync_batchnorm_apex":
         try:
             import apex
+            import apex.parallel
         except ImportError:
             raise ImportError("APEX is required for this model, pelase install")
 
@@ -53,9 +54,7 @@ def build_model(cfg, gpu_id=None):
         process_group = apex.parallel.create_syncbn_process_group(
             group_size=cfg.BN.NUM_SYNC_DEVICES
         )
-        model = apex.parallel.convert_syncbn_model(
-            model, process_group=process_group
-        )
+        model = apex.parallel.convert_syncbn_model(model, process_group=process_group)
 
     if cfg.NUM_GPUS:
         if gpu_id is None:
@@ -79,7 +78,7 @@ def build_model(cfg, gpu_id=None):
             or cfg.MODEL.MODEL_NAME == "BasicClipVideo"
             or cfg.MODEL.MODEL_NAME == "TemporalClipVideo"
             else False,
-            static_graph=cfg.MODEL.STATIC_GRAPH
+            static_graph=cfg.MODEL.STATIC_GRAPH,
         )
         if cfg.MODEL.FP16_ALLREDUCE:
             model.register_comm_hook(

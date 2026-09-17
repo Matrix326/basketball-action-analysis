@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
+
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
-import torchvision.transforms.functional as tv_f
 from torchvision.ops import batched_nms
+import torchvision.transforms.functional as tv_f
+
+from basketball_repro._tensorrt_types import TensorRT
 from basketball_repro.detection_runtime import detection_point, point_in_polygon
 
 PERSON_CLASS_ID = 1
@@ -20,9 +24,11 @@ IMAGENET_MEAN = [0.485, 0.456, 0.406]
 
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
+
 def box_cxcywh_to_xyxy(boxes: torch.Tensor) -> torch.Tensor:
     cx, cy, w, h = boxes.unbind(-1)
     return torch.stack((cx - 0.5 * w, cy - 0.5 * h, cx + 0.5 * w, cy + 0.5 * h), dim=-1)
+
 
 def lowres_mask_nms_keep(
     masks_low: torch.Tensor,
@@ -54,6 +60,7 @@ def lowres_mask_nms_keep(
         removed |= suppress
     return keep
 
+
 def preprocess_frame(
     frame_bgr: np.ndarray,
     *,
@@ -68,6 +75,7 @@ def preprocess_frame(
     tensor = tv_f.resize(tensor, [resolution, resolution])
     tensor = tv_f.normalize(tensor, list(means), list(stds))
     return tensor
+
 
 def detections_from_raw_tensors(
     frame_bgr: np.ndarray,
@@ -92,7 +100,9 @@ def detections_from_raw_tensors(
     class_names = {PERSON_CLASS_ID: "person", BALL_CLASS_ID: "sports ball"}
     height, width = frame_bgr.shape[:2]
     selected_scores = logits[:, class_ids].sigmoid()
-    query_idx, local_class_idx = torch.nonzero(selected_scores >= min(threshold, ball_threshold), as_tuple=True)
+    query_idx, local_class_idx = torch.nonzero(
+        selected_scores >= min(threshold, ball_threshold), as_tuple=True
+    )
     if query_idx.numel() == 0:
         detections = sv.Detections(
             xyxy=np.empty((0, 4), dtype=np.float32),
@@ -124,7 +134,9 @@ def detections_from_raw_tensors(
         return detections
 
     boxes = box_cxcywh_to_xyxy(boxes_cxcywh[query_idx])
-    scale = torch.tensor([width, height, width, height], device=boxes.device, dtype=boxes.dtype)
+    scale = torch.tensor(
+        [width, height, width, height], device=boxes.device, dtype=boxes.dtype
+    )
     boxes = boxes * scale
     boxes[:, 0::2].clamp_(0, width)
     boxes[:, 1::2].clamp_(0, height)
@@ -186,7 +198,12 @@ def detections_from_raw_tensors(
         boxes = boxes[keep_mask_nms]
 
     selected_masks = masks_low[query_idx].unsqueeze(1)
-    masks = torch_f.interpolate(selected_masks, size=(height, width), mode="bilinear", align_corners=False) > 0.0
+    masks = (
+        torch_f.interpolate(
+            selected_masks, size=(height, width), mode="bilinear", align_corners=False
+        )
+        > 0.0
+    )
 
     class_ids_np = labels.detach().cpu().numpy().astype(np.int64)
     detections = sv.Detections(
@@ -195,13 +212,20 @@ def detections_from_raw_tensors(
         confidence=scores.detach().cpu().numpy().astype(np.float32),
         class_id=class_ids_np,
     )
-    detections.data["class_name"] = np.array([class_names[int(cid)] for cid in class_ids_np], dtype=object)
-    detections.data["source_shape"] = np.tile(np.array([height, width], dtype=np.int64), (len(detections), 1))
+    detections.data["class_name"] = np.array(
+        [class_names[int(cid)] for cid in class_ids_np], dtype=object
+    )
+    detections.data["source_shape"] = np.tile(
+        np.array([height, width], dtype=np.int64), (len(detections), 1)
+    )
     return detections
+
 
 class TensorRTRunner:
     def __init__(self, engine_path: str | Path) -> None:
-        import tensorrt as trt
+        import tensorrt
+
+        trt = cast(TensorRT, tensorrt)
 
         self.trt = trt
         self.device = torch.device("cuda")
@@ -218,8 +242,12 @@ class TensorRTRunner:
             name = self.engine.get_tensor_name(index)
             shape = tuple(self.engine.get_tensor_shape(name))
             dtype = trt.nptype(self.engine.get_tensor_dtype(name))
-            torch_dtype = torch.float32 if dtype.__name__ == "float32" else torch.float16
-            self.buffers[name] = torch.empty(shape, device=self.device, dtype=torch_dtype)
+            torch_dtype = (
+                torch.float32 if dtype.__name__ == "float32" else torch.float16
+            )
+            self.buffers[name] = torch.empty(
+                shape, device=self.device, dtype=torch_dtype
+            )
             self.context.set_tensor_address(name, self.buffers[name].data_ptr())
             if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
                 self.input_name = name
@@ -241,12 +269,17 @@ class TensorRTRunner:
         if real_count == 0:
             return []
         if real_count > self.batch_size:
-            raise ValueError(f"TensorRT batch has {self.batch_size} slots, got {real_count} frames")
+            raise ValueError(
+                f"TensorRT batch has {self.batch_size} slots, got {real_count} frames"
+            )
         padded_frames = list(frames_bgr)
         if real_count < self.batch_size:
             padded_frames.extend([frames_bgr[-1]] * (self.batch_size - real_count))
         input_tensor = torch.stack(
-            [preprocess_frame(frame, device=self.device, resolution=self.resolution) for frame in padded_frames],
+            [
+                preprocess_frame(frame, device=self.device, resolution=self.resolution)
+                for frame in padded_frames
+            ],
             dim=0,
         )
         with torch.cuda.stream(self.stream):
@@ -269,6 +302,7 @@ class TensorRTRunner:
                 )
             )
         return detections
+
 
 def trt_predict_batch(
     runner: TensorRTRunner,

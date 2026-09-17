@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import cast
 import unittest
 
 import numpy as np
 
-from src.rfdetr_pipeline.observations import ObservationGroup
+from src.rfdetr_pipeline.observations import ObservationGroup, PoseObservation
 from src.rfdetr_pipeline.temporal import refine_pose_bone_lengths
 from src.track.trajectory_utils import (
     ground_to_court_pixel,
@@ -52,18 +53,27 @@ class PrecisionGeometryTests(unittest.TestCase):
     def test_ground_fusion_rejects_clear_outlier(self) -> None:
         observations = {
             "view1": SimpleNamespace(
-                ground_position=np.array([1.0, 1.0, 0.0]), overlap_ratio=0.0, quality=0.9
+                ground_position=np.array([1.0, 1.0, 0.0]),
+                overlap_ratio=0.0,
+                quality=0.9,
             ),
             "view2": SimpleNamespace(
-                ground_position=np.array([1.1, 0.9, 0.0]), overlap_ratio=0.0, quality=0.8
+                ground_position=np.array([1.1, 0.9, 0.0]),
+                overlap_ratio=0.0,
+                quality=0.8,
             ),
             "view3": SimpleNamespace(
-                ground_position=np.array([7.0, 7.0, 0.0]), overlap_ratio=0.0, quality=1.0
+                ground_position=np.array([7.0, 7.0, 0.0]),
+                overlap_ratio=0.0,
+                quality=1.0,
             ),
         }
 
-        point = ObservationGroup(observations).ground_position
+        point = ObservationGroup(
+            cast(dict[str, PoseObservation], observations)
+        ).ground_position
 
+        assert point is not None
         np.testing.assert_allclose(point, [1.047, 0.953, 0.0], atol=0.01)
 
     def test_isolated_jump_is_interpolated(self) -> None:

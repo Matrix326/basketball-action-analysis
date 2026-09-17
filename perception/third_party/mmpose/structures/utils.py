@@ -1,12 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import warnings
 from typing import List
+import warnings
 
 import cv2
+from mmengine.utils import is_list_of
 import numpy as np
 import torch
-from mmengine.structures import InstanceData, PixelData
-from mmengine.utils import is_list_of
+
+from mmpose._data_types import InstanceData, PixelData
 
 from .bbox.transforms import get_warp_matrix
 from .pose_data_sample import PoseDataSample
@@ -29,29 +30,32 @@ def merge_data_samples(data_samples: List[PoseDataSample]) -> PoseDataSample:
     """
 
     if not is_list_of(data_samples, PoseDataSample):
-        raise ValueError('Invalid input type, should be a list of '
-                         ':obj:`PoseDataSample`')
+        raise ValueError(
+            "Invalid input type, should be a list of :obj:`PoseDataSample`"
+        )
 
     if len(data_samples) == 0:
-        warnings.warn('Try to merge an empty list of data samples.')
+        warnings.warn("Try to merge an empty list of data samples.")
         return PoseDataSample()
 
     merged = PoseDataSample(metainfo=data_samples[0].metainfo)
 
-    if 'gt_instances' in data_samples[0]:
-        merged.gt_instances = InstanceData.cat(
-            [d.gt_instances for d in data_samples])
+    if "gt_instances" in data_samples[0]:
+        merged.gt_instances = InstanceData.cat([d.gt_instances for d in data_samples])
 
-    if 'pred_instances' in data_samples[0]:
+    if "pred_instances" in data_samples[0]:
         merged.pred_instances = InstanceData.cat(
-            [d.pred_instances for d in data_samples])
+            [d.pred_instances for d in data_samples]
+        )
 
-    if 'pred_fields' in data_samples[0] and 'heatmaps' in data_samples[
-            0].pred_fields:
+    if "pred_fields" in data_samples[0] and "heatmaps" in data_samples[0].pred_fields:
         reverted_heatmaps = [
-            revert_heatmap(data_sample.pred_fields.heatmaps,
-                           data_sample.input_center, data_sample.input_scale,
-                           data_sample.ori_shape)
+            revert_heatmap(
+                data_sample.pred_fields.heatmaps,
+                data_sample.input_center,
+                data_sample.input_scale,
+                data_sample.ori_shape,
+            )
             for data_sample in data_samples
         ]
 
@@ -60,12 +64,14 @@ def merge_data_samples(data_samples: List[PoseDataSample]) -> PoseDataSample:
         pred_fields.set_data(dict(heatmaps=merged_heatmaps))
         merged.pred_fields = pred_fields
 
-    if 'gt_fields' in data_samples[0] and 'heatmaps' in data_samples[
-            0].gt_fields:
+    if "gt_fields" in data_samples[0] and "heatmaps" in data_samples[0].gt_fields:
         reverted_heatmaps = [
-            revert_heatmap(data_sample.gt_fields.heatmaps,
-                           data_sample.input_center, data_sample.input_scale,
-                           data_sample.ori_shape)
+            revert_heatmap(
+                data_sample.gt_fields.heatmaps,
+                data_sample.input_center,
+                data_sample.input_scale,
+                data_sample.ori_shape,
+            )
             for data_sample in data_samples
         ]
 
@@ -97,14 +103,14 @@ def revert_heatmap(heatmap, input_center, input_scale, img_shape):
     hm_h, hm_w = heatmap.shape[:2]
     img_h, img_w = img_shape
     warp_mat = get_warp_matrix(
-        input_center.reshape((2, )),
-        input_scale.reshape((2, )),
+        input_center.reshape((2,)),
+        input_scale.reshape((2,)),
         rot=0,
         output_size=(hm_w, hm_h),
-        inv=True)
+        inv=True,
+    )
 
-    heatmap = cv2.warpAffine(
-        heatmap, warp_mat, (img_w, img_h), flags=cv2.INTER_LINEAR)
+    heatmap = cv2.warpAffine(heatmap, warp_mat, (img_w, img_h), flags=cv2.INTER_LINEAR)
 
     # [H, W, K] -> [K, H, W]
     if ndim == 3:
@@ -113,7 +119,7 @@ def revert_heatmap(heatmap, input_center, input_scale, img_shape):
     return heatmap
 
 
-def split_instances(instances: InstanceData) -> List[InstanceData]:
+def split_instances(instances: InstanceData) -> List[dict]:
     """Convert instances into a list where each element is a dict that contains
     information about one instance."""
     results = []
@@ -127,10 +133,10 @@ def split_instances(instances: InstanceData) -> List[InstanceData]:
             keypoints=instances.keypoints[i].tolist(),
             keypoint_scores=instances.keypoint_scores[i].tolist(),
         )
-        if 'bboxes' in instances:
-            result['bbox'] = instances.bboxes[i].tolist(),
-            if 'bbox_scores' in instances:
-                result['bbox_score'] = instances.bbox_scores[i]
+        if "bboxes" in instances:
+            result["bbox"] = (instances.bboxes[i].tolist(),)
+            if "bbox_scores" in instances:
+                result["bbox_score"] = instances.bbox_scores[i]
         results.append(result)
 
     return results

@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import warnings
 from typing import Dict, Optional
+import warnings
 
 from mmcv.transforms import BaseTransform
 from mmengine.dist import get_dist_info
@@ -18,18 +18,19 @@ class GetBBoxCenterScale(BaseTransform):
         self.padding = padding
 
     def transform(self, results: Dict) -> Optional[dict]:
-        if 'bbox_center' in results and 'bbox_scale' in results:
+        if "bbox_center" in results and "bbox_scale" in results:
             rank, _ = get_dist_info()
             if rank == 0:
-                warnings.warn('Using existing bbox_center and bbox_scale; '
-                              'padding is still applied.')
-            results['bbox_scale'] = results['bbox_scale'] * self.padding
+                warnings.warn(
+                    "Using existing bbox_center and bbox_scale; "
+                    "padding is still applied."
+                )
+            results["bbox_scale"] = results["bbox_scale"] * self.padding
         else:
-            center, scale = bbox_xyxy2cs(
-                results['bbox'], padding=self.padding)
-            results['bbox_center'] = center
-            results['bbox_scale'] = scale
+            center, scale = bbox_xyxy2cs(results["bbox"], padding=self.padding)
+            results["bbox_center"] = center
+            results["bbox_scale"] = scale
         return results
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + f'(padding={self.padding})'
+        return self.__class__.__name__ + f"(padding={self.padding})"

@@ -1,7 +1,9 @@
 # Create Environment
 
-conda create -n ivnet python=3.8.13 pip
+```bash
+conda create -n ivnet python=3.10 pip
 conda activate ivnet
+```
 
 # Install pytorch 1.11.0
 ```bash
@@ -41,11 +43,8 @@ pip install 'git+https://github.com/facebookresearch/fairscale'
 
 **Build SlowFast in FROSTER**
 
-```
+```bash
 export PYTHONPATH=/path/to/FROSTER/slowfast:$PYTHONPATH
 cd FROSTER
 python setup.py build develop
 ```
-
-
-

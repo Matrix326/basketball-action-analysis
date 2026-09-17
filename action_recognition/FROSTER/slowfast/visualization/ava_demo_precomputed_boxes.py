@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-import numpy as np
 import os
+
 import cv2
+import numpy as np
 import torch
 import tqdm
 
-import slowfast.utils.checkpoint as cu
-import slowfast.utils.logging as logging
 from slowfast.datasets.ava_helper import parse_bboxes_file
 from slowfast.datasets.cv2_transform import scale, scale_boxes
 from slowfast.datasets.utils import get_sequence
 from slowfast.models import build_model
 from slowfast.utils import misc
+import slowfast.utils.checkpoint as cu
 from slowfast.utils.env import pathmgr
+import slowfast.utils.logging as logging
 from slowfast.visualization.utils import process_cv2_inputs
 from slowfast.visualization.video_visualizer import VideoVisualizer
 
@@ -82,7 +83,7 @@ class AVAVisualizerWithPrecomputedBox:
         """
         return cv2.VideoWriter(
             filename=path,
-            fourcc=cv2.VideoWriter_fourcc(*"mp4v"),
+            fourcc=cv2.VideoWriter.fourcc(*"mp4v"),
             fps=float(30),
             frameSize=(self.display_width, self.display_height),
             isColor=True,
@@ -113,9 +114,7 @@ class AVAVisualizerWithPrecomputedBox:
                 frame = scale(self.cfg.DATA.TEST_CROP_SIZE, frame)
                 clip.append(frame)
             else:
-                logger.error(
-                    "Unable to read frame. Duplicating previous frame."
-                )
+                logger.error("Unable to read frame. Duplicating previous frame.")
                 clip.append(clip[-1])
 
         clip = process_cv2_inputs(clip, self.cfg)
@@ -136,9 +135,7 @@ class AVAVisualizerWithPrecomputedBox:
         # Print config.
         logger.info("Run demo with config:")
         logger.info(self.cfg)
-        assert (
-            self.cfg.NUM_GPUS <= 1
-        ), "Cannot run demo visualization on multiple GPUs."
+        assert self.cfg.NUM_GPUS <= 1, "Cannot run demo visualization on multiple GPUs."
 
         # Build the video model and print model statistics.
         model = build_model(self.cfg)
@@ -149,9 +146,7 @@ class AVAVisualizerWithPrecomputedBox:
         cu.load_test_checkpoint(self.cfg, model)
         logger.info("Finish loading model weights")
         logger.info("Start making predictions for precomputed boxes.")
-        for keyframe_idx, boxes_and_labels in tqdm.tqdm(
-            self.pred_boxes.items()
-        ):
+        for keyframe_idx, boxes_and_labels in tqdm.tqdm(self.pred_boxes.items()):
             inputs = self.get_input_clip(keyframe_idx)
             boxes = boxes_and_labels[0]
             boxes = torch.from_numpy(np.array(boxes)).float()
@@ -169,7 +164,7 @@ class AVAVisualizerWithPrecomputedBox:
                     torch.full((box_transformed.shape[0], 1), float(0)),
                     box_transformed,
                 ],
-                axis=1,
+                dim=1,
             )
             if self.cfg.NUM_GPUS:
                 # Transfer the data to the current GPU device.
@@ -221,8 +216,7 @@ class AVAVisualizerWithPrecomputedBox:
         ]
         draw_range_repeat = [
             draw_range[0],
-            (draw_range[1] - draw_range[0]) * self.no_frames_repeat
-            + draw_range[0],
+            (draw_range[1] - draw_range[0]) * self.no_frames_repeat + draw_range[0],
         ]
         prev_buffer = []
         prev_end_idx = 0
@@ -280,9 +274,7 @@ class AVAVisualizerWithPrecomputedBox:
                     repeat = 1
                     current_draw_range = draw_range_repeat
                 # Make sure draw range does not fall out of end of clip.
-                current_draw_range[1] = min(
-                    current_draw_range[1], len(clip) - 1
-                )
+                current_draw_range[1] = min(current_draw_range[1], len(clip) - 1)
                 ground_truth = boxes[0]
                 bboxes = boxes[1]
                 label = boxes[2]

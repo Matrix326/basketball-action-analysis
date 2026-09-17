@@ -3,8 +3,8 @@
 
 """Utility function for weight initialization"""
 
-import torch.nn as nn
 from fvcore.nn.weight_init import c2_msra_fill, c2_xavier_fill
+import torch.nn as nn
 
 
 def init_weights(

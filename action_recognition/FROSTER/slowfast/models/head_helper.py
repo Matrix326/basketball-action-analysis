@@ -4,16 +4,19 @@
 """ResNe(X)t Head helper."""
 
 from functools import partial
+from typing import cast
+
+from detectron2.layers import ROIAlign
 import torch
 import torch.nn as nn
-from detectron2.layers import ROIAlign
+from yacs.config import CfgNode
 
-import slowfast.utils.logging as logging
 from slowfast.models.attention import MultiScaleBlock
 from slowfast.models.batchnorm_helper import (
     NaiveSyncBatchNorm1d as NaiveSyncBatchNorm1d,
 )
-from slowfast.models.nonlocal_helper import Nonlocal
+from slowfast.models.nonlocal_helper import Nonlocal as Nonlocal
+import slowfast.utils.logging as logging
 
 logger = logging.get_logger(__name__)
 
@@ -76,16 +79,14 @@ class ResNetRoIHead(nn.Module):
             performance if ROIAlign is used together with conv layers.
         """
         super(ResNetRoIHead, self).__init__()
-        assert (
-            len({len(pool_size), len(dim_in)}) == 1
-        ), "pathway dimensions are not consistent."
+        assert len({len(pool_size), len(dim_in)}) == 1, (
+            "pathway dimensions are not consistent."
+        )
         self.num_pathways = len(pool_size)
         self.detach_final_fc = detach_final_fc
 
         for pathway in range(self.num_pathways):
-            temporal_pool = nn.AvgPool3d(
-                [pool_size[pathway][0], 1, 1], stride=1
-            )
+            temporal_pool = nn.AvgPool3d((pool_size[pathway][0], 1, 1), stride=1)
             self.add_module("s{}_tpool".format(pathway), temporal_pool)
 
             roi_align = ROIAlign(
@@ -112,14 +113,13 @@ class ResNetRoIHead(nn.Module):
             self.act = nn.Sigmoid()
         else:
             raise NotImplementedError(
-                "{} is not supported as an activation"
-                "function.".format(act_func)
+                "{} is not supported as an activationfunction.".format(act_func)
             )
 
     def forward(self, inputs, bboxes):
-        assert (
-            len(inputs) == self.num_pathways
-        ), "Input tensor does not contain {} pathway".format(self.num_pathways)
+        assert len(inputs) == self.num_pathways, (
+            "Input tensor does not contain {} pathway".format(self.num_pathways)
+        )
         pool_out = []
         for pathway in range(self.num_pathways):
             t_pool = getattr(self, "s{}_tpool".format(pathway))
@@ -167,7 +167,7 @@ class MLPHead(nn.Module):
         b = False if bn_on else bias
         # assert bn_on or bn_sync_num=1
         mlp_layers = [nn.Linear(dim_in, mlp_dim, bias=b)]
-        mlp_layers[-1].xavier_init = xavier_init
+        setattr(mlp_layers[-1], "xavier_init", xavier_init)
         for i in range(1, num_layers):
             if bn_on:
                 if global_sync or bn_sync_num > 1:
@@ -187,7 +187,7 @@ class MLPHead(nn.Module):
             else:
                 d = mlp_dim
             mlp_layers.append(nn.Linear(mlp_dim, d, bias=b))
-            mlp_layers[-1].xavier_init = xavier_init
+            setattr(mlp_layers[-1], "xavier_init", xavier_init)
         self.projection = nn.Sequential(*mlp_layers)
 
     def forward(self, x):
@@ -240,10 +240,11 @@ class ResNetBasicHead(nn.Module):
                 trained.
             cfg (struct): The config for the current experiment.
         """
+        cfg = cast(CfgNode, cfg)
         super(ResNetBasicHead, self).__init__()
-        assert (
-            len({len(pool_size), len(dim_in)}) == 1
-        ), "pathway dimensions are not consistent."
+        assert len({len(pool_size), len(dim_in)}) == 1, (
+            "pathway dimensions are not consistent."
+        )
         self.num_pathways = len(pool_size)
         self.detach_final_fc = detach_final_fc
         self.cfg = cfg
@@ -274,9 +275,7 @@ class ResNetBasicHead(nn.Module):
                 bn_sync_num=cfg.BN.NUM_SYNC_DEVICES
                 if cfg.CONTRASTIVE.BN_SYNC_MLP
                 else 1,
-                global_sync=(
-                    cfg.CONTRASTIVE.BN_SYNC_MLP and cfg.BN.GLOBAL_SYNC
-                ),
+                global_sync=(cfg.CONTRASTIVE.BN_SYNC_MLP and cfg.BN.GLOBAL_SYNC),
             )
 
         # Softmax for evaluation and testing.
@@ -288,8 +287,7 @@ class ResNetBasicHead(nn.Module):
             self.act = None
         else:
             raise NotImplementedError(
-                "{} is not supported as an activation"
-                "function.".format(act_func)
+                "{} is not supported as an activationfunction.".format(act_func)
             )
 
         if cfg.CONTRASTIVE.PREDICTOR_DEPTHS:
@@ -305,16 +303,14 @@ class ResNetBasicHead(nn.Module):
                     bn_sync_num=cfg.BN.NUM_SYNC_DEVICES
                     if cfg.CONTRASTIVE.BN_SYNC_MLP
                     else 1,
-                    global_sync=(
-                        cfg.CONTRASTIVE.BN_SYNC_MLP and cfg.BN.GLOBAL_SYNC
-                    ),
+                    global_sync=(cfg.CONTRASTIVE.BN_SYNC_MLP and cfg.BN.GLOBAL_SYNC),
                 )
                 self.predictors.append(local_mlp)
 
     def forward(self, inputs):
-        assert (
-            len(inputs) == self.num_pathways
-        ), "Input tensor does not contain {} pathway".format(self.num_pathways)
+        assert len(inputs) == self.num_pathways, (
+            "Input tensor does not contain {} pathway".format(self.num_pathways)
+        )
         pool_out = []
         for pathway in range(self.num_pathways):
             m = getattr(self, "pathway{}_avgpool".format(pathway))
@@ -465,8 +461,7 @@ class X3DHead(nn.Module):
             self.act = nn.Sigmoid()
         else:
             raise NotImplementedError(
-                "{} is not supported as an activation"
-                "function.".format(self.act_func)
+                "{} is not supported as an activationfunction.".format(self.act_func)
             )
 
     def forward(self, inputs):
@@ -522,6 +517,7 @@ class TransformerBasicHead(nn.Module):
             act_func (string): activation function to use. 'softmax': applies
                 softmax on the output. 'sigmoid': applies sigmoid on the output.
         """
+        cfg = cast(CfgNode, cfg)
         super(TransformerBasicHead, self).__init__()
         if dropout_rate > 0.0:
             self.dropout = nn.Dropout(dropout_rate)
@@ -539,9 +535,7 @@ class TransformerBasicHead(nn.Module):
                 bn_sync_num=cfg.BN.NUM_SYNC_DEVICES
                 if cfg.CONTRASTIVE.BN_SYNC_MLP
                 else 1,
-                global_sync=(
-                    cfg.CONTRASTIVE.BN_SYNC_MLP and cfg.BN.GLOBAL_SYNC
-                ),
+                global_sync=(cfg.CONTRASTIVE.BN_SYNC_MLP and cfg.BN.GLOBAL_SYNC),
             )
         self.detach_final_fc = cfg.MODEL.DETACH_FINAL_FC
 
@@ -554,8 +548,7 @@ class TransformerBasicHead(nn.Module):
             self.act = None
         else:
             raise NotImplementedError(
-                "{} is not supported as an activation"
-                "function.".format(act_func)
+                "{} is not supported as an activationfunction.".format(act_func)
             )
 
     def forward(self, x):
@@ -619,13 +612,9 @@ class MSSeparateHead(nn.Module):
 
         self.transforms = nn.ModuleList()
         self.projections = nn.ModuleList()
-        for depth, num_class, feature_size in zip(
-            depth_list, num_classes, feat_sz
-        ):
+        for depth, num_class, feature_size in zip(depth_list, num_classes, feat_sz):
             head_dim = (
-                cfg.MASK.DECODER_EMBED_DIM
-                if cfg.MASK.MAE_ON
-                else blocks[depth].dim_out
+                cfg.MASK.DECODER_EMBED_DIM if cfg.MASK.MAE_ON else blocks[depth].dim_out
             )
             op = []
             if transform_type == "xformer":
@@ -674,7 +663,7 @@ class MSSeparateHead(nn.Module):
     def forward(self, block_outputs, output_masks, return_all, thw):
         model_outputs = []
         for idx, x in enumerate(block_outputs):
-            for _, blk in enumerate(self.transforms[idx]):
+            for _, blk in enumerate(cast(nn.Sequential, self.transforms[idx])):
                 if isinstance(blk, MultiScaleBlock):
                     x, thw = blk(x, thw)
                 else:

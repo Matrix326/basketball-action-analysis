@@ -4,14 +4,15 @@
 import logging as log
 import math
 import os
+
 import matplotlib.pyplot as plt
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
 
 import slowfast.utils.logging as logging
-import slowfast.visualization.utils as vis_utils
 from slowfast.utils.misc import get_class_names
+import slowfast.visualization.utils as vis_utils
 
 logger = logging.get_logger(__name__)
 log.getLogger("matplotlib").setLevel(log.ERROR)
@@ -44,18 +45,14 @@ class TensorboardWriter(object):
         self.hist_figsize = cfg.TENSORBOARD.HISTOGRAM.FIGSIZE
 
         if cfg.TENSORBOARD.LOG_DIR == "":
-            log_dir = os.path.join(
-                cfg.OUTPUT_DIR, "runs-{}".format(cfg.TRAIN.DATASET)
-            )
+            log_dir = os.path.join(cfg.OUTPUT_DIR, "runs-{}".format(cfg.TRAIN.DATASET))
         else:
             log_dir = os.path.join(cfg.OUTPUT_DIR, cfg.TENSORBOARD.LOG_DIR)
 
         self.writer = SummaryWriter(log_dir=log_dir)
         logger.info(
             "To see logged results in Tensorboard, please launch using the command \
-            `tensorboard  --port=<port-number> --logdir {}`".format(
-                log_dir
-            )
+            `tensorboard  --port=<port-number> --logdir {}`".format(log_dir)
         )
 
         if cfg.TENSORBOARD.CLASS_NAMES_PATH != "":
@@ -321,9 +318,7 @@ def plot_hist(
                 figsize=figsize,
             )
             writer.add_figure(
-                tag="Top {} predictions by classes/{}".format(
-                    k, class_names[i]
-                ),
+                tag="Top {} predictions by classes/{}".format(k, class_names[i]),
                 figure=hist,
                 global_step=global_step,
             )
@@ -391,17 +386,14 @@ def add_ndim_array(
             reshaped_array = array.view(-1, *last2_dims)
             if heat_map:
                 reshaped_array = [
-                    add_heatmap(array_2d).unsqueeze(0)
-                    for array_2d in reshaped_array
+                    add_heatmap(array_2d).unsqueeze(0) for array_2d in reshaped_array
                 ]
                 reshaped_array = torch.cat(reshaped_array, dim=0)
             else:
                 reshaped_array = reshaped_array.unsqueeze(1)
             if nrow is None:
                 nrow = int(math.sqrt(reshaped_array.size()[0]))
-            img_grid = make_grid(
-                reshaped_array, nrow, padding=1, normalize=normalize
-            )
+            img_grid = make_grid(reshaped_array, nrow, padding=1, normalize=normalize)
             writer.add_image(name, img_grid, global_step=global_step)
 
 

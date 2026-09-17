@@ -3,10 +3,11 @@
 
 import itertools
 import logging as log
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
+
 from detectron2.utils.visualizer import Visualizer
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 import slowfast.utils.logging as logging
 from slowfast.utils.misc import get_class_names
@@ -36,9 +37,7 @@ def _create_text_labels(classes, scores, class_names, ground_truth=False):
         labels = ["[{}] {}".format("GT", label) for label in labels]
     elif scores is not None:
         assert len(classes) == len(scores)
-        labels = [
-            "[{:.2f}] {}".format(s, label) for s, label in zip(scores, labels)
-        ]
+        labels = ["[{:.2f}] {}".format(s, label) for s, label in zip(scores, labels)]
     return labels
 
 
@@ -66,6 +65,7 @@ class ImgVisualizer(Visualizer):
         font_size=None,
         color="w",
         horizontal_alignment="center",
+        rotation=0,
         vertical_alignment="bottom",
         box_facecolor="black",
         alpha=0.5,
@@ -94,6 +94,7 @@ class ImgVisualizer(Visualizer):
             text,
             size=font_size * self.output.scale,
             family="monospace",
+            rotation=rotation,
             bbox={
                 "facecolor": box_facecolor,
                 "alpha": alpha,
@@ -135,9 +136,9 @@ class ImgVisualizer(Visualizer):
         """
         if not isinstance(box_facecolors, list):
             box_facecolors = [box_facecolors] * len(text_ls)
-        assert len(box_facecolors) == len(
-            text_ls
-        ), "Number of colors provided is not equal to the number of text labels."
+        assert len(box_facecolors) == len(text_ls), (
+            "Number of colors provided is not equal to the number of text labels."
+        )
         if not font_size:
             font_size = self._default_font_size
         text_box_width = font_size + font_size // 2
@@ -211,9 +212,9 @@ class ImgVisualizer(Visualizer):
         """
         if not isinstance(box_facecolors, list):
             box_facecolors = [box_facecolors] * len(text_ls)
-        assert len(box_facecolors) == len(
-            text_ls
-        ), "Number of colors provided is not equal to the number of text labels."
+        assert len(box_facecolors) == len(text_ls), (
+            "Number of colors provided is not equal to the number of text labels."
+        )
 
         assert y_corner in [1, 3], "Y_corner must be either 1 or 3"
         if not font_size:
@@ -264,9 +265,9 @@ class ImgVisualizer(Visualizer):
         """
         if not isinstance(box_facecolors, list):
             box_facecolors = [box_facecolors] * len(text_ls)
-        assert len(box_facecolors) == len(
-            text_ls
-        ), "Number of colors provided is not equal to the number of text labels."
+        assert len(box_facecolors) == len(text_ls), (
+            "Number of colors provided is not equal to the number of text labels."
+        )
 
         assert y_corner in [1, 3], "Y_corner must be either 1 or 3"
         if not font_size:
@@ -378,9 +379,7 @@ class VideoVisualizer:
                 This is used for choosing predictions for visualization.
 
         """
-        assert mode in ["top-k", "thres"], "Mode {} is not supported.".format(
-            mode
-        )
+        assert mode in ["top-k", "thres"], "Mode {} is not supported.".format(mode)
         self.mode = mode
         self.num_classes = num_classes
         self.class_names, _, _ = get_class_names(class_names_path, None, None)
@@ -465,15 +464,13 @@ class VideoVisualizer:
                 )
             )
         frame_visualizer = ImgVisualizer(frame, meta=None)
-        font_size = min(
-            max(np.sqrt(frame.shape[0] * frame.shape[1]) // 35, 5), 9
-        )
+        font_size = min(max(np.sqrt(frame.shape[0] * frame.shape[1]) // 35, 5), 9)
         top_corner = not ground_truth
         if bboxes is not None:
-            assert len(preds) == len(
-                bboxes
-            ), "Encounter {} predictions and {} bounding boxes".format(
-                len(preds), len(bboxes)
+            assert len(preds) == len(bboxes), (
+                "Encounter {} predictions and {} bounding boxes".format(
+                    len(preds), len(bboxes)
+                )
             )
             for i, box in enumerate(bboxes):
                 text = text_labels[i]
@@ -519,24 +516,15 @@ class VideoVisualizer:
         alpha=0.5,
         text_alpha=0.7,
     ):
-        """
-        Draw labels and bouding boxes for one image. By default, predicted labels are drawn in
-        the top left corner of the image or corresponding bounding boxes. For ground truth labels
-        (setting True for ground_truth flag), labels will be drawn in the bottom left corner.
+        """Draw class IDs at the top left of an RGB frame or bounding boxes.
+
         Args:
-            frame (array-like): a tensor or numpy array of shape (H, W, C), where H and W correspond to
-                the height and width of the image respectively. C is the number of
-                color channels. The image is required to be in RGB format since that
-                is a requirement of the Matplotlib library. The image is also expected
-                to be in the range [0, 255].
-            preds (tensor or list): If ground_truth is False, provide a float tensor of shape (num_boxes, num_classes)
-                that contains all of the confidence scores of the model.
-                For recognition task, input shape can be (num_classes,). To plot true label (ground_truth is True),
-                preds is a list contains int32 of the shape (num_boxes, true_class_ids) or (true_class_ids,).
-            bboxes (Optional[tensor]): shape (num_boxes, 4) that contains the coordinates of the bounding boxes.
-            alpha (Optional[float]): transparency level of the bounding boxes.
-            text_alpha (Optional[float]): transparency level of the box wrapped around text labels.
-            ground_truth (bool): whether the prodived bounding boxes are ground-truth.
+            frame: RGB tensor or array of shape (H, W, C), in [0, 255].
+            label: Class IDs grouped by instance, as a tensor or list of lists.
+                A one-dimensional tensor denotes one instance.
+            bboxes: Optional tensor of shape (num_instances, 4).
+            alpha: Bounding-box transparency.
+            text_alpha: Text-background transparency.
         """
         if isinstance(label, torch.Tensor):
             if label.ndim == 1:
@@ -548,26 +536,29 @@ class VideoVisualizer:
             logger.error("Unsupported type of label input.")
             return
 
+        # Raw labels contain class IDs rather than confidence scores.
+        top_classes = label.tolist() if isinstance(label, torch.Tensor) else label
+        ground_truth = False
+        top_corner = True
 
-        # Create labels top k predicted classes with their scores.
+        # Create labels without confidence scores.
         text_labels = []
         for i in range(n_instances):
             text_labels.append(
                 _create_text_labels(
-                    label[i],
+                    top_classes[i],
+                    scores=None,
                     class_names=self.class_names,
                     ground_truth=False,
                 )
             )
         frame_visualizer = ImgVisualizer(frame, meta=None)
-        font_size = min(
-            max(np.sqrt(frame.shape[0] * frame.shape[1]) // 35, 5), 9
-        )
+        font_size = min(max(np.sqrt(frame.shape[0] * frame.shape[1]) // 35, 5), 9)
         if bboxes is not None:
-            assert len(label) == len(
-                bboxes
-            ), "Encounter {} labels and {} bounding boxes".format(
-                len(label), len(bboxes)
+            assert len(label) == len(bboxes), (
+                "Encounter {} labels and {} bounding boxes".format(
+                    len(label), len(bboxes)
+                )
             )
             for i, box in enumerate(bboxes):
                 text = text_labels[i]
@@ -668,8 +659,7 @@ class VideoVisualizer:
         ground_truth=False,
         keyframe_idx=None,
         repeat_frame=1,
-        ):
-
+    ):
         """
         Draw predicted labels or ground truth classes to clip. Draw bouding boxes to clip
         if bboxes is provided. Boxes will gradually fade in and out the clip, centered around
@@ -725,7 +715,6 @@ class VideoVisualizer:
             img_ls.append(draw_img)
 
         return img_ls
-
 
     def draw_clip(
         self,
@@ -803,9 +792,9 @@ class VideoVisualizer:
             frames (list of frames): list of frames in range [0, 1].
             adjusted (bool): whether the original frames need adjusted.
         """
-        assert (
-            frames is not None and len(frames) != 0
-        ), "Frames does not contain any values"
+        assert frames is not None and len(frames) != 0, (
+            "Frames does not contain any values"
+        )
         frames = np.array(frames)
         assert np.array(frames).ndim == 4, "Frames must have 4 dimensions"
         adjusted = False
@@ -832,8 +821,6 @@ class VideoVisualizer:
         else:
             common_class_ids = list(range(self.num_classes))
 
-        thres_array = np.full(
-            shape=(self.num_classes,), fill_value=self.lower_thres
-        )
+        thres_array = np.full(shape=(self.num_classes,), fill_value=self.lower_thres)
         thres_array[common_class_ids] = self.thres
         self.thres = torch.from_numpy(thres_array)

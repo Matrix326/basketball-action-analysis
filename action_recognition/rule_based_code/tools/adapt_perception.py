@@ -16,6 +16,7 @@ Usage:
         --out-dir <dir for adapted inputs> \
         [--hoop-center x y z]      # override; default = triangulated value
 """
+
 from __future__ import annotations
 
 import argparse
@@ -85,15 +86,21 @@ def main() -> None:
         # the measurements, and reuse the sibling hoop_3d.json: it is already
         # expressed in this file's world frame.
         measurements = data["ball_measurements"]
-        print(f"[info] ball_measurements already present ({len(measurements)}), kept as-is")
+        print(
+            f"[info] ball_measurements already present ({len(measurements)}), kept as-is"
+        )
         if args.hoop_center is None and sibling_hoop.exists():
             hoop = json.load(open(sibling_hoop, encoding="utf-8"))
             (out_dir / "hoop_3d.json").write_text(
                 json.dumps(hoop, ensure_ascii=False, indent=1), encoding="utf-8"
             )
             json.dump(data, open(out_dir / "poses_3d.json", "w", encoding="utf-8"))
-            print(f"[ok] adapted poses -> {out_dir / 'poses_3d.json'}  (ball_measurements {len(measurements)})")
-            print(f"[ok] hoop -> {out_dir / 'hoop_3d.json'}  center={hoop.get('hoop_center')} (sibling)")
+            print(
+                f"[ok] adapted poses -> {out_dir / 'poses_3d.json'}  (ball_measurements {len(measurements)})"
+            )
+            print(
+                f"[ok] hoop -> {out_dir / 'hoop_3d.json'}  center={hoop.get('hoop_center')} (sibling)"
+            )
             return
     else:
         measurements = _build_measurements(b3d, bpred, b2d)

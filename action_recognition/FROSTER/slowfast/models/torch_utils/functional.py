@@ -1,33 +1,74 @@
 r"""Functional interface"""
-from typing import Callable, List, Optional, Tuple
+
 import math
+
+# A workaround to support both TorchScript and MyPy:
+from typing import TYPE_CHECKING, Callable as Callable, Optional, Tuple, cast
 import warnings
 
 import torch
-from torch import _VF
-from torch._C import _infer_size, _add_docstr
-from torch._torch_docs import reproducibility_notes, tf32_notes
-# A workaround to support both TorchScript and MyPy:
-from typing import TYPE_CHECKING
+from torch import _VF as _VF
+from torch._C import _add_docstr as _add_docstr, _infer_size as _infer_size
+from torch._torch_docs import (
+    reproducibility_notes as reproducibility_notes,
+    tf32_notes as tf32_notes,
+)
+
 if TYPE_CHECKING:
     from torch.types import _dtype as DType
 else:
     # The JIT doesn't understand Union, nor torch.dtype here
     DType = int
 
-from torch._jit_internal import boolean_dispatch, _overload, BroadcastingList1, BroadcastingList2, BroadcastingList3
+from torch._jit_internal import (
+    BroadcastingList1 as BroadcastingList1,
+    _overload as _overload,
+    boolean_dispatch as boolean_dispatch,
+)
+from torch.nn import (
+    _reduction as _Reduction,  # noqa: F401
+    grad,  # noqa: F401
+)
+from torch.nn.functional import (
+    celu as celu,
+    dropout,
+    elu as elu,
+    gelu as gelu,
+    glu as glu,
+    hardshrink as hardshrink,
+    hardsigmoid as hardsigmoid,
+    hardswish as hardswish,
+    hardtanh as hardtanh,
+    leaky_relu as leaky_relu,
+    logsigmoid as logsigmoid,
+    mish as mish,
+    pad,
+    prelu as prelu,
+    relu as relu,
+    rrelu as rrelu,
+    selu as selu,
+    silu as silu,
+    softshrink as softshrink,
+    threshold as threshold,
+)
+from torch.nn.modules import utils as utils
+from torch.nn.modules.utils import (
+    _list_with_default as _list_with_default,
+    _pair as _pair,
+    _single as _single,
+    _triple as _triple,
+)
 from torch.overrides import (
-    has_torch_function, has_torch_function_unary, has_torch_function_variadic,
-    handle_torch_function)
-from torch.nn import _reduction as _Reduction
-from torch.nn import grad  # noqa: F401
-from torch.nn.modules import utils
-from torch.nn.modules.utils import _single, _pair, _triple, _list_with_default
-
+    handle_torch_function,
+    has_torch_function,
+    has_torch_function_unary,
+    has_torch_function_variadic as has_torch_function_variadic,
+)
 
 Tensor = torch.Tensor
 
 linear = torch._C._nn.linear
+
 
 def tanhshrink(input):
     r"""tanhshrink(input) -> Tensor
@@ -53,8 +94,9 @@ def softsign(input):
     return input / (input.abs() + 1)
 
 
-softplus = torch._C._nn.softplus,
-   
+softplus = torch._C._nn.softplus
+
+
 def _get_softmax_dim(name: str, ndim: int, stacklevel: int) -> int:
     warnings.warn(
         "Implicit dimension choice for {} has been deprecated. "
@@ -68,7 +110,12 @@ def _get_softmax_dim(name: str, ndim: int, stacklevel: int) -> int:
     return ret
 
 
-def softmin(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, dtype: Optional[DType] = None) -> Tensor:
+def softmin(
+    input: Tensor,
+    dim: Optional[int] = None,
+    _stacklevel: int = 3,
+    dtype: Optional[DType] = None,
+) -> Tensor:
     r"""Applies a softmin function.
 
     Note that :math:`\text{Softmin}(x) = \text{Softmax}(-x)`. See softmax definition for mathematical formula.
@@ -84,7 +131,9 @@ def softmin(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, dtyp
           is performed. This is useful for preventing data type overflows. Default: None.
     """
     if has_torch_function_unary(input):
-        return handle_torch_function(softmin, (input,), input, dim=dim, _stacklevel=_stacklevel, dtype=dtype)
+        return handle_torch_function(
+            softmin, (input,), input, dim=dim, _stacklevel=_stacklevel, dtype=dtype
+        )
     if dim is None:
         dim = _get_softmax_dim("softmin", input.dim(), _stacklevel)
     if dtype is None:
@@ -94,7 +143,12 @@ def softmin(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, dtyp
     return ret
 
 
-def softmax(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, dtype: Optional[DType] = None) -> Tensor:
+def softmax(
+    input: Tensor,
+    dim: Optional[int] = None,
+    _stacklevel: int = 3,
+    dtype: Optional[DType] = None,
+) -> Tensor:
     r"""Applies a softmax function.
 
     Softmax is defined as:
@@ -120,7 +174,9 @@ def softmax(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, dtyp
 
     """
     if has_torch_function_unary(input):
-        return handle_torch_function(softmax, (input,), input, dim=dim, _stacklevel=_stacklevel, dtype=dtype)
+        return handle_torch_function(
+            softmax, (input,), input, dim=dim, _stacklevel=_stacklevel, dtype=dtype
+        )
     if dim is None:
         dim = _get_softmax_dim("softmax", input.dim(), _stacklevel)
     if dtype is None:
@@ -130,7 +186,13 @@ def softmax(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, dtyp
     return ret
 
 
-def gumbel_softmax(logits: Tensor, tau: float = 1, hard: bool = False, eps: float = 1e-10, dim: int = -1) -> Tensor:
+def gumbel_softmax(
+    logits: Tensor,
+    tau: float = 1,
+    hard: bool = False,
+    eps: float = 1e-10,
+    dim: int = -1,
+) -> Tensor:
     r"""
     Samples from the Gumbel-Softmax distribution (`Link 1`_  `Link 2`_) and optionally discretizes.
 
@@ -171,12 +233,16 @@ def gumbel_softmax(logits: Tensor, tau: float = 1, hard: bool = False, eps: floa
         https://arxiv.org/abs/1611.01144
     """
     if has_torch_function_unary(logits):
-        return handle_torch_function(gumbel_softmax, (logits,), logits, tau=tau, hard=hard, eps=eps, dim=dim)
+        return handle_torch_function(
+            gumbel_softmax, (logits,), logits, tau=tau, hard=hard, eps=eps, dim=dim
+        )
     if eps != 1e-10:
         warnings.warn("`eps` parameter is deprecated and has no effect.")
 
     gumbels = (
-        -torch.empty_like(logits, memory_format=torch.legacy_contiguous_format).exponential_().log()
+        -torch.empty_like(logits, memory_format=torch.legacy_contiguous_format)
+        .exponential_()
+        .log()
     )  # ~Gumbel(0,1)
     gumbels = (logits + gumbels) / tau  # ~Gumbel(logits,tau)
     y_soft = gumbels.softmax(dim)
@@ -184,7 +250,9 @@ def gumbel_softmax(logits: Tensor, tau: float = 1, hard: bool = False, eps: floa
     if hard:
         # Straight through.
         index = y_soft.max(dim, keepdim=True)[1]
-        y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, index, 1.0)
+        y_hard = torch.zeros_like(
+            logits, memory_format=torch.legacy_contiguous_format
+        ).scatter_(dim, index, 1.0)
         ret = y_hard - y_soft.detach() + y_soft
     else:
         # Reparametrization trick.
@@ -192,7 +260,12 @@ def gumbel_softmax(logits: Tensor, tau: float = 1, hard: bool = False, eps: floa
     return ret
 
 
-def log_softmax(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, dtype: Optional[DType] = None) -> Tensor:
+def log_softmax(
+    input: Tensor,
+    dim: Optional[int] = None,
+    _stacklevel: int = 3,
+    dtype: Optional[DType] = None,
+) -> Tensor:
     r"""Applies a softmax followed by a logarithm.
 
     While mathematically equivalent to log(softmax(x)), doing these two
@@ -209,7 +282,9 @@ def log_softmax(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, 
           is performed. This is useful for preventing data type overflows. Default: None.
     """
     if has_torch_function_unary(input):
-        return handle_torch_function(log_softmax, (input,), input, dim=dim, _stacklevel=_stacklevel, dtype=dtype)
+        return handle_torch_function(
+            log_softmax, (input,), input, dim=dim, _stacklevel=_stacklevel, dtype=dtype
+        )
     if dim is None:
         dim = _get_softmax_dim("log_softmax", input.dim(), _stacklevel)
     if dtype is None:
@@ -219,7 +294,7 @@ def log_softmax(input: Tensor, dim: Optional[int] = None, _stacklevel: int = 3, 
     return ret
 
 
-def _pad_circular(input: Tensor, padding: List[int]) -> Tensor:
+def _pad_circular(input: Tensor, padding: list[int]) -> Tensor:
     """Circularly pads tensor.
 
     Tensor values at the beginning are used to pad the end, and values at the
@@ -273,12 +348,16 @@ def _pad_circular(input: Tensor, padding: List[int]) -> Tensor:
 
     for idx, size in enumerate(paddable_shape):
         # Only supports wrapping around once
-        assert padding[-(idx * 2 + 1)] <= size, "Padding value causes wrapping around more than once."
-        assert padding[-(idx * 2 + 2)] <= size, "Padding value causes wrapping around more than once."
+        assert padding[-(idx * 2 + 1)] <= size, (
+            "Padding value causes wrapping around more than once."
+        )
+        assert padding[-(idx * 2 + 2)] <= size, (
+            "Padding value causes wrapping around more than once."
+        )
         # Negative padding should not result in negative sizes
-        assert (
-            padding[-(idx * 2 + 1)] + padding[-(idx * 2 + 2)] + size >= 0
-        ), "Negative padding value is resulting in an empty dimension."
+        assert padding[-(idx * 2 + 1)] + padding[-(idx * 2 + 2)] + size >= 0, (
+            "Negative padding value is resulting in an empty dimension."
+        )
 
     # Get shape of padded tensor
     out_shape = in_shape[:2]
@@ -329,7 +408,9 @@ def _pad_circular(input: Tensor, padding: List[int]) -> Tensor:
         in_w0 = max(-padding[-6], 0)
         in_w1 = in_shape[4] - max(-padding[-5], 0)
 
-        out[..., out_d0:out_d1, out_h0:out_h1, out_w0:out_w1] = input[..., in_d0:in_d1, in_h0:in_h1, in_w0:in_w1]
+        out[..., out_d0:out_d1, out_h0:out_h1, out_w0:out_w1] = input[
+            ..., in_d0:in_d1, in_h0:in_h1, in_w0:in_w1
+        ]
 
     # The following steps first pad the beginning of the tensor (left side),
     # and then pad the end of the tensor (right side).
@@ -384,9 +465,11 @@ def _pad_circular(input: Tensor, padding: List[int]) -> Tensor:
 
     return out
 
+
 #
 # multihead attention
 #
+
 
 def _in_projection_packed(
     q: Tensor,
@@ -394,7 +477,7 @@ def _in_projection_packed(
     v: Tensor,
     w: Tensor,
     b: Optional[Tensor] = None,
-) -> List[Tensor]:
+) -> Tuple[Tensor, ...]:
     r"""
     Performs the in-projection step of the attention operation, using packed weights.
     Output is a triple containing projection tensors for query, key and value.
@@ -488,12 +571,24 @@ def _in_projection(
 
     """
     Eq, Ek, Ev = q.size(-1), k.size(-1), v.size(-1)
-    assert w_q.shape == (Eq, Eq), f"expecting query weights shape of {(Eq, Eq)}, but got {w_q.shape}"
-    assert w_k.shape == (Eq, Ek), f"expecting key weights shape of {(Eq, Ek)}, but got {w_k.shape}"
-    assert w_v.shape == (Eq, Ev), f"expecting value weights shape of {(Eq, Ev)}, but got {w_v.shape}"
-    assert b_q is None or b_q.shape == (Eq,), f"expecting query bias shape of {(Eq,)}, but got {b_q.shape}"
-    assert b_k is None or b_k.shape == (Eq,), f"expecting key bias shape of {(Eq,)}, but got {b_k.shape}"
-    assert b_v is None or b_v.shape == (Eq,), f"expecting value bias shape of {(Eq,)}, but got {b_v.shape}"
+    assert w_q.shape == (Eq, Eq), (
+        f"expecting query weights shape of {(Eq, Eq)}, but got {w_q.shape}"
+    )
+    assert w_k.shape == (Eq, Ek), (
+        f"expecting key weights shape of {(Eq, Ek)}, but got {w_k.shape}"
+    )
+    assert w_v.shape == (Eq, Ev), (
+        f"expecting value weights shape of {(Eq, Ev)}, but got {w_v.shape}"
+    )
+    assert b_q is None or b_q.shape == (Eq,), (
+        f"expecting query bias shape of {(Eq,)}, but got {b_q.shape}"
+    )
+    assert b_k is None or b_k.shape == (Eq,), (
+        f"expecting key bias shape of {(Eq,)}, but got {b_k.shape}"
+    )
+    assert b_v is None or b_v.shape == (Eq,), (
+        f"expecting value bias shape of {(Eq,)}, but got {b_v.shape}"
+    )
     return linear(q, w_q, b_q), linear(k, w_k, b_k), linear(v, w_v, b_v)
 
 
@@ -502,7 +597,10 @@ def _scaled_dot_product_attention(
     k: Tensor,
     v: Tensor,
     attn_mask: Optional[Tensor] = None,
-    dropout_p: float = 0.0, temporal_shift = False, num_heads = None, T = 8,
+    dropout_p: float = 0.0,
+    temporal_shift=False,
+    num_heads=None,
+    T=8,
 ) -> Tuple[Tensor, Tensor]:
     r"""
     Computes scaled dot product attention on query, key and value tensors, using
@@ -532,18 +630,18 @@ def _scaled_dot_product_attention(
     B, Nt, E = q.shape
     q = q / math.sqrt(E)
     # q (B*framenum*num_heads, Nt, E)
-    
+
     # hard coding: framenum->8; num_heads->12; Nt->sequence_length, E->embedding_size(which already //num_heads)
-    if temporal_shift == 'channel_shift':
+    if temporal_shift == "channel_shift":
         # hard coding
         n_segment = T
         n_div = 4
-        if num_heads == None:
+        if num_heads is None:
             print("should know num_heads")
             exit()
 
-        num_heads = num_heads
-        
+        num_heads = cast(int, num_heads)
+
         B = int(B)
         Nt = int(Nt)
         E = int(E)
@@ -553,36 +651,52 @@ def _scaled_dot_product_attention(
         fold = int(E * num_heads // n_div)
 
         k = k.reshape(n_batch, n_segment, num_heads, Nt, E)
-        k = k.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
+        k = (
+            k.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
         v = v.reshape(n_batch, n_segment, num_heads, Nt, E)
-        v = v.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
-        
+        v = (
+            v.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
+
         out_k = torch.zeros_like(k)
         out_k[:, :-1, :fold] = k[:, 1:, :fold]  # shift left
         out_k[:, 1:, fold : 2 * fold] = k[:, :-1, fold : 2 * fold]  # shift right
         out_k[:, :, 2 * fold :] = k[:, :, 2 * fold :]  # not shift
-        
+
         out_v = torch.zeros_like(v)
         out_v[:, :-1, :fold] = v[:, 1:, :fold]  # shift left
         out_v[:, 1:, fold : 2 * fold] = v[:, :-1, fold : 2 * fold]  # shift right
         out_v[:, :, 2 * fold :] = v[:, :, 2 * fold :]  # not shift
-        
-        k = out_k.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
-        v = out_v.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
-        
+
+        k = (
+            out_k.view(n_batch, n_segment, num_heads, E, Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+        v = (
+            out_v.view(n_batch, n_segment, num_heads, E, Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+
         k = out_k.view(B, Nt, E)
         v = out_v.view(B, Nt, E)
-    
-    elif temporal_shift == 'expand_temporal_view':
+
+    elif temporal_shift == "expand_temporal_view":
         # hard coding
         n_segment = T
         n_div = 8
-        
-        if num_heads == None:
+
+        if num_heads is None:
             print("num_heads unknown")
             exit()
-        num_heads = num_heads
-        
+        num_heads = cast(int, num_heads)
+
         B = int(B)
         Nt = int(Nt)
         E = int(E)
@@ -591,44 +705,64 @@ def _scaled_dot_product_attention(
         n_batch = int(B / n_segment // num_heads)
 
         k = k.reshape(n_batch, n_segment, num_heads, Nt, E)
-        k = k.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
+        k = (
+            k.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
         v = v.reshape(n_batch, n_segment, num_heads, Nt, E)
-        v = v.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
-        """ 
+        v = (
+            v.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
+        """
         out_k = torch.zeros((n_batch, n_segment, num_heads * E, Nt), device=k.device)
         out_k[:, :, :, :Nt] = k[:, :,:]  # not shift
         out_v = torch.zeros((n_batch, n_segment, num_heads * E, Nt), device=k.device)
         out_v[:, :, :, :Nt] = v[:, :,:]  # not shift
-        
+
         k = k.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
         v = v.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
         k = k.view(B, Nt, E)
         v = v.view(B, Nt, E)
         """
-        out_k = torch.zeros((n_batch, n_segment, num_heads * E, Nt * 3), device=k.device)
+        out_k = torch.zeros(
+            (n_batch, n_segment, num_heads * E, Nt * 3), device=k.device
+        )
         out_k[:, :-1, :, :Nt] = k[:, 1:, :]  # shift left
-        out_k[:, 1:, :, Nt:2*Nt] = k[:, :-1,:]  # shift right
-        out_k[:, :, :, 2*Nt:3*Nt] = k[:, :,:]  # not shift
-        
-        out_v = torch.zeros((n_batch, n_segment, num_heads * E, Nt * 3), device=k.device)
+        out_k[:, 1:, :, Nt : 2 * Nt] = k[:, :-1, :]  # shift right
+        out_k[:, :, :, 2 * Nt : 3 * Nt] = k[:, :, :]  # not shift
+
+        out_v = torch.zeros(
+            (n_batch, n_segment, num_heads * E, Nt * 3), device=k.device
+        )
         out_v[:, :-1, :, :Nt] = v[:, 1:, :]  # shift left
-        out_v[:, 1:, :, Nt:2*Nt] = v[:, :-1,:]  # shift right
-        out_v[:, :, :, 2*Nt:3*Nt] = v[:, :,:]  # not shift
-        
-        k = out_k.view(n_batch, n_segment, num_heads, E, 3*Nt).permute(0, 1, 2, 4, 3).contiguous()
-        v = out_v.view(n_batch, n_segment, num_heads, E, 3*Nt).permute(0, 1, 2, 4, 3).contiguous()
-        
-        k = k.view(B, 3*Nt, E)
-        v = v.view(B, 3*Nt, E)
-    
-    elif temporal_shift == 'expand_temporal_view_step2':
+        out_v[:, 1:, :, Nt : 2 * Nt] = v[:, :-1, :]  # shift right
+        out_v[:, :, :, 2 * Nt : 3 * Nt] = v[:, :, :]  # not shift
+
+        k = (
+            out_k.view(n_batch, n_segment, num_heads, E, 3 * Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+        v = (
+            out_v.view(n_batch, n_segment, num_heads, E, 3 * Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+
+        k = k.view(B, 3 * Nt, E)
+        v = v.view(B, 3 * Nt, E)
+
+    elif temporal_shift == "expand_temporal_view_step2":
         # hard coding
         n_segment = T
         n_div = 8
-        if num_heads == None:
+        if num_heads is None:
             print("num_heads unknown")
-        num_heads = num_heads
-        
+        num_heads = cast(int, num_heads)
+
         B = int(B)
         Nt = int(Nt)
         E = int(E)
@@ -637,49 +771,69 @@ def _scaled_dot_product_attention(
         n_batch = int(B / n_segment // num_heads)
 
         k = k.reshape(n_batch, n_segment, num_heads, Nt, E)
-        k = k.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
+        k = (
+            k.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
         v = v.reshape(n_batch, n_segment, num_heads, Nt, E)
-        v = v.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
-        """ 
+        v = (
+            v.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
+        """
         out_k = torch.zeros((n_batch, n_segment, num_heads * E, Nt), device=k.device)
         out_k[:, :, :, :Nt] = k[:, :,:]  # not shift
         out_v = torch.zeros((n_batch, n_segment, num_heads * E, Nt), device=k.device)
         out_v[:, :, :, :Nt] = v[:, :,:]  # not shift
-        
+
         k = k.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
         v = v.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
         k = k.view(B, Nt, E)
         v = v.view(B, Nt, E)
         """
-        out_k = torch.zeros((n_batch, n_segment, num_heads * E, Nt * 5), device=k.device)
-        
+        out_k = torch.zeros(
+            (n_batch, n_segment, num_heads * E, Nt * 5), device=k.device
+        )
+
         out_k[:, :-1, :, :Nt] = k[:, 1:, :]  # shift left
-        out_k[:, :-2, :,Nt: 2*Nt] = k[:, 2:, :] # shift left 2
-        out_k[:, 1:, :, 2*Nt:3*Nt] = k[:, :-1,:]  # shift right
-        out_k[:, 2:, :, 3*Nt:4*Nt] = k[:, :-2,:] # shift right 2
-        out_k[:, :, :, 4*Nt:5*Nt] = k[:, :,:]  # not shift
-        
-        out_v = torch.zeros((n_batch, n_segment, num_heads * E, Nt * 5), device=k.device)
+        out_k[:, :-2, :, Nt : 2 * Nt] = k[:, 2:, :]  # shift left 2
+        out_k[:, 1:, :, 2 * Nt : 3 * Nt] = k[:, :-1, :]  # shift right
+        out_k[:, 2:, :, 3 * Nt : 4 * Nt] = k[:, :-2, :]  # shift right 2
+        out_k[:, :, :, 4 * Nt : 5 * Nt] = k[:, :, :]  # not shift
+
+        out_v = torch.zeros(
+            (n_batch, n_segment, num_heads * E, Nt * 5), device=k.device
+        )
         out_v[:, :-1, :, :Nt] = v[:, 1:, :]  # shift left
-        out_v[:, :-2, :, Nt:2*Nt] = v[:, 2:, :]  # shift left 2
-        out_v[:, 1:, :, 2*Nt:3*Nt] = v[:, :-1,:]  # shift right
-        out_v[:, 2:, :, 3*Nt:4*Nt] = v[:, :-2,:]  # shift right 2
-        out_v[:, :, :, 4*Nt:5*Nt] = v[:, :,:]  # not shift
-        
-        k = out_k.view(n_batch, n_segment, num_heads, E, 5*Nt).permute(0, 1, 2, 4, 3).contiguous()
-        v = out_v.view(n_batch, n_segment, num_heads, E, 5*Nt).permute(0, 1, 2, 4, 3).contiguous()
-        
-        k = k.view(B, 5*Nt, E)
-        v = v.view(B, 5*Nt, E)
-     
-    elif temporal_shift == 'expand_temporal_view_step3':
+        out_v[:, :-2, :, Nt : 2 * Nt] = v[:, 2:, :]  # shift left 2
+        out_v[:, 1:, :, 2 * Nt : 3 * Nt] = v[:, :-1, :]  # shift right
+        out_v[:, 2:, :, 3 * Nt : 4 * Nt] = v[:, :-2, :]  # shift right 2
+        out_v[:, :, :, 4 * Nt : 5 * Nt] = v[:, :, :]  # not shift
+
+        k = (
+            out_k.view(n_batch, n_segment, num_heads, E, 5 * Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+        v = (
+            out_v.view(n_batch, n_segment, num_heads, E, 5 * Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+
+        k = k.view(B, 5 * Nt, E)
+        v = v.view(B, 5 * Nt, E)
+
+    elif temporal_shift == "expand_temporal_view_step3":
         # hard coding
         n_segment = T
         n_div = 8
-        if num_heads == None:
+        if num_heads is None:
             print("num_heads unknown")
-        num_heads = num_heads
-        
+        num_heads = cast(int, num_heads)
+
         B = int(B)
         Nt = int(Nt)
         E = int(E)
@@ -688,44 +842,64 @@ def _scaled_dot_product_attention(
         n_batch = int(B / n_segment // num_heads)
 
         k = k.reshape(n_batch, n_segment, num_heads, Nt, E)
-        k = k.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
+        k = (
+            k.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
         v = v.reshape(n_batch, n_segment, num_heads, Nt, E)
-        v = v.permute(0, 1, 2, 4, 3).contiguous().view(n_batch, n_segment, num_heads * E, Nt)
-        """ 
+        v = (
+            v.permute(0, 1, 2, 4, 3)
+            .contiguous()
+            .view(n_batch, n_segment, num_heads * E, Nt)
+        )
+        """
         out_k = torch.zeros((n_batch, n_segment, num_heads * E, Nt), device=k.device)
         out_k[:, :, :, :Nt] = k[:, :,:]  # not shift
         out_v = torch.zeros((n_batch, n_segment, num_heads * E, Nt), device=k.device)
         out_v[:, :, :, :Nt] = v[:, :,:]  # not shift
-        
+
         k = k.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
         v = v.view(n_batch, n_segment, num_heads, E, Nt).permute(0, 1, 2, 4, 3).contiguous()
         k = k.view(B, Nt, E)
         v = v.view(B, Nt, E)
         """
-        out_k = torch.zeros((n_batch, n_segment, num_heads * E, Nt * 7), device=k.device)
-        
+        out_k = torch.zeros(
+            (n_batch, n_segment, num_heads * E, Nt * 7), device=k.device
+        )
+
         out_k[:, :-1, :, :Nt] = k[:, 1:, :]  # shift left
-        out_k[:, :-2, :,Nt: 2*Nt] = k[:, 2:, :] # shift left 2
-        out_k[:, :-3, :,2*Nt: 3*Nt] = k[:, 3:, :] # shift left 3
-        out_k[:, 1:, :, 3*Nt:4*Nt] = k[:, :-1,:]  # shift right
-        out_k[:, 2:, :, 4*Nt:5*Nt] = k[:, :-2,:] # shift right 2
-        out_k[:, 3:, :, 5*Nt:6*Nt] = k[:, :-3,:] # shift right 3
-        out_k[:, :, :, 6*Nt:7*Nt] = k[:, :,:]  # not shift
-        
-        out_v = torch.zeros((n_batch, n_segment, num_heads * E, Nt * 7), device=k.device)
+        out_k[:, :-2, :, Nt : 2 * Nt] = k[:, 2:, :]  # shift left 2
+        out_k[:, :-3, :, 2 * Nt : 3 * Nt] = k[:, 3:, :]  # shift left 3
+        out_k[:, 1:, :, 3 * Nt : 4 * Nt] = k[:, :-1, :]  # shift right
+        out_k[:, 2:, :, 4 * Nt : 5 * Nt] = k[:, :-2, :]  # shift right 2
+        out_k[:, 3:, :, 5 * Nt : 6 * Nt] = k[:, :-3, :]  # shift right 3
+        out_k[:, :, :, 6 * Nt : 7 * Nt] = k[:, :, :]  # not shift
+
+        out_v = torch.zeros(
+            (n_batch, n_segment, num_heads * E, Nt * 7), device=k.device
+        )
         out_v[:, :-1, :, :Nt] = v[:, 1:, :]  # shift left
-        out_v[:, :-2, :, Nt:2*Nt] = v[:, 2:, :]  # shift left 2
-        out_v[:, :-3, :, 2*Nt:3*Nt] = v[:, 3:, :]  # shift left 3
-        out_v[:, 1:, :, 3*Nt:4*Nt] = v[:, :-1,:]  # shift right
-        out_v[:, 2:, :, 4*Nt:5*Nt] = v[:, :-2,:]  # shift right 2
-        out_v[:, 3:, :, 5*Nt:6*Nt] = v[:, :-3,:]  # shift right 3
-        out_v[:, :, :, 6*Nt:7*Nt] = v[:, :,:]  # not shift
-        
-        k = out_k.view(n_batch, n_segment, num_heads, E, 7*Nt).permute(0, 1, 2, 4, 3).contiguous()
-        v = out_v.view(n_batch, n_segment, num_heads, E, 7*Nt).permute(0, 1, 2, 4, 3).contiguous()
-        
-        k = k.view(B, 7*Nt, E)
-        v = v.view(B, 7*Nt, E)
+        out_v[:, :-2, :, Nt : 2 * Nt] = v[:, 2:, :]  # shift left 2
+        out_v[:, :-3, :, 2 * Nt : 3 * Nt] = v[:, 3:, :]  # shift left 3
+        out_v[:, 1:, :, 3 * Nt : 4 * Nt] = v[:, :-1, :]  # shift right
+        out_v[:, 2:, :, 4 * Nt : 5 * Nt] = v[:, :-2, :]  # shift right 2
+        out_v[:, 3:, :, 5 * Nt : 6 * Nt] = v[:, :-3, :]  # shift right 3
+        out_v[:, :, :, 6 * Nt : 7 * Nt] = v[:, :, :]  # not shift
+
+        k = (
+            out_k.view(n_batch, n_segment, num_heads, E, 7 * Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+        v = (
+            out_v.view(n_batch, n_segment, num_heads, E, 7 * Nt)
+            .permute(0, 1, 2, 4, 3)
+            .contiguous()
+        )
+
+        k = k.view(B, 7 * Nt, E)
+        v = v.view(B, 7 * Nt, E)
 
     # (B, Nt, E) x (B, E, Ns) -> (B, Nt, Ns)
     attn = torch.bmm(q, k.transpose(-2, -1))
@@ -739,8 +913,14 @@ def _scaled_dot_product_attention(
     return output, attn
 
 
-def _mha_shape_check(query: Tensor, key: Tensor, value: Tensor,
-                     key_padding_mask: Optional[Tensor], attn_mask: Optional[Tensor], num_heads: int):
+def _mha_shape_check(
+    query: Tensor,
+    key: Tensor,
+    value: Tensor,
+    key_padding_mask: Optional[Tensor],
+    attn_mask: Optional[Tensor],
+    num_heads: int,
+):
     # Verifies the expected shape for `query, `key`, `value`, `key_padding_mask` and `attn_mask`
     # and returns if the input is batched or not.
     # Raises an error if `query` is not 2-D (unbatched) or 3-D (batched) tensor.
@@ -749,42 +929,51 @@ def _mha_shape_check(query: Tensor, key: Tensor, value: Tensor,
     if query.dim() == 3:
         # Batched Inputs
         is_batched = True
-        assert key.dim() == 3 and value.dim() == 3, \
-            ("For batched (3-D) `query`, expected `key` and `value` to be 3-D"
-             f" but found {key.dim()}-D and {value.dim()}-D tensors respectively")
+        assert key.dim() == 3 and value.dim() == 3, (
+            "For batched (3-D) `query`, expected `key` and `value` to be 3-D"
+            f" but found {key.dim()}-D and {value.dim()}-D tensors respectively"
+        )
         if key_padding_mask is not None:
-            assert key_padding_mask.dim() == 2, \
-                ("For batched (3-D) `query`, expected `key_padding_mask` to be `None` or 2-D"
-                 f" but found {key_padding_mask.dim()}-D tensor instead")
+            assert key_padding_mask.dim() == 2, (
+                "For batched (3-D) `query`, expected `key_padding_mask` to be `None` or 2-D"
+                f" but found {key_padding_mask.dim()}-D tensor instead"
+            )
         if attn_mask is not None:
-            assert attn_mask.dim() in (2, 3), \
-                ("For batched (3-D) `query`, expected `attn_mask` to be `None`, 2-D or 3-D"
-                 f" but found {attn_mask.dim()}-D tensor instead")
+            assert attn_mask.dim() in (2, 3), (
+                "For batched (3-D) `query`, expected `attn_mask` to be `None`, 2-D or 3-D"
+                f" but found {attn_mask.dim()}-D tensor instead"
+            )
     elif query.dim() == 2:
         # Unbatched Inputs
         is_batched = False
-        assert key.dim() == 2 and value.dim() == 2, \
-            ("For unbatched (2-D) `query`, expected `key` and `value` to be 2-D"
-             f" but found {key.dim()}-D and {value.dim()}-D tensors respectively")
+        assert key.dim() == 2 and value.dim() == 2, (
+            "For unbatched (2-D) `query`, expected `key` and `value` to be 2-D"
+            f" but found {key.dim()}-D and {value.dim()}-D tensors respectively"
+        )
 
         if key_padding_mask is not None:
-            assert key_padding_mask.dim() == 1, \
-                ("For unbatched (2-D) `query`, expected `key_padding_mask` to be `None` or 1-D"
-                 f" but found {key_padding_mask.dim()}-D tensor instead")
+            assert key_padding_mask.dim() == 1, (
+                "For unbatched (2-D) `query`, expected `key_padding_mask` to be `None` or 1-D"
+                f" but found {key_padding_mask.dim()}-D tensor instead"
+            )
 
         if attn_mask is not None:
-            assert attn_mask.dim() in (2, 3), \
-                ("For unbatched (2-D) `query`, expected `attn_mask` to be `None`, 2-D or 3-D"
-                 f" but found {attn_mask.dim()}-D tensor instead")
+            assert attn_mask.dim() in (2, 3), (
+                "For unbatched (2-D) `query`, expected `attn_mask` to be `None`, 2-D or 3-D"
+                f" but found {attn_mask.dim()}-D tensor instead"
+            )
             if attn_mask.dim() == 3:
                 expected_shape = (num_heads, query.shape[0], key.shape[0])
-                assert attn_mask.shape == expected_shape, \
-                    (f"Expected `attn_mask` shape to be {expected_shape} but got {attn_mask.shape}")
+                assert attn_mask.shape == expected_shape, (
+                    f"Expected `attn_mask` shape to be {expected_shape} but got {attn_mask.shape}"
+                )
     else:
         raise AssertionError(
-            f"query should be unbatched 2D or batched 3D tensor but received {query.dim()}-D query tensor")
+            f"query should be unbatched 2D or batched 3D tensor but received {query.dim()}-D query tensor"
+        )
 
     return is_batched
+
 
 def multi_head_attention_forward(
     query: Tensor,
@@ -812,7 +1001,7 @@ def multi_head_attention_forward(
     static_v: Optional[Tensor] = None,
     average_attn_weights: bool = True,
     temporal_shift: bool = False,
-    T: int = 8
+    T: int = 8,
 ) -> Tuple[Tensor, Optional[Tensor]]:
     r"""
     Args:
@@ -876,7 +1065,17 @@ def multi_head_attention_forward(
           :math:`S` is the source sequence length. If ``average_weights=False``, returns attention weights per
           head of shape :math:`(num_heads, L, S)` when input is unbatched or :math:`(N, num_heads, L, S)`.
     """
-    tens_ops = (query, key, value, in_proj_weight, in_proj_bias, bias_k, bias_v, out_proj_weight, out_proj_bias)
+    tens_ops = (
+        query,
+        key,
+        value,
+        in_proj_weight,
+        in_proj_bias,
+        bias_k,
+        bias_v,
+        out_proj_weight,
+        out_proj_bias,
+    )
     if has_torch_function(tens_ops):
         return handle_torch_function(
             multi_head_attention_forward,
@@ -908,7 +1107,9 @@ def multi_head_attention_forward(
             T=T,
         )
 
-    is_batched = _mha_shape_check(query, key, value, key_padding_mask, attn_mask, num_heads)
+    is_batched = _mha_shape_check(
+        query, key, value, key_padding_mask, attn_mask, num_heads
+    )
 
     # For unbatched input, we unsqueeze at the expected batch-dim to pretend that the input
     # is batched, run the computation and before returning squeeze the
@@ -924,20 +1125,27 @@ def multi_head_attention_forward(
     # set up shape vars
     tgt_len, bsz, embed_dim = query.shape
     src_len, _, _ = key.shape
-    assert embed_dim == embed_dim_to_check, \
+    assert embed_dim == embed_dim_to_check, (
         f"was expecting embedding dimension of {embed_dim_to_check}, but got {embed_dim}"
+    )
     if isinstance(embed_dim, torch.Tensor):
         # embed_dim can be a tensor when JIT tracing
-        head_dim = embed_dim.div(num_heads, rounding_mode='trunc')
+        head_dim = embed_dim.div(num_heads, rounding_mode="trunc")
     else:
         head_dim = embed_dim // num_heads
-    assert head_dim * num_heads == embed_dim, f"embed_dim {embed_dim} not divisible by num_heads {num_heads}"
+    head_dim = cast(int, head_dim)
+    assert head_dim * num_heads == embed_dim, (
+        f"embed_dim {embed_dim} not divisible by num_heads {num_heads}"
+    )
     if use_separate_proj_weight:
         # allow MHA to have different embedding dimensions when separate projection weights are used
-        assert key.shape[:2] == value.shape[:2], \
+        assert key.shape[:2] == value.shape[:2], (
             f"key's sequence and batch dims {key.shape[:2]} do not match value's {value.shape[:2]}"
+        )
     else:
-        assert key.shape == value.shape, f"key shape {key.shape} does not match value shape {value.shape}"
+        assert key.shape == value.shape, (
+            f"key shape {key.shape} does not match value shape {value.shape}"
+        )
 
     #
     # compute in-projection
@@ -945,39 +1153,66 @@ def multi_head_attention_forward(
     if not use_separate_proj_weight:
         q, k, v = _in_projection_packed(query, key, value, in_proj_weight, in_proj_bias)
     else:
-        assert q_proj_weight is not None, "use_separate_proj_weight is True but q_proj_weight is None"
-        assert k_proj_weight is not None, "use_separate_proj_weight is True but k_proj_weight is None"
-        assert v_proj_weight is not None, "use_separate_proj_weight is True but v_proj_weight is None"
+        assert q_proj_weight is not None, (
+            "use_separate_proj_weight is True but q_proj_weight is None"
+        )
+        assert k_proj_weight is not None, (
+            "use_separate_proj_weight is True but k_proj_weight is None"
+        )
+        assert v_proj_weight is not None, (
+            "use_separate_proj_weight is True but v_proj_weight is None"
+        )
         if in_proj_bias is None:
             b_q = b_k = b_v = None
         else:
             b_q, b_k, b_v = in_proj_bias.chunk(3)
-        q, k, v = _in_projection(query, key, value, q_proj_weight, k_proj_weight, v_proj_weight, b_q, b_k, b_v)
+        q, k, v = _in_projection(
+            query,
+            key,
+            value,
+            q_proj_weight,
+            k_proj_weight,
+            v_proj_weight,
+            b_q,
+            b_k,
+            b_v,
+        )
 
     # prep attention mask
     if attn_mask is not None:
         if attn_mask.dtype == torch.uint8:
-            warnings.warn("Byte tensor for attn_mask in nn.MultiheadAttention is deprecated. Use bool tensor instead.")
+            warnings.warn(
+                "Byte tensor for attn_mask in nn.MultiheadAttention is deprecated. Use bool tensor instead."
+            )
             attn_mask = attn_mask.to(torch.bool)
         else:
-            assert attn_mask.is_floating_point() or attn_mask.dtype == torch.bool, \
+            assert attn_mask.is_floating_point() or attn_mask.dtype == torch.bool, (
                 f"Only float, byte, and bool types are supported for attn_mask, not {attn_mask.dtype}"
+            )
         # ensure attn_mask's dim is 3
         if attn_mask.dim() == 2:
             correct_2d_size = (tgt_len, src_len)
             if attn_mask.shape != correct_2d_size:
-                raise RuntimeError(f"The shape of the 2D attn_mask is {attn_mask.shape}, but should be {correct_2d_size}.")
+                raise RuntimeError(
+                    f"The shape of the 2D attn_mask is {attn_mask.shape}, but should be {correct_2d_size}."
+                )
             attn_mask = attn_mask.unsqueeze(0)
         elif attn_mask.dim() == 3:
             correct_3d_size = (bsz * num_heads, tgt_len, src_len)
             if attn_mask.shape != correct_3d_size:
-                raise RuntimeError(f"The shape of the 3D attn_mask is {attn_mask.shape}, but should be {correct_3d_size}.")
+                raise RuntimeError(
+                    f"The shape of the 3D attn_mask is {attn_mask.shape}, but should be {correct_3d_size}."
+                )
         else:
-            raise RuntimeError(f"attn_mask's dimension {attn_mask.dim()} is not supported")
+            raise RuntimeError(
+                f"attn_mask's dimension {attn_mask.dim()} is not supported"
+            )
 
     # prep key padding mask
     if key_padding_mask is not None and key_padding_mask.dtype == torch.uint8:
-        warnings.warn("Byte tensor for key_padding_mask in nn.MultiheadAttention is deprecated. Use bool tensor instead.")
+        warnings.warn(
+            "Byte tensor for key_padding_mask in nn.MultiheadAttention is deprecated. Use bool tensor instead."
+        )
         key_padding_mask = key_padding_mask.to(torch.bool)
 
     # add bias along batch dimension (currently second)
@@ -1002,26 +1237,34 @@ def multi_head_attention_forward(
         k = k.contiguous().view(k.shape[0], bsz * num_heads, head_dim).transpose(0, 1)
     else:
         # TODO finish disentangling control flow so we don't do in-projections when statics are passed
-        assert static_k.size(0) == bsz * num_heads, \
+        assert static_k.size(0) == bsz * num_heads, (
             f"expecting static_k.size(0) of {bsz * num_heads}, but got {static_k.size(0)}"
-        assert static_k.size(2) == head_dim, \
+        )
+        assert static_k.size(2) == head_dim, (
             f"expecting static_k.size(2) of {head_dim}, but got {static_k.size(2)}"
+        )
         k = static_k
     if static_v is None:
         v = v.contiguous().view(v.shape[0], bsz * num_heads, head_dim).transpose(0, 1)
     else:
         # TODO finish disentangling control flow so we don't do in-projections when statics are passed
-        assert static_v.size(0) == bsz * num_heads, \
+        assert static_v.size(0) == bsz * num_heads, (
             f"expecting static_v.size(0) of {bsz * num_heads}, but got {static_v.size(0)}"
-        assert static_v.size(2) == head_dim, \
+        )
+        assert static_v.size(2) == head_dim, (
             f"expecting static_v.size(2) of {head_dim}, but got {static_v.size(2)}"
+        )
         v = static_v
 
     # add zero attention along batch dimension (now first)
     if add_zero_attn:
         zero_attn_shape = (bsz * num_heads, 1, head_dim)
-        k = torch.cat([k, torch.zeros(zero_attn_shape, dtype=k.dtype, device=k.device)], dim=1)
-        v = torch.cat([v, torch.zeros(zero_attn_shape, dtype=v.dtype, device=v.device)], dim=1)
+        k = torch.cat(
+            [k, torch.zeros(zero_attn_shape, dtype=k.dtype, device=k.device)], dim=1
+        )
+        v = torch.cat(
+            [v, torch.zeros(zero_attn_shape, dtype=v.dtype, device=v.device)], dim=1
+        )
         if attn_mask is not None:
             attn_mask = pad(attn_mask, (0, 1))
         if key_padding_mask is not None:
@@ -1032,10 +1275,14 @@ def multi_head_attention_forward(
 
     # merge key padding and attention masks
     if key_padding_mask is not None:
-        assert key_padding_mask.shape == (bsz, src_len), \
+        assert key_padding_mask.shape == (bsz, src_len), (
             f"expecting key_padding_mask shape of {(bsz, src_len)}, but got {key_padding_mask.shape}"
-        key_padding_mask = key_padding_mask.view(bsz, 1, 1, src_len).   \
-            expand(-1, num_heads, -1, -1).reshape(bsz * num_heads, 1, src_len)
+        )
+        key_padding_mask = (
+            key_padding_mask.view(bsz, 1, 1, src_len)
+            .expand(-1, num_heads, -1, -1)
+            .reshape(bsz * num_heads, 1, src_len)
+        )
         if attn_mask is None:
             attn_mask = key_padding_mask
         elif attn_mask.dtype == torch.bool:
@@ -1056,10 +1303,18 @@ def multi_head_attention_forward(
     #
     # (deep breath) calculate attention and out projection
     #
-    attn_output, attn_output_weights = _scaled_dot_product_attention(q, k, v, attn_mask, dropout_p, temporal_shift=temporal_shift, num_heads = num_heads, T=T)
+    attn_output, attn_output_weights = _scaled_dot_product_attention(
+        q,
+        k,
+        v,
+        attn_mask,
+        dropout_p,
+        temporal_shift=temporal_shift,
+        num_heads=num_heads,
+        T=T,
+    )
     attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
     attn_output = linear(attn_output, out_proj_weight, out_proj_bias)
-
 
     if need_weights:
         # optionally average attention weights over heads

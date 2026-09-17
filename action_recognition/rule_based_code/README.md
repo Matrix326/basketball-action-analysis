@@ -18,8 +18,8 @@ block + 命中判定 + 逐帧持球人）。
 
 ## 1. 模块边界
 
-```
-perception/（上游，感知层）                ljy/rule_based_code/（本模块）
+```text
+perception/（上游，感知层）                action_recognition/rule_based_code/（本模块）
 ┌──────────────────────────────┐          ┌────────────────────────────────┐
 │ RF-DETR 检测（hybrid：2XL 人   │          │ 1. 适配 tools/adapt_perception  │
 │  + 微调球检测）                │          │    - 构建 ball_measurements      │
@@ -85,10 +85,11 @@ python tools/run_action_pipeline.py \
 3. **merged**：间隔 ≤ gap_bridge_frames(25) 的 run 尝试合并，**整段 fit rms ≤ 1.25 × residual_threshold(0.125) 才合并**
 4. **段生成**（**注意缩进！以下全部在 `_split_until_fits` 循环内**）：
    ```python
-   for piece in _split_at_bounces(run):        # 弹跳帧处切开
+   for piece in _split_at_bounces(run):  # 弹跳帧处切开
        for piece in _split_until_fits(piece):  # 递归切分直到拟合
            p0, v0, rms = fit_ballistic(piece)
-           if rms > 1.25 * residual_threshold: continue
+           if rms > 1.25 * residual_threshold:
+               continue
            # max-speed 检查：段内最大速度 < 1.0 m/s 丢弃（静态段）
            # free-fall gate：fit_free_g 的 a_z 检查
            segments.append(...)

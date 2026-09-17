@@ -2,9 +2,9 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 from mmengine.config import ConfigDict
-from mmengine.structures import InstanceData, PixelData
 from torch import Tensor
 
+from mmpose._data_types import InstanceData, PixelData
 from mmpose.structures import PoseDataSample
 
 # Type hint of config data
@@ -20,8 +20,7 @@ InstanceList = List[InstanceData]
 PixelDataList = List[PixelData]
 Predictions = Union[InstanceList, Tuple[InstanceList, PixelDataList]]
 # Type hint of model outputs
-ForwardResults = Union[Dict[str, Tensor], List[PoseDataSample], Tuple[Tensor],
-                       Tensor]
+ForwardResults = Union[Dict[str, Tensor], List[PoseDataSample], Tuple[Tensor], Tensor]
 # Type hint of features
 #   - Tuple[Tensor]: multi-level features extracted by the network
 #   - List[Tuple[Tensor]]: multiple feature pyramids for TTA

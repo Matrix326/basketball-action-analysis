@@ -10,6 +10,8 @@ import functools
 import logging
 import os
 import sys
+from typing import Any, TextIO, cast
+
 import simplejson
 
 import slowfast.utils.distributed as du
@@ -24,14 +26,14 @@ def _suppress_print():
     def print_pass(*objects, sep=" ", end="\n", file=sys.stdout, flush=False):
         pass
 
-    builtins.print = print_pass
+    builtins.print = cast(Any, print_pass)
 
 
 @functools.lru_cache(maxsize=None)
 def _cached_log_stream(filename):
     # Use 1K buffer if writing to cloud storage.
-    io = pathmgr.open(
-        filename, "a", buffering=1024 if "://" in filename else -1
+    io = cast(
+        TextIO, pathmgr.open(filename, "a", buffering=1024 if "://" in filename else -1)
     )
     atexit.register(io.close)
     return io
@@ -100,11 +102,12 @@ def log_json_stats(stats, output_dir=None):
     if du.is_master_proc(du.get_world_size()) and output_dir:
         filename = os.path.join(output_dir, "json_stats.log")
         try:
-            with pathmgr.open(
-                filename, "a", buffering=1024 if "://" in filename else -1
+            with cast(
+                TextIO,
+                pathmgr.open(
+                    filename, "a", buffering=1024 if "://" in filename else -1
+                ),
             ) as f:
                 f.write("json_stats: {:s}\n".format(json_stats))
         except Exception:
-            logger.info(
-                "Failed to write to json_stats.log: {}".format(json_stats)
-            )
+            logger.info("Failed to write to json_stats.log: {}".format(json_stats))

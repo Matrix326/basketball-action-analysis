@@ -23,47 +23,54 @@
 
 import argparse
 import csv
-import json
+import json as json
 import os
-import sys
-import time
 from pathlib import Path
+import sys as sys
+import time
 
 import cv2
 import numpy as np
 
-
 # COCO 17 个关键点的骨架连接关系 (0-indexed)
 COCO_SKELETON = [
-    (0, 1), (0, 2), (1, 3), (2, 4),          # 头: nose -> eyes, eyes -> ears
-    (5, 6),                                    # 肩膀连接
-    (5, 7), (7, 9),                            # 左臂: shoulder -> elbow -> wrist
-    (6, 8), (8, 10),                           # 右臂: shoulder -> elbow -> wrist
-    (5, 11), (6, 12),                          # 躯干: shoulder -> hip
-    (11, 12),                                   # 髋部连接
-    (11, 13), (13, 15),                        # 左腿: hip -> knee -> ankle
-    (12, 14), (14, 16),                        # 右腿: hip -> knee -> ankle
+    (0, 1),
+    (0, 2),
+    (1, 3),
+    (2, 4),  # 头: nose -> eyes, eyes -> ears
+    (5, 6),  # 肩膀连接
+    (5, 7),
+    (7, 9),  # 左臂: shoulder -> elbow -> wrist
+    (6, 8),
+    (8, 10),  # 右臂: shoulder -> elbow -> wrist
+    (5, 11),
+    (6, 12),  # 躯干: shoulder -> hip
+    (11, 12),  # 髋部连接
+    (11, 13),
+    (13, 15),  # 左腿: hip -> knee -> ankle
+    (12, 14),
+    (14, 16),  # 右腿: hip -> knee -> ankle
 ]
 
 # 关节关键点颜色 (BGR) - 统一黄色
 COCO_KPT_COLORS = [
-    (0, 255, 255),   # 0 nose
-    (0, 255, 255),   # 1 left_eye
-    (0, 255, 255),   # 2 right_eye
-    (0, 255, 255),   # 3 left_ear
-    (0, 255, 255),   # 4 right_ear
-    (0, 255, 255),   # 5 left_shoulder
-    (0, 255, 255),   # 6 right_shoulder
-    (0, 255, 255),   # 7 left_elbow
-    (0, 255, 255),   # 8 right_elbow
-    (0, 255, 255),   # 9 left_wrist
-    (0, 255, 255),   # 10 right_wrist
-    (0, 255, 255),   # 11 left_hip
-    (0, 255, 255),   # 12 right_hip
-    (0, 255, 255),   # 13 left_knee
-    (0, 255, 255),   # 14 right_knee
-    (0, 255, 255),   # 15 left_ankle
-    (0, 255, 255),   # 16 right_ankle
+    (0, 255, 255),  # 0 nose
+    (0, 255, 255),  # 1 left_eye
+    (0, 255, 255),  # 2 right_eye
+    (0, 255, 255),  # 3 left_ear
+    (0, 255, 255),  # 4 right_ear
+    (0, 255, 255),  # 5 left_shoulder
+    (0, 255, 255),  # 6 right_shoulder
+    (0, 255, 255),  # 7 left_elbow
+    (0, 255, 255),  # 8 right_elbow
+    (0, 255, 255),  # 9 left_wrist
+    (0, 255, 255),  # 10 right_wrist
+    (0, 255, 255),  # 11 left_hip
+    (0, 255, 255),  # 12 right_hip
+    (0, 255, 255),  # 13 left_knee
+    (0, 255, 255),  # 14 right_knee
+    (0, 255, 255),  # 15 left_ankle
+    (0, 255, 255),  # 16 right_ankle
 ]
 
 # 骨架连线颜色 (BGR) - 统一纯绿色
@@ -171,8 +178,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def draw_skeleton_on_frame(frame, results, line_thick=3, kpt_radius=4,
-                           draw_mode="overlay", max_persons=0):
+def draw_skeleton_on_frame(
+    frame, results, line_thick=3, kpt_radius=4, draw_mode="overlay", max_persons=0
+):
     """在单帧上绘制骨架。
     results: ultralytics YOLO pose 的 results[0] 对象
     """
@@ -197,8 +205,8 @@ def draw_skeleton_on_frame(frame, results, line_thick=3, kpt_radius=4,
         N = min(N, max_persons)
 
     for pi in range(N):
-        kpts = kpts_all[pi]          # (17, 2)
-        confs = conf_all[pi]         # (17,)
+        kpts = kpts_all[pi]  # (17, 2)
+        confs = conf_all[pi]  # (17,)
 
         # 先画骨架线
         for li, (a, b) in enumerate(COCO_SKELETON):
@@ -210,8 +218,14 @@ def draw_skeleton_on_frame(frame, results, line_thick=3, kpt_radius=4,
             xb, yb = int(kpts[b][0]), int(kpts[b][1])
             if xa <= 0 and ya <= 0 or xb <= 0 and yb <= 0:
                 continue
-            color = COCO_SKELETON_COLORS[li] if li < len(COCO_SKELETON_COLORS) else (255, 255, 0)
-            cv2.line(canvas, (xa, ya), (xb, yb), color, line_thick, lineType=cv2.LINE_AA)
+            color = (
+                COCO_SKELETON_COLORS[li]
+                if li < len(COCO_SKELETON_COLORS)
+                else (255, 255, 0)
+            )
+            cv2.line(
+                canvas, (xa, ya), (xb, yb), color, line_thick, lineType=cv2.LINE_AA
+            )
 
         # 再画关键点
         for ki, (x, y) in enumerate(kpts):
@@ -220,7 +234,9 @@ def draw_skeleton_on_frame(frame, results, line_thick=3, kpt_radius=4,
             xi, yi = int(x), int(y)
             if xi <= 0 and yi <= 0:
                 continue
-            color = COCO_KPT_COLORS[ki] if ki < len(COCO_KPT_COLORS) else (255, 255, 255)
+            color = (
+                COCO_KPT_COLORS[ki] if ki < len(COCO_KPT_COLORS) else (255, 255, 255)
+            )
             cv2.circle(canvas, (xi, yi), kpt_radius, color, -1, lineType=cv2.LINE_AA)
 
     return canvas
@@ -236,15 +252,15 @@ def process_one_video(src_path, dst_path, pose_model, args):
     fps = cap.get(cv2.CAP_PROP_FPS) or 25
     W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    _total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
     tmp_path = dst_path + ".tmp.mp4"
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter.fourcc(*"mp4v")
     writer = cv2.VideoWriter(tmp_path, fourcc, fps, (W, H))
     if not writer.isOpened():
         # 尝试另一种编码
-        writer = cv2.VideoWriter(tmp_path, cv2.VideoWriter_fourcc(*"avc1"), fps, (W, H))
+        writer = cv2.VideoWriter(tmp_path, cv2.VideoWriter.fourcc(*"avc1"), fps, (W, H))
         if not writer.isOpened():
             print(f"  [SKIP] 无法创建 writer: {dst_path}")
             cap.release()
@@ -259,7 +275,8 @@ def process_one_video(src_path, dst_path, pose_model, args):
             # YOLO pose 推理
             results = pose_model(frame, verbose=False, conf=args.conf, classes=[0])
             canvas = draw_skeleton_on_frame(
-                frame, results,
+                frame,
+                results,
                 line_thick=args.line_thick,
                 kpt_radius=args.kpt_radius,
                 draw_mode=args.draw_mode,
@@ -359,6 +376,7 @@ def main():
     # 加载 pose 模型
     print("\n[1/3] 加载姿态估计模型...")
     from ultralytics import YOLO
+
     pose_model = YOLO(args.pose_model)
     pose_model.to(args.device)
 
@@ -399,8 +417,10 @@ def main():
             if (i + 1) % 50 == 0 or i == 0 or i == len(tasks) - 1:
                 elapsed = time.time() - t0
                 eta = (elapsed / (i + 1) * (len(tasks) - (i + 1))) if (i + 1) > 0 else 0
-                print(f"  [{i + 1}/{len(tasks)}] OK={done} FAIL={fail} "
-                      f"elapsed={elapsed:.0f}s ETA={eta:.0f}s | {os.path.basename(src)}")
+                print(
+                    f"  [{i + 1}/{len(tasks)}] OK={done} FAIL={fail} "
+                    f"elapsed={elapsed:.0f}s ETA={eta:.0f}s | {os.path.basename(src)}"
+                )
             try:
                 ok = process_one_video(src, dst, pose_model, args)
                 if ok:
@@ -422,9 +442,10 @@ def main():
                 # 在子进程中加载模型（每个子进程一次）
                 if not hasattr(_worker, "m"):
                     from ultralytics import YOLO
-                    _worker.m = YOLO(args.pose_model)
-                    _worker.m.to(args.device)
-                return process_one_video(s, d, _worker.m, args), s, d
+
+                    setattr(_worker, "m", YOLO(args.pose_model))
+                    getattr(_worker, "m").to(args.device)
+                return process_one_video(s, d, getattr(_worker, "m"), args), s, d
             except Exception as e:
                 return False, s, str(e)
 
@@ -433,7 +454,9 @@ def main():
                 if (i + 1) % 50 == 0:
                     elapsed = time.time() - t0
                     eta = elapsed / (i + 1) * (len(tasks) - (i + 1))
-                    print(f"  [{i + 1}/{len(tasks)}] elapsed={elapsed:.0f}s ETA={eta:.0f}s")
+                    print(
+                        f"  [{i + 1}/{len(tasks)}] elapsed={elapsed:.0f}s ETA={eta:.0f}s"
+                    )
                 if ok:
                     done += 1
                 else:
@@ -448,19 +471,24 @@ def main():
     build_output_csv(args.data_dir, dst_data_dir, items)
 
     # 复制 index_label_mapping.json 和 class_weights.json
-    for fn in ("index_label_mapping.json", "index_label_mapping_enhance.json", "class_weights.json"):
+    for fn in (
+        "index_label_mapping.json",
+        "index_label_mapping_enhance.json",
+        "class_weights.json",
+    ):
         sp = os.path.join(args.data_dir, fn)
         if os.path.exists(sp):
             import shutil
+
             shutil.copy2(sp, os.path.join(dst_data_dir, fn))
             print(f"[COPY] {fn}")
 
     print("\n" + "=" * 70)
     print("全部完成！训练时使用:")
-    print(f"  python tools/train_spacejam.py --use-skeleton \\")
+    print("  python tools/train_spacejam.py --use-skeleton \\")
     print(f"      --skeleton-suffix {args.suffix}")
     print("  或:")
-    print(f"  bash tools/dist_train.sh 4 --use-skeleton")
+    print("  bash tools/dist_train.sh 4 --use-skeleton")
     print("=" * 70)
 
 

@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import json
-import time
 from collections import defaultdict
+import json
 from pathlib import Path
-from typing import Any, Iterable, Optional
+import time
+from typing import Any, Iterable, Optional, cast
 
 import cv2
 import numpy as np
 from tqdm import tqdm
 
-from config import Config
 from basketball_repro.detection_runtime import (
     AsyncVideoWriter,
     BallDetection,
@@ -22,6 +21,8 @@ from basketball_repro.detection_runtime import (
     make_roi_mask,
     parse_points,
 )
+from config import Config
+
 from .detector import RFDetrSegmenter, _temporal_batch_length
 from .geometry import MultiViewGeometry
 from .observations import (
@@ -37,20 +38,55 @@ from .reid import AppearanceEncoder, CrossViewFuser, FaceEncoder, GlobalPlayerTr
 from .temporal import Ball3DTemporalFilter, Pose3DSmoother, refine_pose_bone_lengths
 
 COCO17_NAMES = (
-    "nose", "left_eye", "right_eye", "left_ear", "right_ear",
-    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
-    "left_wrist", "right_wrist", "left_hip", "right_hip",
-    "left_knee", "right_knee", "left_ankle", "right_ankle",
+    "nose",
+    "left_eye",
+    "right_eye",
+    "left_ear",
+    "right_ear",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle",
 )
 
-def _draw_skeleton(frame: np.ndarray, observation: PoseObservation, color: tuple[int, int, int], connections: list[tuple[int, int]], threshold: float) -> None:
+
+def _draw_skeleton(
+    frame: np.ndarray,
+    observation: PoseObservation,
+    color: tuple[int, int, int],
+    connections: list[tuple[int, int]],
+    threshold: float,
+) -> None:
     xy, scores = observation.keypoints_xy, observation.keypoints_conf
     for start, end in connections:
         if scores[start] >= threshold and scores[end] >= threshold:
-            cv2.line(frame, tuple(np.round(xy[start]).astype(int)), tuple(np.round(xy[end]).astype(int)), color, 3, cv2.LINE_AA)
+            cv2.line(
+                frame,
+                tuple(np.round(xy[start]).astype(int)),
+                tuple(np.round(xy[end]).astype(int)),
+                color,
+                3,
+                cv2.LINE_AA,
+            )
     for index in range(17):
         if scores[index] >= threshold:
-            cv2.circle(frame, tuple(np.round(xy[index]).astype(int)), 4, (255, 255, 255), -1, cv2.LINE_AA)
+            cv2.circle(
+                frame,
+                tuple(np.round(xy[index]).astype(int)),
+                4,
+                (255, 255, 255),
+                -1,
+                cv2.LINE_AA,
+            )
+
 
 class RFDetrPoseMultiViewPipeline:
     def __init__(self, config: Config) -> None:
@@ -60,10 +96,16 @@ class RFDetrPoseMultiViewPipeline:
         self.segmenter = RFDetrSegmenter(config)
         print("[load] RTMPose COCO-17")
         self.pose_estimator = RTMPoseEstimator(config)
-        appearance_mode = "deep + colour" if config.get("reid.use_deep_appearance_embeddings", True) else "colour-only"
+        appearance_mode = (
+            "deep + colour"
+            if config.get("reid.use_deep_appearance_embeddings", True)
+            else "colour-only"
+        )
         print(f"[load] mask-aware appearance ReID ({appearance_mode})")
         self.appearance_encoder = AppearanceEncoder(config)
-        face_mode = "enabled" if config.get("reid.use_face_embeddings", True) else "disabled"
+        face_mode = (
+            "enabled" if config.get("reid.use_face_embeddings", True) else "disabled"
+        )
         print(f"[load] local InsightFace ArcFace ReID ({face_mode})")
         self.face_encoder = FaceEncoder(config)
         self.fuser = CrossViewFuser(
@@ -93,10 +135,18 @@ class RFDetrPoseMultiViewPipeline:
             int(config.get("reid.num_players", 6)),
             int(config.get("rfdetr.max_player_candidates_per_view", 8)),
         )
-        self.refine_contours = bool(config.get("visualization.refine_mask_contours", True))
-        self.contour_smoothing_kernel = int(config.get("visualization.mask_smoothing_kernel", 5))
-        self.contour_smoothing_threshold = float(config.get("visualization.mask_smoothing_threshold", 0.45))
-        self.draw_unassigned_contours = bool(config.get("visualization.draw_unassigned_contours", False))
+        self.refine_contours = bool(
+            config.get("visualization.refine_mask_contours", True)
+        )
+        self.contour_smoothing_kernel = int(
+            config.get("visualization.mask_smoothing_kernel", 5)
+        )
+        self.contour_smoothing_threshold = float(
+            config.get("visualization.mask_smoothing_threshold", 0.45)
+        )
+        self.draw_unassigned_contours = bool(
+            config.get("visualization.draw_unassigned_contours", False)
+        )
         self.ball_exclusion_zones = config.get("ball.exclusion_zones", {})
         self.stage_seconds: defaultdict[str, float] = defaultdict(float)
         self.connections = config.skeleton_connections
@@ -113,7 +163,9 @@ class RFDetrPoseMultiViewPipeline:
         if ground is None:
             return False
         bounds = self.config.get("camera.court_world_bounds", [-2.0, 17.0, -4.0, 18.0])
-        return bool(bounds[0] <= ground[0] <= bounds[1] and bounds[2] <= ground[1] <= bounds[3])
+        return bool(
+            bounds[0] <= ground[0] <= bounds[1] and bounds[2] <= ground[1] <= bounds[3]
+        )
 
     def _extract_candidates(
         self,
@@ -129,9 +181,11 @@ class RFDetrPoseMultiViewPipeline:
             threshold=float(self.config.get("rfdetr.person_threshold", 0.35)),
             ball_threshold=float(self.config.get("rfdetr.ball_threshold", 0.16)),
             roi_polygon=roi,
-            roi_mask=make_roi_mask(frame.shape[:2], roi),
+            roi_mask=make_roi_mask((frame.shape[0], frame.shape[1]), roi),
             roi_mode="bottom-center",
-            min_mask_roi_ratio=float(self.config.get("rfdetr.min_mask_roi_ratio", 0.08)),
+            min_mask_roi_ratio=float(
+                self.config.get("rfdetr.min_mask_roi_ratio", 0.08)
+            ),
             min_mask_pixels=int(self.config.get("rfdetr.min_mask_pixels", 100)),
             ball_min_size=float(self.config.get("rfdetr.ball_min_size", 5.0)),
             ball_max_size=float(self.config.get("rfdetr.ball_max_size", 100.0)),
@@ -145,7 +199,9 @@ class RFDetrPoseMultiViewPipeline:
         items: list[tuple[str, np.ndarray, Any, Optional[np.ndarray]]],
     ) -> list[FrameExtraction]:
         stage_started = time.perf_counter()
-        raw_candidates = [self._extract_candidates(frame, raw, roi) for _, frame, raw, roi in items]
+        raw_candidates = [
+            self._extract_candidates(frame, raw, roi) for _, frame, raw, roi in items
+        ]
         candidates: list[tuple[list[PlayerDetection], list[BallDetection]]] = []
         for (view, _, _, _), (players, balls) in zip(items, raw_candidates):
             # The calibrated mask-foot point is the court admission rule. Do
@@ -154,19 +210,28 @@ class RFDetrPoseMultiViewPipeline:
             on_court = []
             for detection in players:
                 ground = self.geometry.ground_point(view, detection.foot_xy)
-                if ground is not None and np.isfinite(ground).all() and self._inside_court(ground):
+                if (
+                    ground is not None
+                    and np.isfinite(ground).all()
+                    and self._inside_court(ground)
+                ):
                     on_court.append(detection)
-            on_court.sort(key=lambda detection: float(detection.confidence or 0.0), reverse=True)
+            on_court.sort(
+                key=lambda detection: float(detection.confidence or 0.0), reverse=True
+            )
             on_court = on_court[: self.max_player_candidates]
             zones = self.ball_exclusion_zones.get(view, [])
             balls = [
                 detection
                 for detection in balls
                 if all(
-                    float(np.hypot(
-                        detection.center_xy[0] - float(zone[0]),
-                        detection.center_xy[1] - float(zone[1]),
-                    )) > float(zone[2])
+                    float(
+                        np.hypot(
+                            detection.center_xy[0] - float(zone[0]),
+                            detection.center_xy[1] - float(zone[1]),
+                        )
+                    )
+                    > float(zone[2])
                     for zone in zones
                 )
             ]
@@ -180,8 +245,13 @@ class RFDetrPoseMultiViewPipeline:
                     if refined:
                         detection.contours = refined
             candidates.append((on_court, balls))
-        self.stage_seconds["detection_postprocess"] += time.perf_counter() - stage_started
-        pose_inputs = [(frame, candidates[index][0]) for index, (_, frame, _, _) in enumerate(items)]
+        self.stage_seconds["detection_postprocess"] += (
+            time.perf_counter() - stage_started
+        )
+        pose_inputs = [
+            (frame, candidates[index][0])
+            for index, (_, frame, _, _) in enumerate(items)
+        ]
         stage_started = time.perf_counter()
         poses_by_item = self.pose_estimator.predict_many(pose_inputs)
         self.stage_seconds["rtmpose"] += time.perf_counter() - stage_started
@@ -197,7 +267,9 @@ class RFDetrPoseMultiViewPipeline:
         self.stage_seconds["face_reid"] += time.perf_counter() - stage_started
         extractions: list[FrameExtraction] = []
         min_valid = int(self.config.get("pose.min_valid_keypoints", 5))
-        require_human_evidence = bool(self.config.get("pose.require_human_evidence", True))
+        require_human_evidence = bool(
+            self.config.get("pose.require_human_evidence", True)
+        )
         for (view, _, _, _), (players, balls), poses, embeddings, faces in zip(
             items, candidates, poses_by_item, embeddings_by_item, faces_by_item
         ):
@@ -217,7 +289,9 @@ class RFDetrPoseMultiViewPipeline:
                     min_mean_confidence=float(
                         self.config.get("pose.min_mean_keypoint_confidence", 0.35)
                     ),
-                    min_torso_keypoints=int(self.config.get("pose.min_torso_keypoints", 2)),
+                    min_torso_keypoints=int(
+                        self.config.get("pose.min_torso_keypoints", 2)
+                    ),
                     min_vertical_span_ratio=float(
                         self.config.get("pose.min_vertical_span_ratio", 0.18)
                     ),
@@ -227,7 +301,11 @@ class RFDetrPoseMultiViewPipeline:
                 if mask_ground is not None:
                     visible_players.append(detection)
                 ground = mask_ground
-                if ground is None or not np.isfinite(ground).all() or not self._inside_court(ground):
+                if (
+                    ground is None
+                    or not np.isfinite(ground).all()
+                    or not self._inside_court(ground)
+                ):
                     continue
                 observations.append(
                     PoseObservation(
@@ -284,21 +362,34 @@ class RFDetrPoseMultiViewPipeline:
             captures[view] = capture
             rois[view] = self._roi(view, width, height)
             video_info[view] = {
-                "path": path, "width": width, "height": height, "fps": fps,
-                "total_frames": count, "frame_offset": offset,
+                "path": path,
+                "width": width,
+                "height": height,
+                "fps": fps,
+                "total_frames": count,
+                "frame_offset": offset,
             }
             writer_path = output / f"{view}_rfdetr_pose.mp4"
-            writer = cv2.VideoWriter(str(writer_path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+            writer = cv2.VideoWriter(
+                str(writer_path), cv2.VideoWriter.fourcc(*"mp4v"), fps, (width, height)
+            )
             if bool(self.config.get("visualization.async_video_writer", True)):
                 writer = AsyncVideoWriter(
                     writer,
-                    max_queue=int(self.config.get("visualization.writer_queue_size", 96)),
+                    max_queue=int(
+                        self.config.get("visualization.writer_queue_size", 96)
+                    ),
                 )
             writers[view] = writer
 
         if len(captures) < 2:
-            raise RuntimeError("At least two calibrated videos are required for multi-view 3D pose")
-        available = min(info["total_frames"] - start_frame - info["frame_offset"] for info in video_info.values())
+            raise RuntimeError(
+                "At least two calibrated videos are required for multi-view 3D pose"
+            )
+        available = min(
+            info["total_frames"] - start_frame - info["frame_offset"]
+            for info in video_info.values()
+        )
         requested = available if end_frame is None else max(0, end_frame - start_frame)
         frame_count = min(available, requested)
 
@@ -310,7 +401,9 @@ class RFDetrPoseMultiViewPipeline:
                 min_jump_quality=float(self.config.get("ball.min_jump_quality", 0.30)),
                 max_missed=int(self.config.get("ball.max_missed", 12)),
                 trail_length=int(self.config.get("ball.trail", 60)),
-                stationary_switch_frames=int(self.config.get("ball.stationary_switch_frames", 8)),
+                stationary_switch_frames=int(
+                    self.config.get("ball.stationary_switch_frames", 8)
+                ),
             )
             for view in captures
         }
@@ -340,8 +433,9 @@ class RFDetrPoseMultiViewPipeline:
         )
         started = time.perf_counter()
 
-        def batched_detector_frames(
-            ) -> Iterable[tuple[int, dict[str, np.ndarray], list[FrameExtraction]]]:
+        def batched_detector_frames() -> Iterable[
+            tuple[int, dict[str, np.ndarray], list[FrameExtraction]]
+        ]:
             """Batch adjacent timestamps while running inference on every source frame."""
             local_index = 0
             while local_index < frame_count:
@@ -358,15 +452,9 @@ class RFDetrPoseMultiViewPipeline:
                     local_index += 1
 
                 flat_frames = [
-                    frames[view]
-                    for _, frames in packets
-                    for view in view_order
+                    frames[view] for _, frames in packets for view in view_order
                 ]
-                flat_rois = [
-                    rois[view]
-                    for _ in packets
-                    for view in view_order
-                ]
+                flat_rois = [rois[view] for _ in packets for view in view_order]
                 stage_started = time.perf_counter()
                 flat_outputs = self.segmenter.predict(flat_frames, flat_rois)
                 self.stage_seconds["rfdetr"] += time.perf_counter() - stage_started
@@ -431,11 +519,17 @@ class RFDetrPoseMultiViewPipeline:
                 quality[frame_number] = {}
                 id_by_observation: dict[int, int] = {}
                 for track, group in matches:
-                    ground_positions_3d[frame_number][track.track_id] = track.ground_position.astype(float).tolist()
+                    ground_positions_3d[frame_number][track.track_id] = (
+                        track.ground_position.astype(float).tolist()
+                    )
                     for observation in group.observations.values():
                         id_by_observation[id(observation)] = track.track_id
-                    pose_3d, reprojection = self.geometry.triangulate_pose(group.observations.values())
-                    raw_valid_3d = int(np.count_nonzero(np.isfinite(pose_3d).all(axis=1)))
+                    pose_3d, reprojection = self.geometry.triangulate_pose(
+                        group.observations.values()
+                    )
+                    raw_valid_3d = int(
+                        np.count_nonzero(np.isfinite(pose_3d).all(axis=1))
+                    )
                     predicted_3d = False
                     if raw_valid_3d >= 5:
                         pose_3d = self.smoother.update(track.track_id, pose_3d)
@@ -447,26 +541,46 @@ class RFDetrPoseMultiViewPipeline:
                         )
                         if filled_pose is not None:
                             pose_3d = filled_pose
-                            poses_3d[frame_number][track.track_id] = filled_pose.tolist()
+                            poses_3d[frame_number][track.track_id] = (
+                                filled_pose.tolist()
+                            )
                             predicted_3d = True
                     poses_2d[frame_number][track.track_id] = {}
                     for view, observation in group.observations.items():
                         poses_2d[frame_number][track.track_id][view] = {
-                            "bbox": observation.detection.bbox_xyxy.astype(float).tolist(),
-                            "keypoints_xy": observation.keypoints_xy.astype(float).tolist(),
-                            "keypoints_conf": observation.keypoints_conf.astype(float).tolist(),
-                            "mask_foot_xy": list(map(float, observation.detection.foot_xy)),
-                            "ground_position": observation.ground_position.astype(float).tolist(),
-                            "detection_confidence": float(observation.detection.confidence or 0.0),
+                            "bbox": observation.detection.bbox_xyxy.astype(
+                                float
+                            ).tolist(),
+                            "keypoints_xy": observation.keypoints_xy.astype(
+                                float
+                            ).tolist(),
+                            "keypoints_conf": observation.keypoints_conf.astype(
+                                float
+                            ).tolist(),
+                            "mask_foot_xy": list(
+                                map(float, observation.detection.foot_xy)
+                            ),
+                            "ground_position": cast(
+                                np.ndarray, observation.ground_position
+                            )
+                            .astype(float)
+                            .tolist(),
+                            "detection_confidence": float(
+                                observation.detection.confidence or 0.0
+                            ),
                         }
                     valid_errors = reprojection[np.isfinite(reprojection)]
                     quality[frame_number][track.track_id] = {
                         "views": sorted(group.observations),
-                        "valid_3d_keypoints": int(np.count_nonzero(np.isfinite(pose_3d).all(axis=1))),
+                        "valid_3d_keypoints": int(
+                            np.count_nonzero(np.isfinite(pose_3d).all(axis=1))
+                        ),
                         "raw_valid_3d_keypoints": raw_valid_3d,
                         "predicted_3d": predicted_3d,
                         "predicted_track": False,
-                        "mean_reprojection_error_px": float(np.mean(valid_errors)) if len(valid_errors) else None,
+                        "mean_reprojection_error_px": float(np.mean(valid_errors))
+                        if len(valid_errors)
+                        else None,
                     }
 
                 if selected_balls:
@@ -498,12 +612,31 @@ class RFDetrPoseMultiViewPipeline:
                             observation.detection.contours,
                             -1,
                             color,
-                            int(self.config.get("visualization.person_contour_width", 2)),
+                            int(
+                                self.config.get("visualization.person_contour_width", 2)
+                            ),
                             cv2.LINE_AA,
                         )
-                        _draw_skeleton(canvas, observation, color, self.connections, self.keypoint_threshold)
-                        x1, y1 = np.round(observation.detection.bbox_xyxy[:2]).astype(int)
-                        cv2.putText(canvas, f"ID {track_id}", (x1, max(25, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
+                        _draw_skeleton(
+                            canvas,
+                            observation,
+                            color,
+                            self.connections,
+                            self.keypoint_threshold,
+                        )
+                        x1, y1 = np.round(observation.detection.bbox_xyxy[:2]).astype(
+                            int
+                        )
+                        cv2.putText(
+                            canvas,
+                            f"ID {track_id}",
+                            (x1, max(25, y1 - 8)),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            color,
+                            2,
+                            cv2.LINE_AA,
+                        )
                     if self.draw_unassigned_contours:
                         for detection in players_by_view[view]:
                             if id(detection) not in tracked_detections:
@@ -512,10 +645,17 @@ class RFDetrPoseMultiViewPipeline:
                                     detection.contours,
                                     -1,
                                     (225, 225, 225),
-                                    int(self.config.get("visualization.unassigned_contour_width", 2)),
+                                    int(
+                                        self.config.get(
+                                            "visualization.unassigned_contour_width", 2
+                                        )
+                                    ),
                                     cv2.LINE_AA,
                                 )
-                    trail = [tuple(np.round(point).astype(int)) for point in ball_trackers[view].trail]
+                    trail = [
+                        tuple(np.round(point).astype(int))
+                        for point in ball_trackers[view].trail
+                    ]
                     for first, second in zip(trail, trail[1:]):
                         cv2.line(canvas, first, second, (0, 196, 255), 3, cv2.LINE_AA)
                     selected = selected_balls.get(view)
@@ -528,8 +668,24 @@ class RFDetrPoseMultiViewPipeline:
                             int(self.config.get("visualization.ball_contour_width", 3)),
                             cv2.LINE_AA,
                         )
-                        cv2.circle(canvas, tuple(np.round(selected.center_xy).astype(int)), 5, (0, 196, 255), -1, cv2.LINE_AA)
-                    cv2.putText(canvas, f"frame {frame_number} | RF-DETR-Seg 2XL + RTMPose", (16, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 230, 255), 2, cv2.LINE_AA)
+                        cv2.circle(
+                            canvas,
+                            tuple(np.round(selected.center_xy).astype(int)),
+                            5,
+                            (0, 196, 255),
+                            -1,
+                            cv2.LINE_AA,
+                        )
+                    cv2.putText(
+                        canvas,
+                        f"frame {frame_number} | RF-DETR-Seg 2XL + RTMPose",
+                        (16, 32),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.75,
+                        (0, 230, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
                     writers[view].write(canvas)
         finally:
             for capture in captures.values():
@@ -570,16 +726,28 @@ class RFDetrPoseMultiViewPipeline:
         }
         json_path = output / "poses_3d.json"
         with open(json_path, "w", encoding="utf-8") as handle:
-            json.dump(result, handle, ensure_ascii=False, separators=(",", ":"), allow_nan=True)
+            json.dump(
+                result,
+                handle,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                allow_nan=True,
+            )
         tracks_dir = output / "tracks"
         tracks_dir.mkdir(exist_ok=True)
         player_tracks_path = tracks_dir / "player_tracks.jsonl"
         with open(player_tracks_path, "w", encoding="utf-8") as handle:
             for frame_number in sorted(ground_positions_3d):
-                for track_id, point in sorted(ground_positions_3d[frame_number].items()):
+                for track_id, point in sorted(
+                    ground_positions_3d[frame_number].items()
+                ):
                     handle.write(
                         json.dumps(
-                            {"frame_index": frame_number, "track_id": track_id, "ground_xyz": point},
+                            {
+                                "frame_index": frame_number,
+                                "track_id": track_id,
+                                "ground_xyz": point,
+                            },
                             ensure_ascii=False,
                         )
                         + "\n"
@@ -607,21 +775,30 @@ class RFDetrPoseMultiViewPipeline:
             "detector_invocations": detector_invocations,
             "detector_batch_capacity": self.segmenter.backend_batch_size,
             "temporal_batch_size": temporal_batch_size,
-            "detector_slot_utilization": round(detection_frames / detector_slots, 4) if detector_slots else None,
+            "detector_slot_utilization": round(detection_frames / detector_slots, 4)
+            if detector_slots
+            else None,
             "elapsed_seconds": round(elapsed, 3),
             "multiview_fps": round(len(poses_3d) / elapsed, 3) if elapsed else None,
             "poses_3d": sum(len(value) for value in poses_3d.values()),
-            "poses_2d": sum(len(views) for frame in poses_2d.values() for views in frame.values()),
+            "poses_2d": sum(
+                len(views) for frame in poses_2d.values() for views in frame.values()
+            ),
             "ball_2d_frames": len(balls_2d),
             "ball_3d_frames": len(balls_3d),
-            "ball_3d_observed_frames": sum(not predicted for predicted in balls_3d_predicted.values()),
+            "ball_3d_observed_frames": sum(
+                not predicted for predicted in balls_3d_predicted.values()
+            ),
             "predicted_player_poses": sum(
                 bool(record.get("predicted_track", False))
                 for frame in quality.values()
                 for record in frame.values()
             ),
             "bone_refinement": bone_refinement,
-            "stage_seconds": {key: round(value, 3) for key, value in sorted(self.stage_seconds.items())},
+            "stage_seconds": {
+                key: round(value, 3)
+                for key, value in sorted(self.stage_seconds.items())
+            },
             "output_json": str(json_path),
             "player_tracks": str(player_tracks_path),
             "ball_tracks": str(ball_tracks_path),
@@ -629,5 +806,7 @@ class RFDetrPoseMultiViewPipeline:
         with open(output / "metrics.json", "w", encoding="utf-8") as handle:
             json.dump(metrics, handle, indent=2, ensure_ascii=False)
         print(f"[ok] {json_path}")
-        print(f"[ok] {metrics['poses_3d']} 3D poses, {metrics['ball_3d_frames']} 3D ball frames")
+        print(
+            f"[ok] {metrics['poses_3d']} 3D poses, {metrics['ball_3d_frames']} 3D ball frames"
+        )
         return result

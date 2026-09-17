@@ -5,8 +5,8 @@ from typing import Tuple
 import cv2
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import Tensor
+import torch.nn.functional as F
 
 
 def get_simcc_normalized(batch_pred_simcc, sigma=None):
@@ -30,7 +30,7 @@ def get_simcc_normalized(batch_pred_simcc, sigma=None):
     mask = (batch_pred_simcc.amax(dim=-1) > 1).reshape(B, K, 1)
 
     # Normalize the tensor using the maximum value
-    norm = (batch_pred_simcc / batch_pred_simcc.amax(dim=-1).reshape(B, K, 1))
+    norm = batch_pred_simcc / batch_pred_simcc.amax(dim=-1).reshape(B, K, 1)
 
     # Apply normalization
     batch_pred_simcc = torch.where(mask, norm, batch_pred_simcc)
@@ -38,10 +38,9 @@ def get_simcc_normalized(batch_pred_simcc, sigma=None):
     return batch_pred_simcc
 
 
-def get_simcc_maximum(simcc_x: np.ndarray,
-                      simcc_y: np.ndarray,
-                      apply_softmax: bool = False
-                      ) -> Tuple[np.ndarray, np.ndarray]:
+def get_simcc_maximum(
+    simcc_x: np.ndarray, simcc_y: np.ndarray, apply_softmax: bool = False
+) -> Tuple[np.ndarray, np.ndarray]:
     """Get maximum response location and value from simcc representations.
 
     Note:
@@ -64,14 +63,11 @@ def get_simcc_maximum(simcc_x: np.ndarray,
             (K,) or (N, K)
     """
 
-    assert isinstance(simcc_x, np.ndarray), ('simcc_x should be numpy.ndarray')
-    assert isinstance(simcc_y, np.ndarray), ('simcc_y should be numpy.ndarray')
-    assert simcc_x.ndim == 2 or simcc_x.ndim == 3, (
-        f'Invalid shape {simcc_x.shape}')
-    assert simcc_y.ndim == 2 or simcc_y.ndim == 3, (
-        f'Invalid shape {simcc_y.shape}')
-    assert simcc_x.ndim == simcc_y.ndim, (
-        f'{simcc_x.shape} != {simcc_y.shape}')
+    assert isinstance(simcc_x, np.ndarray), "simcc_x should be numpy.ndarray"
+    assert isinstance(simcc_y, np.ndarray), "simcc_y should be numpy.ndarray"
+    assert simcc_x.ndim == 2 or simcc_x.ndim == 3, f"Invalid shape {simcc_x.shape}"
+    assert simcc_y.ndim == 2 or simcc_y.ndim == 3, f"Invalid shape {simcc_y.shape}"
+    assert simcc_x.ndim == simcc_y.ndim, f"{simcc_x.shape} != {simcc_y.shape}"
 
     if simcc_x.ndim == 3:
         N, K, Wx = simcc_x.shape
@@ -96,7 +92,7 @@ def get_simcc_maximum(simcc_x: np.ndarray,
     mask = max_val_x > max_val_y
     max_val_x[mask] = max_val_y[mask]
     vals = max_val_x
-    locs[vals <= 0.] = -1
+    locs[vals <= 0.0] = -1
 
     if N:
         locs = locs.reshape(N, K, 2)
@@ -105,8 +101,7 @@ def get_simcc_maximum(simcc_x: np.ndarray,
     return locs, vals
 
 
-def get_heatmap_3d_maximum(heatmaps: np.ndarray
-                           ) -> Tuple[np.ndarray, np.ndarray]:
+def get_heatmap_3d_maximum(heatmaps: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Get maximum response location and value from heatmaps.
 
     Note:
@@ -127,10 +122,8 @@ def get_heatmap_3d_maximum(heatmaps: np.ndarray
         - vals (np.ndarray): values of maximum heatmap responses in shape
             (K,) or (B, K)
     """
-    assert isinstance(heatmaps,
-                      np.ndarray), ('heatmaps should be numpy.ndarray')
-    assert heatmaps.ndim == 4 or heatmaps.ndim == 5, (
-        f'Invalid shape {heatmaps.shape}')
+    assert isinstance(heatmaps, np.ndarray), "heatmaps should be numpy.ndarray"
+    assert heatmaps.ndim == 4 or heatmaps.ndim == 5, f"Invalid shape {heatmaps.shape}"
 
     if heatmaps.ndim == 4:
         K, D, H, W = heatmaps.shape
@@ -141,10 +134,11 @@ def get_heatmap_3d_maximum(heatmaps: np.ndarray
         heatmaps_flatten = heatmaps.reshape(B * K, -1)
 
     z_locs, y_locs, x_locs = np.unravel_index(
-        np.argmax(heatmaps_flatten, axis=1), shape=(D, H, W))
+        np.argmax(heatmaps_flatten, axis=1), shape=(D, H, W)
+    )
     locs = np.stack((x_locs, y_locs, z_locs), axis=-1).astype(np.float32)
     vals = np.amax(heatmaps_flatten, axis=1)
-    locs[vals <= 0.] = -1
+    locs[vals <= 0.0] = -1
 
     if B:
         locs = locs.reshape(B, K, 3)
@@ -172,10 +166,8 @@ def get_heatmap_maximum(heatmaps: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         - vals (np.ndarray): values of maximum heatmap responses in shape
             (K,) or (B, K)
     """
-    assert isinstance(heatmaps,
-                      np.ndarray), ('heatmaps should be numpy.ndarray')
-    assert heatmaps.ndim == 3 or heatmaps.ndim == 4, (
-        f'Invalid shape {heatmaps.shape}')
+    assert isinstance(heatmaps, np.ndarray), "heatmaps should be numpy.ndarray"
+    assert heatmaps.ndim == 3 or heatmaps.ndim == 4, f"Invalid shape {heatmaps.shape}"
 
     if heatmaps.ndim == 3:
         K, H, W = heatmaps.shape
@@ -185,11 +177,10 @@ def get_heatmap_maximum(heatmaps: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         B, K, H, W = heatmaps.shape
         heatmaps_flatten = heatmaps.reshape(B * K, -1)
 
-    y_locs, x_locs = np.unravel_index(
-        np.argmax(heatmaps_flatten, axis=1), shape=(H, W))
+    y_locs, x_locs = np.unravel_index(np.argmax(heatmaps_flatten, axis=1), shape=(H, W))
     locs = np.stack((x_locs, y_locs), axis=-1).astype(np.float32)
     vals = np.amax(heatmaps_flatten, axis=1)
-    locs[vals <= 0.] = -1
+    locs[vals <= 0.0] = -1
 
     if B:
         locs = locs.reshape(B, K, 2)
@@ -273,13 +264,13 @@ def batch_heatmap_nms(batch_heatmaps: Tensor, kernel_size: int = 5):
         Tensor: The batch heatmaps after NMS.
     """
 
-    assert isinstance(kernel_size, int) and kernel_size % 2 == 1, \
-        f'The kernel_size should be an odd integer, got {kernel_size}'
+    assert isinstance(kernel_size, int) and kernel_size % 2 == 1, (
+        f"The kernel_size should be an odd integer, got {kernel_size}"
+    )
 
     padding = (kernel_size - 1) // 2
 
-    maximum = F.max_pool2d(
-        batch_heatmaps, kernel_size, stride=1, padding=padding)
+    maximum = F.max_pool2d(batch_heatmaps, kernel_size, stride=1, padding=padding)
     maximum_indicator = torch.eq(batch_heatmaps, maximum)
     batch_heatmaps = batch_heatmaps * maximum_indicator.float()
 

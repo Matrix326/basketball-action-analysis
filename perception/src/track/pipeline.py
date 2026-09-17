@@ -7,10 +7,16 @@ import os
 import sys
 from typing import Dict, List, Optional
 
-from .traj_gen_3d import PlayerTrajectoryTracker3D, batch_process_videos
-from .traj_smooth_3d import AdaptiveJumpRemover, MergedAdaptiveJumpRemover
+from .traj_gen_3d import (
+    PlayerTrajectoryTracker3D as PlayerTrajectoryTracker3D,
+    batch_process_videos,
+)
+from .traj_smooth_3d import (
+    AdaptiveJumpRemover,
+    MergedAdaptiveJumpRemover as MergedAdaptiveJumpRemover,
+)
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from config import Config, load_config
 
 
@@ -23,38 +29,38 @@ def run_trajectory_pipeline(
 ) -> Dict:
     """
     运行完整的轨迹处理流水线
-    
+
     Args:
         output_root_dir: 输出根目录
         video_configs: 视频配置列表
         common_config: 公共配置
         enable_smoothing: 是否启用平滑
-    
+
     Returns:
         包含所有输出路径的字典
     """
     common_config = common_config or {}
-    
+
     print("\n" + "=" * 80)
     print("阶段1: 轨迹生成 (traj_gen)")
     print("=" * 80)
-    
+
     traj_gen_outputs = batch_process_videos(
         output_root_dir=output_root_dir,
         video_configs=video_configs,
         common_config=common_config,
         app_config=app_config,
     )
-    
+
     print("\n轨迹生成完成，输出路径：")
     for idx, path in enumerate(traj_gen_outputs, start=1):
         print(f"  视频{idx}: {path}")
-    
+
     if enable_smoothing:
         print("\n" + "=" * 80)
         print("阶段2: 轨迹平滑 (traj_smooth)")
         print("=" * 80)
-        
+
         smoother = AdaptiveJumpRemover(
             traj_gen_paths_list=traj_gen_outputs,
             output_json_name="smooth_traj.json",
@@ -67,15 +73,15 @@ def run_trajectory_pipeline(
             scale_ratio=common_config.get("SCALE_RATIO", 50),
             court_background_path=common_config.get("COURT_BACKGROUND_PATH"),
         )
-        
+
         smooth_outputs = smoother.process_batch()
-        
+
         print("\n轨迹平滑完成，输出路径：")
         for idx, path in enumerate(smooth_outputs, start=1):
             print(f"  视频{idx}: {path}")
     else:
         smooth_outputs = traj_gen_outputs
-    
+
     return {
         "traj_gen_outputs": traj_gen_outputs,
         "smooth_outputs": smooth_outputs,
@@ -84,16 +90,19 @@ def run_trajectory_pipeline(
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="轨迹处理流水线")
     parser.add_argument("--config", type=str, default=None, help="配置文件路径")
     args = parser.parse_args()
-    
+
     cfg = load_config(args.config)
-    
+
     output_root_dir = cfg.get("output.pipeline_dir")
-    
+
     common_config = {
-        "POSES_3D_JSON_PATH": os.path.join(cfg.get("output.reid_3d_dir", ""), "poses_3d.json"),
+        "POSES_3D_JSON_PATH": os.path.join(
+            cfg.get("output.reid_3d_dir", ""), "poses_3d.json"
+        ),
         "COURT_BACKGROUND_PATH": cfg.get("assets.court_background", ""),
         "PROCESS_SECONDS": cfg.get("trajectory.process_seconds", 30),
         "FPS": cfg.get("trajectory.fps", 30),
@@ -104,7 +113,7 @@ def main():
         "MOVING_AVERAGE_WINDOW": cfg.get("smoothing.moving_average_window", 20),
         "GAUSSIAN_SIGMA": cfg.get("smoothing.gaussian_sigma", 1.0),
     }
-    
+
     video_paths = cfg.video_paths
     video_configs = [
         {
@@ -114,7 +123,7 @@ def main():
         }
         for view, path in video_paths.items()
     ]
-    
+
     results = run_trajectory_pipeline(
         output_root_dir=output_root_dir,
         video_configs=video_configs,
@@ -122,7 +131,7 @@ def main():
         enable_smoothing=True,
         app_config=cfg,
     )
-    
+
     print("\n" + "=" * 80)
     print("流水线执行完成！")
     print("=" * 80)

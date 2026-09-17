@@ -6,32 +6,46 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
+import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import load_config
-from rfdetr_pose_multiview import RFDetrPoseMultiViewPipeline
-from track.pipeline import run_trajectory_pipeline
+from config import (  # noqa: E402
+    load_config,
+)
+from rfdetr_pose_multiview import (  # noqa: E402
+    RFDetrPoseMultiViewPipeline,
+)
+from track.pipeline import (  # noqa: E402
+    run_trajectory_pipeline,
+)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the complete four-view RF-DETR pipeline")
-    parser.add_argument("--config", default=str(PROJECT_ROOT / "config" / "config.yaml"))
+    parser = argparse.ArgumentParser(
+        description="Run the complete four-view RF-DETR pipeline"
+    )
+    parser.add_argument(
+        "--config", default=str(PROJECT_ROOT / "config" / "config.yaml")
+    )
     parser.add_argument("--start-frame", type=int, default=None)
     parser.add_argument("--end-frame", type=int, default=None)
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--views", nargs="+", help="Process only these configured views")
+    parser.add_argument(
+        "--views", nargs="+", help="Process only these configured views"
+    )
     parser.add_argument(
         "--output-base",
         type=Path,
         default=None,
         help="Write this run to an isolated output tree instead of the configured output directories.",
     )
-    parser.add_argument("--skip-analysis", action="store_true", help="Reuse an existing poses_3d.json")
+    parser.add_argument(
+        "--skip-analysis", action="store_true", help="Reuse an existing poses_3d.json"
+    )
     parser.add_argument("--skip-smoothing", action="store_true")
     parser.add_argument("--skip-3d-animation", action="store_true")
     args = parser.parse_args()
@@ -47,14 +61,23 @@ def main() -> None:
                 "output.skeleton_dir": str(output_base / "skeletons_3d"),
             }
         )
-    start = args.start_frame if args.start_frame is not None else int(config.get("trajectory.start_frame", 0))
+    start = (
+        args.start_frame
+        if args.start_frame is not None
+        else int(config.get("trajectory.start_frame", 0))
+    )
     end = args.end_frame
     if args.limit is not None:
         end = start + args.limit
     elif end is None:
-        end = start + int(float(config.get("trajectory.process_seconds", 30)) * float(config.get("trajectory.fps", 30)))
+        end = start + int(
+            float(config.get("trajectory.process_seconds", 30))
+            * float(config.get("trajectory.fps", 30))
+        )
 
-    videos = {view: path for view, path in config.video_paths.items() if Path(path).exists()}
+    videos = {
+        view: path for view, path in config.video_paths.items() if Path(path).exists()
+    }
     if args.views:
         unknown = set(args.views) - set(config.video_paths)
         if unknown:
@@ -71,7 +94,9 @@ def main() -> None:
     process_frames = max(0, end - start)
     fps = float(config.get("trajectory.fps", 30))
     common = {
-        "POSES_3D_JSON_PATH": os.path.join(config.get("output.reid_3d_dir"), "poses_3d.json"),
+        "POSES_3D_JSON_PATH": os.path.join(
+            config.get("output.reid_3d_dir"), "poses_3d.json"
+        ),
         "COURT_BACKGROUND_PATH": config.get("assets.court_background", ""),
         "PROCESS_SECONDS": process_frames / fps,
         "FPS": fps,
@@ -112,7 +137,9 @@ def main() -> None:
             balls_3d=result.get("balls_3d", {}),
             balls_3d_predicted=result.get("balls_3d_predicted", {}),
             source_fps=fps,
-            animation_fps=float(config.get("visualization.skeleton_3d.animation_fps", fps)),
+            animation_fps=float(
+                config.get("visualization.skeleton_3d.animation_fps", fps)
+            ),
             point_size=max(
                 4.0,
                 float(config.get("visualization.skeleton_3d.point_radius", 3)) ** 2,

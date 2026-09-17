@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, cast
 
 import cv2
 import numpy as np
@@ -49,7 +49,9 @@ def repair_isolated_jumps(
 
             span = last_frame - first_frame
             fraction = (current_frame - first_frame) / span
-            expected = values[index - 1] + fraction * (values[index + 1] - values[index - 1])
+            expected = values[index - 1] + fraction * (
+                values[index + 1] - values[index - 1]
+            )
             residual = float(np.linalg.norm(values[index] - expected))
             adjacent_gap = max(current_frame - first_frame, last_frame - current_frame)
             adaptive_limit = max(
@@ -75,7 +77,9 @@ def repair_isolated_jumps(
         if not changed:
             break
 
-    return [tuple(map(float, point)) for point in values], sorted(repaired)
+    return [
+        cast(tuple[float, float], tuple(map(float, point))) for point in values
+    ], sorted(repaired)
 
 
 def prepare_court_canvas(

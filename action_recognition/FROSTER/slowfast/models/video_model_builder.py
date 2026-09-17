@@ -3,15 +3,15 @@
 
 """Video models."""
 
-import math
 from functools import partial
+import math
+from typing import Callable, cast
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import trunc_normal_
 
-import slowfast.utils.logging as logging
-import slowfast.utils.weight_init_helper as init_helper
 from slowfast.models.attention import MultiScaleBlock
 from slowfast.models.batchnorm_helper import get_norm
 from slowfast.models.common import TwoStreamFusion
@@ -22,6 +22,8 @@ from slowfast.models.utils import (
     round_width,
     validate_checkpoint_wrapper_import,
 )
+import slowfast.utils.logging as logging
+import slowfast.utils.weight_init_helper as init_helper
 
 from . import head_helper, operators, resnet_helper, stem_helper  # noqa
 from .build import MODEL_REGISTRY
@@ -147,9 +149,9 @@ class FuseFastToSlow(nn.Module):
         self.conv_f2s = nn.Conv3d(
             dim_in,
             dim_in * fusion_conv_channel_ratio,
-            kernel_size=[fusion_kernel, 1, 1],
-            stride=[alpha, 1, 1],
-            padding=[fusion_kernel // 2, 0, 0],
+            kernel_size=(fusion_kernel, 1, 1),
+            stride=(alpha, 1, 1),
+            padding=(fusion_kernel // 2, 0, 0),
             bias=False,
         )
         self.bn = norm_module(
@@ -218,9 +220,7 @@ class SlowFast(nn.Module):
         num_groups = cfg.RESNET.NUM_GROUPS
         width_per_group = cfg.RESNET.WIDTH_PER_GROUP
         dim_inner = num_groups * width_per_group
-        out_dim_ratio = (
-            cfg.SLOWFAST.BETA_INV // cfg.SLOWFAST.FUSION_CONV_CHANNEL_RATIO
-        )
+        out_dim_ratio = cfg.SLOWFAST.BETA_INV // cfg.SLOWFAST.FUSION_CONV_CHANNEL_RATIO
 
         temp_kernel = _TEMPORAL_KERNEL_BASIS[cfg.MODEL.ARCH]
 
@@ -276,9 +276,9 @@ class SlowFast(nn.Module):
 
         for pathway in range(self.num_pathways):
             pool = nn.MaxPool3d(
-                kernel_size=pool_size[pathway],
-                stride=pool_size[pathway],
-                padding=[0, 0, 0],
+                kernel_size=tuple(pool_size[pathway]),
+                stride=tuple(pool_size[pathway]),
+                padding=(0, 0, 0),
             )
             self.add_module("pathway{}_pool".format(pathway), pool)
 
@@ -377,9 +377,7 @@ class SlowFast(nn.Module):
                 num_classes=cfg.MODEL.NUM_CLASSES,
                 pool_size=[
                     [
-                        cfg.DATA.NUM_FRAMES
-                        // cfg.SLOWFAST.ALPHA
-                        // pool_size[0][0],
+                        cfg.DATA.NUM_FRAMES // cfg.SLOWFAST.ALPHA // pool_size[0][0],
                         1,
                         1,
                     ],
@@ -404,9 +402,7 @@ class SlowFast(nn.Module):
                 or cfg.MODEL.MODEL_NAME == "ContrastiveModel"
                 else [
                     [
-                        cfg.DATA.NUM_FRAMES
-                        // cfg.SLOWFAST.ALPHA
-                        // pool_size[0][0],
+                        cfg.DATA.NUM_FRAMES // cfg.SLOWFAST.ALPHA // pool_size[0][0],
                         cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][1],
                         cfg.DATA.TRAIN_CROP_SIZE // 32 // pool_size[0][2],
                     ],
@@ -536,17 +532,17 @@ class ResNet(nn.Module):
         # with recomputing FLOPs.
         if cfg.MODEL.ACT_CHECKPOINT:
             validate_checkpoint_wrapper_import(checkpoint_wrapper)
-            self.s1 = checkpoint_wrapper(s1)
-            self.s2 = checkpoint_wrapper(s2)
+            self.s1 = cast(Callable, checkpoint_wrapper)(s1)
+            self.s2 = cast(Callable, checkpoint_wrapper)(s2)
         else:
             self.s1 = s1
             self.s2 = s2
 
         for pathway in range(self.num_pathways):
             pool = nn.MaxPool3d(
-                kernel_size=pool_size[pathway],
-                stride=pool_size[pathway],
-                padding=[0, 0, 0],
+                kernel_size=tuple(pool_size[pathway]),
+                stride=tuple(pool_size[pathway]),
+                padding=(0, 0, 0),
             )
             self.add_module("pathway{}_pool".format(pathway), pool)
 
@@ -755,9 +751,7 @@ class X3D(nn.Module):
             dim_inner = int(cfg.X3D.BOTTLENECK_FACTOR * dim_out)
 
             n_rep = self._round_repeats(block[0], d_mul)
-            prefix = "s{}".format(
-                stage + 2
-            )  # start w res2 to follow convention
+            prefix = "s{}".format(stage + 2)  # start w res2 to follow convention
 
             s = resnet_helper.ResStage(
                 dim_in=[dim_in],
@@ -766,9 +760,7 @@ class X3D(nn.Module):
                 temp_kernel_sizes=temp_kernel[1],
                 stride=[block[2]],
                 num_blocks=[n_rep],
-                num_groups=[dim_inner]
-                if cfg.X3D.CHANNELWISE_3x3x3
-                else [num_groups],
+                num_groups=[dim_inner] if cfg.X3D.CHANNELWISE_3x3x3 else [num_groups],
                 num_block_temp_kernel=[n_rep],
                 nonlocal_inds=cfg.NONLOCAL.LOCATION[0],
                 nonlocal_group=cfg.NONLOCAL.GROUP[0],
@@ -848,7 +840,7 @@ class MViT(nn.Module):
         self.drop_rate = cfg.MVIT.DROPOUT_RATE
         depth = cfg.MVIT.DEPTH
         drop_path_rate = cfg.MVIT.DROPPATH_RATE
-        layer_scale_init_value = cfg.MVIT.LAYER_SCALE_INIT_VALUE
+        _layer_scale_init_value = cfg.MVIT.LAYER_SCALE_INIT_VALUE
         head_init_scale = cfg.MVIT.HEAD_INIT_SCALE
         mode = cfg.MVIT.MODE
         self.cls_embed_on = cfg.MVIT.CLS_EMBED_ON
@@ -874,7 +866,7 @@ class MViT(nn.Module):
         )
 
         if cfg.MODEL.ACT_CHECKPOINT:
-            self.patch_embed = checkpoint_wrapper(self.patch_embed)
+            self.patch_embed = cast(Callable, checkpoint_wrapper)(self.patch_embed)
         self.input_dims = [temporal_size, spatial_size, spatial_size]
         assert self.input_dims[1] == self.input_dims[2]
         self.patch_dims = [
@@ -896,17 +888,13 @@ class MViT(nn.Module):
         if self.use_abs_pos:
             if self.sep_pos_embed:
                 self.pos_embed_spatial = nn.Parameter(
-                    torch.zeros(
-                        1, self.patch_dims[1] * self.patch_dims[2], embed_dim
-                    )
+                    torch.zeros(1, self.patch_dims[1] * self.patch_dims[2], embed_dim)
                 )
                 self.pos_embed_temporal = nn.Parameter(
                     torch.zeros(1, self.patch_dims[0], embed_dim)
                 )
                 if self.cls_embed_on:
-                    self.pos_embed_class = nn.Parameter(
-                        torch.zeros(1, 1, embed_dim)
-                    )
+                    self.pos_embed_class = nn.Parameter(torch.zeros(1, 1, embed_dim))
             else:
                 self.pos_embed = nn.Parameter(
                     torch.zeros(
@@ -932,9 +920,7 @@ class MViT(nn.Module):
         stride_kv = [[] for i in range(cfg.MVIT.DEPTH)]
 
         for i in range(len(cfg.MVIT.POOL_Q_STRIDE)):
-            stride_q[cfg.MVIT.POOL_Q_STRIDE[i][0]] = cfg.MVIT.POOL_Q_STRIDE[i][
-                1:
-            ]
+            stride_q[cfg.MVIT.POOL_Q_STRIDE[i][0]] = cfg.MVIT.POOL_Q_STRIDE[i][1:]
             if cfg.MVIT.POOL_KVQ_KERNEL is not None:
                 pool_q[cfg.MVIT.POOL_Q_STRIDE[i][0]] = cfg.MVIT.POOL_KVQ_KERNEL
             else:
@@ -955,17 +941,12 @@ class MViT(nn.Module):
                 cfg.MVIT.POOL_KV_STRIDE.append([i] + _stride_kv)
 
         for i in range(len(cfg.MVIT.POOL_KV_STRIDE)):
-            stride_kv[cfg.MVIT.POOL_KV_STRIDE[i][0]] = cfg.MVIT.POOL_KV_STRIDE[
-                i
-            ][1:]
+            stride_kv[cfg.MVIT.POOL_KV_STRIDE[i][0]] = cfg.MVIT.POOL_KV_STRIDE[i][1:]
             if cfg.MVIT.POOL_KVQ_KERNEL is not None:
-                pool_kv[
-                    cfg.MVIT.POOL_KV_STRIDE[i][0]
-                ] = cfg.MVIT.POOL_KVQ_KERNEL
+                pool_kv[cfg.MVIT.POOL_KV_STRIDE[i][0]] = cfg.MVIT.POOL_KVQ_KERNEL
             else:
                 pool_kv[cfg.MVIT.POOL_KV_STRIDE[i][0]] = [
-                    s + 1 if s > 1 else s
-                    for s in cfg.MVIT.POOL_KV_STRIDE[i][1:]
+                    s + 1 if s > 1 else s for s in cfg.MVIT.POOL_KV_STRIDE[i][1:]
                 ]
 
         self.pool_q = pool_q
@@ -978,19 +959,14 @@ class MViT(nn.Module):
         input_size = self.patch_dims
 
         if self.enable_rev:
-
             # rev does not allow cls token
             assert not self.cls_embed_on
 
             self.rev_backbone = ReversibleMViT(cfg, self)
 
-            embed_dim = round_width(
-                embed_dim, dim_mul.prod(), divisor=num_heads
-            )
+            embed_dim = round_width(embed_dim, dim_mul.prod(), divisor=num_heads)
 
-            self.fuse = TwoStreamFusion(
-                cfg.MVIT.REV.RESPATH_FUSE, dim=2 * embed_dim
-            )
+            self.fuse = TwoStreamFusion(cfg.MVIT.REV.RESPATH_FUSE, dim=2 * embed_dim)
 
             if "concat" in self.cfg.MVIT.REV.RESPATH_FUSE:
                 self.norm = norm_layer(2 * embed_dim)
@@ -998,7 +974,6 @@ class MViT(nn.Module):
                 self.norm = norm_layer(embed_dim)
 
         else:
-
             self.blocks = nn.ModuleList()
 
             for i in range(depth):
@@ -1041,12 +1016,13 @@ class MViT(nn.Module):
                 )
 
                 if cfg.MODEL.ACT_CHECKPOINT:
-                    attention_block = checkpoint_wrapper(attention_block)
+                    attention_block = cast(Callable, checkpoint_wrapper)(
+                        attention_block
+                    )
                 self.blocks.append(attention_block)
                 if len(stride_q[i]) > 0:
                     input_size = [
-                        size // stride
-                        for size, stride in zip(input_size, stride_q[i])
+                        size // stride for size, stride in zip(input_size, stride_q[i])
                     ]
 
                 embed_dim = dim_out
@@ -1097,8 +1073,10 @@ class MViT(nn.Module):
             trunc_normal_(self.cls_token, std=0.02)
         self.apply(self._init_weights)
 
-        self.head.projection.weight.data.mul_(head_init_scale)
-        self.head.projection.bias.data.mul_(head_init_scale)
+        cast(nn.Linear, self.head.projection).weight.data.mul_(head_init_scale)
+        cast(torch.Tensor, cast(nn.Linear, self.head.projection).bias).data.mul_(
+            head_init_scale
+        )
 
         self.feat_size, self.feat_stride = calc_mvit_feature_geometry(cfg)
 
@@ -1150,9 +1128,7 @@ class MViT(nn.Module):
 
         if (p_t, p_h, p_w) != (t, h, w):
             new_pos_embed = F.interpolate(
-                pos_embed[:, :, :]
-                .reshape(1, p_t, p_h, p_w, -1)
-                .permute(0, 4, 1, 2, 3),
+                pos_embed[:, :, :].reshape(1, p_t, p_h, p_w, -1).permute(0, 4, 1, 2, 3),
                 size=(t, h, w),
                 mode="trilinear",
             )

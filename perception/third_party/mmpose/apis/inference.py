@@ -2,15 +2,17 @@
 """Minimal RTMPose model initialization API used by this project."""
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
-import torch.nn as nn
 from mmengine.config import Config
 from mmengine.registry import init_default_scope
 from mmengine.runner import load_checkpoint
 
-import mmpose.datasets  # Register the inference transforms.
+import mmpose.datasets  # Register the inference transforms.  # noqa: F401
 from mmpose.models.builder import build_pose_estimator
+
+if TYPE_CHECKING:
+    from mmpose.models.pose_estimators.base import BasePoseEstimator
 
 
 def init_model(
@@ -18,7 +20,7 @@ def init_model(
     checkpoint: Optional[str] = None,
     device: str = "cuda:0",
     cfg_options: Optional[dict] = None,
-) -> nn.Module:
+) -> "BasePoseEstimator":
     """Build a pose estimator and load checkpoint metadata."""
     if isinstance(config, (str, Path)):
         config = Config.fromfile(config)

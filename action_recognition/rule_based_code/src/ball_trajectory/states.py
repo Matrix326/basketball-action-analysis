@@ -32,6 +32,7 @@ STATE_UNKNOWN = "unknown"
 _STATES = (STATE_FLIGHT, STATE_HELD, STATE_DRIBBLE, STATE_GROUND, STATE_UNKNOWN)
 _STATE_INDEX = {state: index for index, state in enumerate(_STATES)}
 
+
 def parse_hand_centers(
     skeleton: Optional[dict[int, dict[int, np.ndarray]]],
 ) -> Optional[dict[int, np.ndarray]]:
@@ -90,149 +91,7 @@ def classify_states(
     confidence = np.full(n, 0.3)
 
     speed = np.linalg.norm(velocities, axis=1)
-    dt = 1.0 / float(fps)
-
-    for i in range(n):
-        if not np.isfinite(positions[i]).all() or not np.isfinite(velocities[i]).all():
-            continue
-        kind = seg_kinds[i]
-        if kind in (STATE_FLIGHT, STATE_DRIBBLE):
-            states[i] = kind
-            confidence[i] = float(seg_confidence[i])
-            continue
-
-        pos = positions[i]
-        hands = hand_centers.get(int(frames[i])) if hand_centers else None
-        if hands is not None and len(hands):
-            distance = float(np.min(np.linalg.norm(hands - pos, axis=1)))
-        else:
-            distance = float("inf")
-
-        # Held candidate (sustained check below).
-        if distance <= hold_reach_m and speed[i] <= hold_max_speed_m_s:
-            states[i] = STATE_HELD
-            confidence[i] = float(
-                np.clip(1.0 - distance / max(hold_reach_m, 1e-6), 0.0, 1.0)
-                * np.clip(1.0 - speed[i] / max(hold_max_speed_m_s, 1e-6), 0.0, 1.0)
-            )
-            continue
-
-        if pos[2] <= ground_z_m and speed[i] <= 3.0:
-            states[i] = STATE_GROUND
-            confidence[i] = float(
-                np.clip(1.0 - pos[2] / max(ground_z_m, 1e-6), 0.0, 1.0)
-                * np.clip(1.0 - speed[i] / 3.0, 0.0, 1.0)
-            )
-            continue
-
-        # Fallback dribble: ball running low near a player (the trajectory
-        # classifier often misses dribble bounces).
-        if (
-            distance <= 1.2
-            and pos[2] <= 1.2
-            and speed[i] >= 0.5
-        ):
-            states[i] = STATE_DRIBBLE
-            confidence[i] = float(np.clip(1.0 - distance / 1.2, 0.0, 1.0))
-            continue
-
-        states[i] = STATE_UNKNOWN
-        confidence[i] = 0.3
-
-    # Held must be sustained — short spurts revert to unknown.
-    if hold_min_frames > 1:
-        run_start = None
-        for i in range(n):
-            if states[i] == STATE_HELD and run_start is None:
-                run_start = i
-            elif states[i] != STATE_HELD and run_start is not None:
-                if i - run_start < hold_min_frames:
-                    states[run_start:i] = STATE_UNKNOWN
-                    confidence[run_start:i] = 0.3
-                run_start = None
-        if run_start is not None and n - run_start < hold_min_frames:
-            states[run_start:] = STATE_UNKNOWN
-            confidence[run_start:] = 0.3
-
-    # Static residue far from players -> unknown (background false positives).
-    run_start = None
-    for i in range(n + 1):
-        is_static = (
-            i < n
-            and states[i] not in (STATE_FLIGHT, STATE_DRIBBLE)
-            and np.isfinite(speed[i])
-            and speed[i] <= static_speed_m_s
-        )
-        if is_static and run_start is None:
-            run_start = i
-        elif not is_static and run_start is not None:
-            if i - run_start >= static_min_frames:
-                for j in range(run_start, i):
-                    if int(frames[j]) in bounce_frames:
-                        continue
-                    hands = hand_centers.get(int(frames[j])) if hand_centers else None
-                    far = True
-                    if hands is not None and len(hands):
-                        d = float(np.min(np.linalg.norm(hands - positions[j], axis=1)))
-                        far = d > player_distance_for_static_m
-                    if far:
-                        states[j] = STATE_UNKNOWN
-                        confidence[j] = 0.3
-            run_start = None
-
-    # Majority filter over 5 frames, preserving bounce frames.
-    states = _majority_filter(states, int(frames[0]), bounce_frames)
-
-    # Recompute confidence sanity: unknown outside segment = 0.3, segments keep theirs.
-    for i in range(n):
-        if seg_kinds[i] in (STATE_FLIGHT, STATE_DRIBBLE) and states[i] == seg_kinds[i]:
-            confidence[i] = float(seg_confidence[i])
-    return states, confidence
-
-
-def _majority_filter(states: np.ndarray, first_frame: int, bounce_frames: set[int]) -> np.ndarray:
-    n = len(states)
-    if n < 3:
-        return states
-    result = states.copy()
-    for i in range(n):
-        if first_frame + i in bounce_frames:
-            continue
-        left = max(0, i - 2)
-        right = min(n, i + 3)
-        window = states[left:right]
-        counts: dict[str, int] = {}
-        for state in window:
-            counts[str(state)] = counts.get(str(state), 0) + 1
-        majority = max(counts, key=counts.get)
-        if counts[majority] >= 3:
-            result[i] = majority
-    return result
-
-def classify_states(
-    frames: np.ndarray,
-    positions: np.ndarray,
-    velocities: np.ndarray,
-    seg_kinds: np.ndarray,
-    seg_confidence: np.ndarray,
-    bounce_frames: set[int],
-    hand_centers: Optional[dict[int, np.ndarray]],
-    fps: float,
-    hold_reach_m: float = 0.45,
-    hold_min_frames: int = 6,
-    hold_max_speed_m_s: float = 1.5,
-    ground_z_m: float = 0.15,
-    static_speed_m_s: float = 0.05,
-    static_min_frames: int = 60,
-    player_distance_for_static_m: float = 1.5,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Returns (state strings (N,), confidence (N,))."""
-    n = len(frames)
-    states = np.full(n, STATE_UNKNOWN, dtype=object)
-    confidence = np.full(n, 0.3)
-
-    speed = np.linalg.norm(velocities, axis=1)
-    dt = 1.0 / float(fps)
+    _dt = 1.0 / float(fps)
 
     for i in range(n):
         if not np.isfinite(positions[i]).all() or not np.isfinite(velocities[i]).all():
@@ -321,7 +180,9 @@ def classify_states(
     return states, confidence
 
 
-def _majority_filter(states: np.ndarray, first_frame: int, bounce_frames: set[int]) -> np.ndarray:
+def _majority_filter(
+    states: np.ndarray, first_frame: int, bounce_frames: set[int]
+) -> np.ndarray:
     n = len(states)
     if n < 3:
         return states
@@ -335,29 +196,11 @@ def _majority_filter(states: np.ndarray, first_frame: int, bounce_frames: set[in
         counts: dict[str, int] = {}
         for state in window:
             counts[str(state)] = counts.get(str(state), 0) + 1
-        majority = max(counts, key=counts.get)
+        majority = max(counts, key=counts.__getitem__)
         if counts[majority] >= 3:
             result[i] = majority
     return result
 
-def _majority_filter(states: np.ndarray, first_frame: int, bounce_frames: set[int]) -> np.ndarray:
-    n = len(states)
-    if n < 3:
-        return states
-    result = states.copy()
-    for i in range(n):
-        if first_frame + i in bounce_frames:
-            continue
-        left = max(0, i - 2)
-        right = min(n, i + 3)
-        window = states[left:right]
-        counts: dict[str, int] = {}
-        for state in window:
-            counts[str(state)] = counts.get(str(state), 0) + 1
-        majority = max(counts, key=counts.get)
-        if counts[majority] >= 3:
-            result[i] = majority
-    return result
 
 def extend_segment_states(
     frames: np.ndarray,
@@ -409,6 +252,7 @@ def extend_segment_states(
             confidence[j] = min(float(seg_confidence[i]), 0.5)
             j += 1
 
+
 def _motion_consistent(a: np.ndarray, b: np.ndarray) -> bool:
     """Velocity consistency for state extension: same heading AND vertical
     direction. The horizontal component alone must not mask a vertical
@@ -418,4 +262,3 @@ def _motion_consistent(a: np.ndarray, b: np.ndarray) -> bool:
     if abs(b[2]) < 0.3:
         return True  # boundary velocity is nearly horizontal
     return float(a[2] * b[2]) > 0.0
-

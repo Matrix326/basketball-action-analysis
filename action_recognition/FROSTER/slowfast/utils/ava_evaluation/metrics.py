@@ -14,7 +14,9 @@
 # ==============================================================================
 
 """Functions for computing metrics like precision, recall, CorLoc and etc."""
+
 from __future__ import division
+
 import numpy as np
 
 
@@ -38,7 +40,7 @@ def compute_precision_recall(scores, labels, num_gt):
     """
     if (
         not isinstance(labels, np.ndarray)
-        or labels.dtype != np.bool
+        or labels.dtype != bool
         or len(labels.shape) != 1
     ):
         raise ValueError("labels must be single dimension bool numpy array")
@@ -47,9 +49,7 @@ def compute_precision_recall(scores, labels, num_gt):
         raise ValueError("scores must be single dimension numpy array")
 
     if num_gt < np.sum(labels):
-        raise ValueError(
-            "Number of true positives must be smaller than num_gt."
-        )
+        raise ValueError("Number of true positives must be smaller than num_gt.")
 
     if len(scores) != len(labels):
         raise ValueError("scores and labels must be of the same size.")
@@ -94,11 +94,9 @@ def compute_average_precision(precision, recall):
             raise ValueError("If precision is None, recall must also be None")
         return np.NAN
 
-    if not isinstance(precision, np.ndarray) or not isinstance(
-        recall, np.ndarray
-    ):
+    if not isinstance(precision, np.ndarray) or not isinstance(recall, np.ndarray):
         raise ValueError("precision and recall must be numpy array")
-    if precision.dtype != np.float or recall.dtype != np.float:
+    if precision.dtype != float or recall.dtype != float:
         raise ValueError("input must be float numpy array.")
     if len(precision) != len(recall):
         raise ValueError("precision and recall must be of the same size.")
@@ -125,9 +123,7 @@ def compute_average_precision(precision, recall):
     return average_precision
 
 
-def compute_cor_loc(
-    num_gt_imgs_per_class, num_images_correctly_detected_per_class
-):
+def compute_cor_loc(num_gt_imgs_per_class, num_images_correctly_detected_per_class):
     """Compute CorLoc according to the definition in the following paper.
 
     https://www.robots.ox.ac.uk/~vgg/rg/papers/deselaers-eccv10.pdf

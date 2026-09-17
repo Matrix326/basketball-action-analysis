@@ -20,10 +20,8 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
-import logging
 
-# from google.protobuf import text_format
-# from google3.third_party.tensorflow_models.object_detection.protos import string_int_label_map_pb2
+import logging
 
 
 def _validate_label_map(label_map):
@@ -71,9 +69,7 @@ def get_max_label_map_index(label_map):
     return max([item.id for item in label_map.item])
 
 
-def convert_label_map_to_categories(
-    label_map, max_num_classes, use_display_name=True
-):
+def convert_label_map_to_categories(label_map, max_num_classes, use_display_name=True):
     """Loads label map proto and returns categories list compatible with eval.
 
     This function loads a label map and returns a list of dicts, each of which
@@ -111,8 +107,7 @@ def convert_label_map_to_categories(
     for item in label_map.item:
         if not 0 < item.id <= max_num_classes:
             logging.info(
-                "Ignore item %d since it falls outside of requested "
-                "label range.",
+                "Ignore item %d since it falls outside of requested label range.",
                 item.id,
             )
             continue
@@ -134,6 +129,10 @@ def load_labelmap(path):
     Returns:
       a StringIntLabelMapProto
     """
+    # This optional helper requires the TensorFlow Object Detection API.
+    from google.protobuf import text_format
+    from object_detection.protos import string_int_label_map_pb2
+
     with open(path, "r") as fid:
         label_map_string = fid.read()
         label_map = string_int_label_map_pb2.StringIntLabelMap()

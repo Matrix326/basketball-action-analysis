@@ -10,10 +10,8 @@ from torch.utils.data.sampler import Sampler
 TORCH_MAJOR = int(torch.__version__.split(".")[0])
 TORCH_MINOR = int(torch.__version__.split(".")[1])
 
-if TORCH_MAJOR >= 1 and TORCH_MINOR >= 8:
-    _int_classes = int
-else:
-    from torch._six import int_classes as _int_classes
+# Python 3 uses int for all integral values; torch._six was removed in torch 2.
+_int_classes = int
 
 
 class ShortCycleBatchSampler(Sampler):
@@ -40,8 +38,9 @@ class ShortCycleBatchSampler(Sampler):
             )
         if not isinstance(drop_last, bool):
             raise ValueError(
-                "drop_last should be a boolean value, but got "
-                "drop_last={}".format(drop_last)
+                "drop_last should be a boolean value, but got drop_last={}".format(
+                    drop_last
+                )
             )
         self.sampler = sampler
         self.drop_last = drop_last
@@ -49,10 +48,7 @@ class ShortCycleBatchSampler(Sampler):
         bs_factor = [
             int(
                 round(
-                    (
-                        float(cfg.DATA.TRAIN_CROP_SIZE)
-                        / (s * cfg.MULTIGRID.DEFAULT_S)
-                    )
+                    (float(cfg.DATA.TRAIN_CROP_SIZE) / (s * cfg.MULTIGRID.DEFAULT_S))
                     ** 2
                 )
             )

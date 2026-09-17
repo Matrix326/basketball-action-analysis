@@ -13,39 +13,38 @@ A carried ball (held, ~0 acceleration) does NOT pass: the gravity fit leaves
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, cast
 
 import numpy as np
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter as savgol_filter
 
 from .ballistics import fit_ballistic, fit_free_g, fit_with_drag, simulate_ballistic
 from .io import BallObservations
 
 
 @dataclass
-
 class Bounce:
     frame_index: int
-    position: np.ndarray        # (3,) observed position at impact
+    position: np.ndarray  # (3,) observed position at impact
     impact_speed_m_s: float
 
 
 @dataclass
-
 class BallisticSegment:
-    start: int                  # inclusive frame index
-    end: int                    # inclusive frame index
-    p0: np.ndarray              # fit at t0 = start
+    start: int  # inclusive frame index
+    end: int  # inclusive frame index
+    p0: np.ndarray  # fit at t0 = start
     v0: np.ndarray
-    rms: float                  # residual over observed frames in [start, end]
+    rms: float  # residual over observed frames in [start, end]
     observed_frames: int
-    kind: str = "flight"        # set by classify
-    confidence: float = 0.0     # set by classify
+    kind: str = "flight"  # set by classify
+    confidence: float = 0.0  # set by classify
     filled_gap_frames: int = 0  # filled by fill.py
 
 
 # --------------------------------------------------------------------------
 # deterministic RANSAC-style trim
+
 
 def _lcg_triples(n: int, trials: int, seed: int = 1234567):
     """Yield deterministic pseudo-random index triples (0..n-1)."""
@@ -78,7 +77,7 @@ def _ransac_trim(
     pass as ballistic. Returns (subset_frames, subset_pos, rms) or None.
     """
     n = len(wf)
-    best: Optional[tuple[int, float, np.ndarray]] = None
+    best: Optional[tuple[tuple[int, float], int, np.ndarray]] = None
     for first, second, third in _lcg_triples(n, trials):
         idx = np.array([first, second, third])
         try:
@@ -110,6 +109,7 @@ def _ransac_trim(
 # --------------------------------------------------------------------------
 # bounce detection
 
+
 def detect_bounces(
     obs: BallObservations,
     fps: float,
@@ -130,17 +130,21 @@ def detect_bounces(
         if pos[2] > ball_radius + 0.05:
             continue
 
-        left = positions[max(0, idx - max_flank_gap):idx]
-        left_frames = frames[max(0, idx - max_flank_gap):idx]
-        right = positions[idx + 1:idx + 1 + max_flank_gap]
-        right_frames = frames[idx + 1:idx + 1 + max_flank_gap]
+        left = positions[max(0, idx - max_flank_gap) : idx]
+        left_frames = frames[max(0, idx - max_flank_gap) : idx]
+        right = positions[idx + 1 : idx + 1 + max_flank_gap]
+        right_frames = frames[idx + 1 : idx + 1 + max_flank_gap]
 
         if len(left) < 3 or len(right) < 3:
             continue
 
         try:
-            _, v0_left, _ = fit_ballistic(left_frames, left, float(left_frames[-1]), fps)
-            _, v0_right, _ = fit_ballistic(right_frames, right, float(right_frames[0]), fps)
+            _, v0_left, _ = fit_ballistic(
+                left_frames, left, float(left_frames[-1]), fps
+            )
+            _, v0_right, _ = fit_ballistic(
+                right_frames, right, float(right_frames[0]), fps
+            )
         except ValueError:
             continue
 
@@ -173,6 +177,7 @@ def detect_bounces(
 # --------------------------------------------------------------------------
 # flight segment detection
 
+
 def detect_ballistic_segments(
     obs: BallObservations,
     fps: float,
@@ -204,16 +209,18 @@ def detect_ballistic_segments(
 
     for idx, frame in enumerate(frames):
         observed_in_range[int(frame) - offset] = True
-        window_frames = frames[
-            (frames >= frame - half) & (frames <= frame + half)
-        ]
+        window_frames = frames[(frames >= frame - half) & (frames <= frame + half)]
         if len(window_frames) < min_window_observations:
             continue
         window_pos = positions[np.isin(frames, window_frames)]
         try:
-            p0, v0, rms = fit_ballistic(window_frames, window_pos, float(window_frames[0]), fps)
+            p0, v0, rms = fit_ballistic(
+                window_frames, window_pos, float(window_frames[0]), fps
+            )
             if rms > residual_threshold:
-                trimmed = _ransac_trim(window_frames, window_pos, fps, residual_threshold)
+                trimmed = _ransac_trim(
+                    window_frames, window_pos, fps, residual_threshold
+                )
                 if trimmed is None:
                     continue
                 window_frames, window_pos, rms = trimmed
@@ -269,11 +276,15 @@ def detect_ballistic_segments(
             for piece_frames, piece_pos in _split_until_fits(
                 piece_frames, piece_pos, fps, residual_threshold, min_fit_observations
             ):
-                p0, v0, rms = fit_ballistic(piece_frames, piece_pos, float(piece_frames[0]), fps)
+                p0, v0, rms = fit_ballistic(
+                    piece_frames, piece_pos, float(piece_frames[0]), fps
+                )
                 if use_drag_fit:
-                    p0_d, v0_d, _, rms_d, _ = fit_with_drag(piece_frames, piece_pos, float(piece_frames[0]), fps)
+                    p0_d, v0_d, _, rms_d, _ = fit_with_drag(
+                        piece_frames, piece_pos, float(piece_frames[0]), fps
+                    )
                     if p0_d is not None:
-                        p0, v0, rms = p0_d, v0_d, rms_d
+                        p0, v0, rms = p0_d, cast(np.ndarray, v0_d), rms_d
                 if rms > 1.25 * residual_threshold:
                     continue
                 # A static piece (carried/still ball) fits a parabola trivially;
@@ -281,11 +292,15 @@ def detect_ballistic_segments(
                 tau = (piece_frames - float(piece_frames[0])) / fps
                 gravity = np.zeros(3)
                 gravity[2] = -9.81
-                speeds = np.linalg.norm(v0[None, :] + gravity[None, :] * tau[:, None], axis=1)
+                speeds = np.linalg.norm(
+                    v0[None, :] + gravity[None, :] * tau[:, None], axis=1
+                )
                 if float(np.max(speeds)) < 1.0:
                     continue
                 # Segment-level free-fall gate (well-conditioned on >=12 points).
-                if not _passes_free_fall_gate(piece_frames, piece_pos, fps, accel_z_range):
+                if not _passes_free_fall_gate(
+                    piece_frames, piece_pos, fps, accel_z_range
+                ):
                     continue
                 segments.append(
                     BallisticSegment(
@@ -325,7 +340,9 @@ def _split_at_bounces(
     if not bounce_frames:
         yield run_frames, run_pos
         return
-    cut_indices = [i for i, frame in enumerate(run_frames) if int(frame) in bounce_frames]
+    cut_indices = [
+        i for i, frame in enumerate(run_frames) if int(frame) in bounce_frames
+    ]
     if not cut_indices:
         yield run_frames, run_pos
         return
@@ -363,7 +380,10 @@ def _split_until_fits(
         yield run_frames, run_pos
         return
     p0, v0, _ = fit_ballistic(run_frames, run_pos, float(run_frames[0]), fps)
-    residuals = np.linalg.norm(run_pos - simulate_ballistic(run_frames, p0, v0, float(run_frames[0]), fps), axis=1)
+    residuals = np.linalg.norm(
+        run_pos - simulate_ballistic(run_frames, p0, v0, float(run_frames[0]), fps),
+        axis=1,
+    )
     bad = residuals > 1.25 * threshold
     keep_start, keep_end = 0, n
     if bad[0]:
@@ -372,21 +392,32 @@ def _split_until_fits(
         keep_end = n - int(np.argmax(~bad[::-1]))
     if keep_end - keep_start >= min_points and (keep_start > 0 or keep_end < n):
         yield from _split_until_fits(
-            run_frames[keep_start:keep_end], run_pos[keep_start:keep_end],
-            fps, threshold, min_points, depth + 1,
+            run_frames[keep_start:keep_end],
+            run_pos[keep_start:keep_end],
+            fps,
+            threshold,
+            min_points,
+            depth + 1,
         )
         return
     split_at = int(np.argmax(residuals))
     left = slice(0, split_at + 1)
     right = slice(split_at + 1, n)
-    yield from _split_until_fits(run_frames[left], run_pos[left], fps, threshold, min_points, depth + 1)
-    yield from _split_until_fits(run_frames[right], run_pos[right], fps, threshold, min_points, depth + 1)
+    yield from _split_until_fits(
+        run_frames[left], run_pos[left], fps, threshold, min_points, depth + 1
+    )
+    yield from _split_until_fits(
+        run_frames[right], run_pos[right], fps, threshold, min_points, depth + 1
+    )
 
 
 # --------------------------------------------------------------------------
 # flight vs dribble split
 
-def _apex_parameters(p0: np.ndarray, v0: np.ndarray, start: int, end: int, fps: float) -> tuple[float, float]:
+
+def _apex_parameters(
+    p0: np.ndarray, v0: np.ndarray, start: int, end: int, fps: float
+) -> tuple[float, float]:
     """(apex_z_m, horizontal_displacement_m) of the fitted arc over [start, end]."""
     grid = np.arange(start, end + 1, dtype=np.float64)
     sim = simulate_ballistic(grid, p0, v0, float(start), fps)
@@ -411,7 +442,9 @@ def classify_ballistic_segments(
 
     for seg in segments:
         apex_z, horizontal = _apex_parameters(seg.p0, seg.v0, seg.start, seg.end, fps)
-        bounce_count = sum(1 for frame in bounce_frames if seg.start <= frame <= seg.end)
+        bounce_count = sum(
+            1 for frame in bounce_frames if seg.start <= frame <= seg.end
+        )
         span = max(1, seg.end - seg.start + 1)
         coverage = seg.observed_frames / span
 
@@ -420,7 +453,11 @@ def classify_ballistic_segments(
             distances = []
             for frame in range(seg.start, seg.end + 1):
                 ball = simulate_ballistic(
-                    np.array([frame], dtype=np.float64), seg.p0, seg.v0, float(seg.start), fps
+                    np.array([frame], dtype=np.float64),
+                    seg.p0,
+                    seg.v0,
+                    float(seg.start),
+                    fps,
                 )[0]
                 hands = hand_centers.get(frame)
                 if hands is None or len(hands) == 0:
@@ -432,7 +469,11 @@ def classify_ballistic_segments(
         # the lowest z reached by the arc — dribbling runs low (a dribble arc
         # split at the bounce may only contain its upper part, hence 0.9)
         grid_sim = simulate_ballistic(
-            np.arange(seg.start, seg.end + 1, dtype=np.float64), seg.p0, seg.v0, float(seg.start), fps
+            np.arange(seg.start, seg.end + 1, dtype=np.float64),
+            seg.p0,
+            seg.v0,
+            float(seg.start),
+            fps,
         )
         min_z = float(np.min(grid_sim[:, 2]))
         touches_floor = min_z <= 0.9
@@ -441,9 +482,16 @@ def classify_ballistic_segments(
         if is_flight:
             seg.kind = "flight"
         else:
-            is_dribble = touches_floor and apex_z <= dribble_max_apex_m and (
-                bounce_count >= 1
-                or (min_hand_distance is not None and min_hand_distance <= dribble_max_player_distance_m)
+            is_dribble = (
+                touches_floor
+                and apex_z <= dribble_max_apex_m
+                and (
+                    bounce_count >= 1
+                    or (
+                        min_hand_distance is not None
+                        and min_hand_distance <= dribble_max_player_distance_m
+                    )
+                )
             )
             if is_dribble:
                 seg.kind = "dribble"
@@ -451,7 +499,10 @@ def classify_ballistic_segments(
                 # Dead zone (1.4 < apex < 2.0): resolve by hand proximity, else
                 # by bounce count; without skeleton a low arc with <2 bounces
                 # is conservatively called flight.
-                if min_hand_distance is not None and min_hand_distance <= dribble_max_player_distance_m:
+                if (
+                    min_hand_distance is not None
+                    and min_hand_distance <= dribble_max_player_distance_m
+                ):
                     seg.kind = "dribble"
                 elif bounce_count >= 2:
                     seg.kind = "dribble"
@@ -459,21 +510,33 @@ def classify_ballistic_segments(
                     seg.kind = "flight"
 
         if seg.kind == "flight":
-            seg.confidence = float(np.clip(1.0 - seg.rms / max(residual_threshold, 1e-6), 0.0, 1.0) * coverage)
+            seg.confidence = float(
+                np.clip(1.0 - seg.rms / max(residual_threshold, 1e-6), 0.0, 1.0)
+                * coverage
+            )
         else:
-            proximity = 1.0 if min_hand_distance is None else float(
-                np.clip(1.0 - min_hand_distance / max(dribble_max_player_distance_m, 1e-6), 0.0, 1.0)
+            proximity = (
+                1.0
+                if min_hand_distance is None
+                else float(
+                    np.clip(
+                        1.0
+                        - min_hand_distance / max(dribble_max_player_distance_m, 1e-6),
+                        0.0,
+                        1.0,
+                    )
+                )
             )
             seg.confidence = float(
                 np.clip(1.0 - seg.rms / max(residual_threshold, 1e-6), 0.0, 1.0)
                 * (0.5 + 0.5 * proximity)
             )
 
-def _estimate_z_accel(z: np.ndarray, dt: float) -> np.ndarray:
-    """Windowed vertical acceleration (m/s^2) via Savitzky-Golay 2nd derivative.
 
-    Retained for diagnostics; the segmentation gate now uses fit_free_g, which
-    is robust to uneven frame sampling (dropped frames break savgol's uniform
-    sampling assumption).
+def _estimate_z_accel(z: np.ndarray, dt: float) -> None:
+    """Legacy diagnostic placeholder; currently returns None.
+
+    Segmentation uses fit_free_g for irregular frame sampling. This placeholder
+    performs no acceleration estimate and is not used by the segmentation gate.
     """
-    n = len(z)
+    _n = len(z)

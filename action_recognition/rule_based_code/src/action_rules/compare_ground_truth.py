@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -54,13 +54,20 @@ def timecode_to_frame(tc: str, fps: int = 30) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare actions to ground truth")
     parser.add_argument("--gt", default="/data/ljy23/project/stal/1-3v3-action.json")
-    parser.add_argument("--actions", default=str(
-        PROJECT_ROOT / "output" / "rfdetr_multiview" / "poses" / "actions.json"
-    ))
+    parser.add_argument(
+        "--actions",
+        default=str(
+            PROJECT_ROOT / "output" / "rfdetr_multiview" / "poses" / "actions.json"
+        ),
+    )
     parser.add_argument("--start-frame", type=int, default=900)
     parser.add_argument("--end-frame", type=int, default=1800)
-    parser.add_argument("--tolerance", type=int, default=40,
-                        help="frame tolerance for matching a GT action")
+    parser.add_argument(
+        "--tolerance",
+        type=int,
+        default=40,
+        help="frame tolerance for matching a GT action",
+    )
     args = parser.parse_args()
 
     with open(args.gt, encoding="utf-8") as handle:
@@ -95,13 +102,18 @@ def main() -> None:
                 break
         if match:
             matched_count += 1
-        label = (f"{match['type']}@{match['frame']} actor={match.get('actor_id')}"
-                 if match else "MISSED")
+        label = (
+            f"{match['type']}@{match['frame']} actor={match.get('actor_id')}"
+            if match
+            else "MISSED"
+        )
         print(f"{gt['Action']:32s} {start:6d}-{end:<7d} {str(gt_id):6s} | {label:30s}")
 
     print("-" * 100)
-    print(f"GT actions in range: {comparable}, matched: {matched_count} "
-          f"({matched_count / max(comparable, 1):.0%})  (tolerance {args.tolerance} frames)")
+    print(
+        f"GT actions in range: {comparable}, matched: {matched_count} "
+        f"({matched_count / max(comparable, 1):.0%})  (tolerance {args.tolerance} frames)"
+    )
 
 
 if __name__ == "__main__":

@@ -2,29 +2,33 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from typing import Any, List
+import sys
+from typing import Any, List, cast
 
 import numpy as np
 import torch
 
-from config import Config
 from basketball_repro.detection_runtime import PlayerDetection
+from config import Config
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _device(value: str) -> str:
     if value == "auto":
         return "cuda:0" if torch.cuda.is_available() else "cpu"
     return value
 
+
 def _trusted_torch_load(*args: Any, **kwargs: Any) -> Any:
     """Load local, user-configured checkpoints across the torch 2.6 change."""
     kwargs.setdefault("weights_only", False)
     return _ORIGINAL_TORCH_LOAD(*args, **kwargs)
 
+
 _ORIGINAL_TORCH_LOAD = torch.load
+
 
 class RTMPoseEstimator:
     """Top-down COCO-17 estimator receiving RF-DETR person boxes."""
@@ -41,9 +45,9 @@ class RTMPoseEstimator:
         if mmpose_path.exists() and str(mmpose_path) not in sys.path:
             sys.path.append(str(mmpose_path))
         try:
-            from mmpose.apis import init_model
             from mmengine.dataset import Compose, pseudo_collate
             from mmengine.registry import init_default_scope
+            from mmpose.apis import init_model
         except ImportError as exc:
             raise RuntimeError(
                 "RTMPose dependencies are unavailable. Install requirements.txt "
@@ -60,7 +64,7 @@ class RTMPoseEstimator:
         device = _device(config.get("pose.device", "auto"))
         # MMPose/MMEngine versions predating torch 2.6 call torch.load without
         # weights_only=False.  The checkpoint path is explicit and local.
-        torch.load = _trusted_torch_load
+        torch.load = cast(Any, _trusted_torch_load)
         try:
             self.model = init_model(
                 pose_config,
@@ -74,7 +78,9 @@ class RTMPoseEstimator:
         self.pseudo_collate = pseudo_collate
         self.init_default_scope = init_default_scope
 
-    def predict(self, frame_bgr: np.ndarray, detections: List[PlayerDetection]) -> list[tuple[np.ndarray, np.ndarray]]:
+    def predict(
+        self, frame_bgr: np.ndarray, detections: List[PlayerDetection]
+    ) -> list[tuple[np.ndarray, np.ndarray]]:
         return self.predict_many([(frame_bgr, detections)])[0]
 
     def predict_many(
@@ -108,14 +114,17 @@ class RTMPoseEstimator:
             xy = np.asarray(instances.keypoints[0, :17], dtype=np.float32)
             scores = np.asarray(instances.keypoint_scores[0, :17], dtype=np.float32)
             if xy.shape != (17, 2) or scores.shape != (17,):
-                raise RuntimeError(f"RTMPose must return COCO-17, got xy={xy.shape}, scores={scores.shape}")
+                raise RuntimeError(
+                    f"RTMPose must return COCO-17, got xy={xy.shape}, scores={scores.shape}"
+                )
             poses.append((xy, scores))
         if len(poses) != sum(counts):
-            raise RuntimeError(f"RTMPose returned {len(poses)} poses for {sum(counts)} RF-DETR boxes")
+            raise RuntimeError(
+                f"RTMPose returned {len(poses)} poses for {sum(counts)} RF-DETR boxes"
+            )
         grouped: list[list[tuple[np.ndarray, np.ndarray]]] = []
         cursor = 0
         for count in counts:
             grouped.append(poses[cursor : cursor + count])
             cursor += count
         return grouped
-

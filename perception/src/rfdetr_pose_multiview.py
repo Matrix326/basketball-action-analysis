@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = Path(__file__).resolve().parent
@@ -14,8 +14,12 @@ for path in (PROJECT_ROOT, SRC_ROOT, THIRD_PARTY_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from config import load_config
-from rfdetr_pipeline.pipeline import RFDetrPoseMultiViewPipeline
+from config import (  # noqa: E402
+    load_config,
+)
+from rfdetr_pipeline.pipeline import (  # noqa: E402
+    RFDetrPoseMultiViewPipeline,
+)
 
 __all__ = ["RFDetrPoseMultiViewPipeline", "main"]
 
@@ -24,23 +28,38 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="RF-DETR-Seg 2XL + RTMPose COCO-17 multi-view pipeline"
     )
-    parser.add_argument("--config", default=str(PROJECT_ROOT / "config" / "config.yaml"))
+    parser.add_argument(
+        "--config", default=str(PROJECT_ROOT / "config" / "config.yaml")
+    )
     parser.add_argument("--start-frame", type=int, default=None)
     parser.add_argument("--end-frame", type=int, default=None)
-    parser.add_argument("--limit", type=int, default=None, help="Convenience limit relative to --start-frame")
-    parser.add_argument("--output-dir", default=None, help="Override output.reid_3d_dir for this run")
-    parser.add_argument("--views", nargs="+", help="Process only these configured views")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Convenience limit relative to --start-frame",
+    )
+    parser.add_argument(
+        "--output-dir", default=None, help="Override output.reid_3d_dir for this run"
+    )
+    parser.add_argument(
+        "--views", nargs="+", help="Process only these configured views"
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
-    videos = {view: path for view, path in config.video_paths.items() if Path(path).exists()}
+    videos = {
+        view: path for view, path in config.video_paths.items() if Path(path).exists()
+    }
     if args.views:
         unknown = set(args.views) - set(config.video_paths)
         if unknown:
             raise SystemExit(f"Unknown views: {sorted(unknown)}")
         videos = {view: videos[view] for view in args.views if view in videos}
     if len(videos) < 2:
-        raise SystemExit(f"Need at least two existing videos; configured: {config.video_paths}")
+        raise SystemExit(
+            f"Need at least two existing videos; configured: {config.video_paths}"
+        )
 
     start = (
         args.start_frame

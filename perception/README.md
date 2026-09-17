@@ -6,7 +6,7 @@
 
 ```text
 basketball-action-analysis/
-├── ljy/                         # 动作识别模块（下游，读 perception 的 poses_3d.json）
+├── action_recognition/                         # 动作识别模块（下游，读 perception 的 poses_3d.json）
 └── perception/
     ├── README.md
     ├── docs/                    # 输入输出接口
@@ -101,7 +101,7 @@ python src/hoop_detection/run_hoop_detection.py \
 用 YOLO（`models/hoop_yolo.pt`）在四视角检测篮筐 → 每视角候选聚类 →
 跨视角三角化（共识 + 球场范围/高度过滤）→ 用球的飞行轨迹锁定真篮筐。
 权重与球轨迹路径可在配置 `hoop_detection:` 段设置；也可由动作识别模块的
-桥接器直接从标注像素三角化（见 `ljy/rule_based_code/tools/`）。
+桥接器直接从标注像素三角化（见 `action_recognition/rule_based_code/tools/`）。
 
 其他参数：
 
@@ -112,6 +112,10 @@ python src/hoop_detection/run_hoop_detection.py \
 - 不传帧区间时使用 `trajectory.start_frame` 和 `process_seconds * fps`；不传输出根目录时使用配置的输出路径。
 
 ## 模型与环境
+
+环境声明目前存在差异：`requirements.txt` 要求 NumPy `<2.0`、ONNX Runtime GPU `1.23.2`，
+而 `pyproject.toml` 固定 NumPy `2.2.6`、ONNX Runtime GPU `1.19.2`，并额外声明 CPU 版 ONNX Runtime。
+下文命令使用 `requirements.txt`；不要把两套声明混装到同一环境。规范整理未升级或替换这些依赖。
 
 `models/` 纳入版本控制，其中模型二进制文件通过 Git LFS 管理，旁侧 JSON 元数据使用普通 Git 管理。外部输入视频和 `output/` 不纳入提交，需要自行准备视频并修改配置。
 

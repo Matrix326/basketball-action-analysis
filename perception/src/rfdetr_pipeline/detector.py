@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 import torch
 
-from config import Config
 from basketball_repro.inference_runtime import (
     BALL_CLASS_ID,
     PERSON_CLASS_ID,
@@ -18,6 +17,8 @@ from basketball_repro.inference_runtime import (
     preprocess_frame,
     trt_predict_batch,
 )
+from config import Config
+
 
 class OnnxRunner:
     """Static-batch RF-DETR ONNX runner with the same post-processing as TRT."""
@@ -60,14 +61,16 @@ class OnnxRunner:
             padded = list(chunk)
             padded.extend([chunk[-1]] * (self.batch_size - len(chunk)))
             tensors = [
-                preprocess_frame(frame, device=torch.device("cpu"), resolution=self.resolution).numpy()
+                preprocess_frame(
+                    frame, device=torch.device("cpu"), resolution=self.resolution
+                ).numpy()
                 for frame in padded
             ]
             raw_values = self.session.run(
                 self.output_names,
                 {self.input_name: np.stack(tensors).astype(self.input_dtype)},
             )
-            raw = dict(zip(self.output_names, raw_values))
+            raw = cast(dict[str, np.ndarray], dict(zip(self.output_names, raw_values)))
             for index, frame in enumerate(chunk):
                 outputs.append(
                     detections_from_raw_tensors(
@@ -81,6 +84,7 @@ class OnnxRunner:
                     )
                 )
         return outputs
+
 
 class TorchBallRunner:
     """Fine-tuned RF-DETR ball detector (PyTorch checkpoint, ball+player).
@@ -118,7 +122,8 @@ class TorchBallRunner:
             preds = [preds]
         return [
             _finetuned_detections_to_pipeline(
-                frame, dets,
+                frame,
+                dets,
                 threshold=threshold,
                 ball_threshold=ball_threshold,
                 **postprocess_kwargs,
@@ -231,10 +236,16 @@ class HybridBallRunner:
         if not frames_bgr:
             return []
         person_outs = self.person_runner.predict_batch(
-            frames_bgr, threshold=threshold, ball_threshold=ball_threshold, **postprocess_kwargs
+            frames_bgr,
+            threshold=threshold,
+            ball_threshold=ball_threshold,
+            **postprocess_kwargs,
         )
         ball_outs = self.ball_runner.predict_batch(
-            frames_bgr, threshold=threshold, ball_threshold=ball_threshold, **postprocess_kwargs
+            frames_bgr,
+            threshold=threshold,
+            ball_threshold=ball_threshold,
+            **postprocess_kwargs,
         )
         merged: list[Any] = []
         for pdet, bdet in zip(person_outs, ball_outs):
@@ -253,8 +264,12 @@ class HybridBallRunner:
                     confidence=np.concatenate([keep_p.confidence, keep_b.confidence]),
                     class_id=np.concatenate([keep_p.class_id, keep_b.class_id]),
                     data={
-                        "class_name": np.concatenate([keep_p.data["class_name"], keep_b.data["class_name"]]),
-                        "source_shape": np.concatenate([keep_p.data["source_shape"], keep_b.data["source_shape"]]),
+                        "class_name": np.concatenate(
+                            [keep_p.data["class_name"], keep_b.data["class_name"]]
+                        ),
+                        "source_shape": np.concatenate(
+                            [keep_p.data["source_shape"], keep_b.data["source_shape"]]
+                        ),
                     },
                 )
             )
@@ -274,14 +289,21 @@ class RFDetrSegmenter:
         if backend in {"auto", "tensorrt"} and can_use_engine:
             try:
                 self.runner = TensorRTRunner(engine_path)
-                engine_precision = str(config.get("rfdetr.engine_precision", "unknown")).lower()
+                engine_precision = str(
+                    config.get("rfdetr.engine_precision", "unknown")
+                ).lower()
                 self.name = f"tensorrt-{engine_precision}"
             except (ImportError, RuntimeError) as exc:
                 if backend == "tensorrt":
                     raise
                 print(f"[warn] TensorRT unavailable ({exc}); trying ONNX Runtime")
 
-        if self.runner is None and backend in {"auto", "onnx", "hybrid"} and onnx_path and Path(onnx_path).exists():
+        if (
+            self.runner is None
+            and backend in {"auto", "onnx", "hybrid"}
+            and onnx_path
+            and Path(onnx_path).exists()
+        ):
             try:
                 self.onnx_runner = OnnxRunner(onnx_path)
                 self.name = f"onnxruntime-{self.onnx_runner.provider}"
@@ -291,7 +313,9 @@ class RFDetrSegmenter:
                 print(f"[warn] ONNX Runtime unavailable ({exc})")
 
         if self.runner is None and self.onnx_runner is None:
-            raise RuntimeError("Neither the bundled TensorRT engine nor ONNX model could be loaded")
+            raise RuntimeError(
+                "Neither the bundled TensorRT engine nor ONNX model could be loaded"
+            )
 
         self.hybrid_runner: Optional[HybridBallRunner] = None
         ball_checkpoint = config.get("rfdetr.ball_checkpoint_path")
@@ -299,7 +323,9 @@ class RFDetrSegmenter:
             person_runner = self.runner if self.runner is not None else self.onnx_runner
             self.hybrid_runner = HybridBallRunner(
                 person_runner,
-                TorchBallRunner(ball_checkpoint, batch_size=int(config.get("rfdetr.batch_size", 8))),
+                TorchBallRunner(
+                    ball_checkpoint, batch_size=int(config.get("rfdetr.batch_size", 8))
+                ),
             )
             self.name = f"hybrid-{self.name}"
             print(f"[info] hybrid backend: person=2XL, ball={ball_checkpoint}")
@@ -319,7 +345,9 @@ class RFDetrSegmenter:
         self.inference_calls = 0
         self.inference_slots = 0
 
-    def predict(self, frames_bgr: list[np.ndarray], roi_polygons: list[Optional[np.ndarray]]) -> list[Any]:
+    def predict(
+        self, frames_bgr: list[np.ndarray], roi_polygons: list[Optional[np.ndarray]]
+    ) -> list[Any]:
         common = dict(
             threshold=self.threshold,
             ball_threshold=self.ball_threshold,
@@ -336,11 +364,15 @@ class RFDetrSegmenter:
         # inference instead of paying one forward pass per camera.
         groups: dict[bytes, list[int]] = {}
         for index, polygon in enumerate(roi_polygons):
-            key = b"none" if polygon is None else np.asarray(polygon, dtype=np.float32).tobytes()
+            key = (
+                b"none"
+                if polygon is None
+                else np.asarray(polygon, dtype=np.float32).tobytes()
+            )
             groups.setdefault(key, []).append(index)
         for indices in groups.values():
             batch = [frames_bgr[index] for index in indices]
-            kwargs = {**common, "roi_polygon": roi_polygons[indices[0]]}
+            kwargs: dict[str, Any] = {**common, "roi_polygon": roi_polygons[indices[0]]}
             if self.hybrid_runner is not None:
                 calls = math.ceil(len(batch) / self.hybrid_runner.batch_size)
                 self.inference_calls += calls
@@ -362,6 +394,7 @@ class RFDetrSegmenter:
                 outputs[index] = result
         return outputs
 
+
 def _temporal_batch_length(detector_batch_capacity: int, view_count: int) -> int:
     """Number of synchronized timestamps that fit in one detector batch."""
     if detector_batch_capacity <= 0:
@@ -369,4 +402,3 @@ def _temporal_batch_length(detector_batch_capacity: int, view_count: int) -> int
     if view_count <= 0:
         raise ValueError("view_count must be positive")
     return max(1, detector_batch_capacity // view_count)
-

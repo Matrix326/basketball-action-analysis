@@ -8,8 +8,14 @@ the 3D skeleton frames, for downstream rule-based action recognition.
 Pure numpy/scipy — no torch/onnxruntime dependency.
 """
 
+from .io import (
+    BallObservations,
+    TrajectoryInput,
+    build_input,
+    load_poses_json,
+    save_interface,
+)
 from .pipeline import BallTrajectoryPostProcessor
-from .io import BallObservations, TrajectoryInput, load_poses_json, build_input, save_interface
 
 __all__ = [
     "BallTrajectoryPostProcessor",

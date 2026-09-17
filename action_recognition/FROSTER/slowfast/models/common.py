@@ -1,5 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
+from typing import cast
+
 import torch
 import torch.nn as nn
 
@@ -67,7 +69,7 @@ class DropPath(nn.Module):
         self.drop_prob = drop_prob
 
     def forward(self, x):
-        return drop_path(x, self.drop_prob, self.training)
+        return drop_path(x, cast(float, self.drop_prob), self.training)
 
 
 class TwoStreamFusion(nn.Module):
@@ -87,29 +89,22 @@ class TwoStreamFusion(nn.Module):
         super().__init__()
         self.mode = mode
         if mode == "add":
-            self.fuse_fn = lambda x: torch.stack(torch.chunk(x, 2, dim=2)).sum(
-                dim=0
-            )
+            self.fuse_fn = lambda x: torch.stack(torch.chunk(x, 2, dim=2)).sum(dim=0)
         elif mode == "max":
-            self.fuse_fn = (
-                lambda x: torch.stack(torch.chunk(x, 2, dim=2))
-                .max(dim=0)
-                .values
+            self.fuse_fn = lambda x: (
+                torch.stack(torch.chunk(x, 2, dim=2)).max(dim=0).values
             )
         elif mode == "min":
-            self.fuse_fn = (
-                lambda x: torch.stack(torch.chunk(x, 2, dim=2))
-                .min(dim=0)
-                .values
+            self.fuse_fn = lambda x: (
+                torch.stack(torch.chunk(x, 2, dim=2)).min(dim=0).values
             )
         elif mode == "avg":
-            self.fuse_fn = lambda x: torch.stack(torch.chunk(x, 2, dim=2)).mean(
-                dim=0
-            )
+            self.fuse_fn = lambda x: torch.stack(torch.chunk(x, 2, dim=2)).mean(dim=0)
         elif mode == "concat":
             # x itself is the channel concat version
             self.fuse_fn = lambda x: x
         elif "concat_linear" in mode:
+            dim = cast(int, dim)
             if len(mode.split("_")) == 2:
                 dim_mult = 1.0
                 drop_rate = 0.0

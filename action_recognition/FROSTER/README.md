@@ -6,7 +6,7 @@
 2. **模型微调** —— 在 Spacejam 篮球动作数据集上微调 TemporalClipVideo
 3. **多人滑动窗口推理** —— YOLO 检测 + 跨帧追踪 + 滑动窗口动作识别 + 可视化
 
-```
+```text
 视频 ──► YOLO 人物检测/追踪 ──► 人框扩展成正方形 ──► 缩放 224×224 ──► 滑动窗口采样 8 帧 ──► FROSTER 分类 ──► 可视化标注
 ```
 
@@ -14,7 +14,7 @@
 
 ## 项目结构
 
-```
+```text
 FROSTER/
 ├── tools/
 │   ├── train_spacejam.py              # 训练脚本（单卡/多卡/教师蒸馏）
@@ -33,17 +33,26 @@ FROSTER/
 
 ## 环境依赖
 
-- Python 3.8，PyTorch 1.11.0，torchvision 0.12.0（推荐使用 conda 环境 `ivnet`）
+- Python 3.10，PyTorch 1.11.0，torchvision 0.12.0（推荐使用 conda 环境 `ivnet`）
 - [PySlowFast](https://github.com/facebookresearch/SlowFast)（仓库内已包含）
 - `ultralytics`（YOLO 检测 + 姿态估计）
 - `opencv-python`、`pyav`、`tensorboard`
 
 ```bash
-conda create -n ivnet python=3.8
+conda create -n ivnet python=3.10
 conda activate ivnet
 pip install torch==1.11.0 torchvision==0.12.0
 pip install ultralytics opencv-python av tensorboard
 ```
+
+上述命令是基础环境示例；完整依赖与第三方组件安装见 [INSTALL.md](INSTALL.md)。
+`requirements.txt` 保留了历史实验版本，其中 Pillow 9.2.0/10.2.0 重复固定，
+且 Torch 版本与上述示例不同，不能将两套说明视作同一份已验证锁文件。
+本次规范整理未替换训练环境依赖版本。
+
+代码检查和 CPU 回归测试见 [开发规范](../../CONTRIBUTING.md)。
+`GroupFCSample` 使用现有 `fill_fix_offset(False, ...)` 的五位置裁剪：
+左上、右上、左下、右下、中心；裁剪尺寸和其余参数不变。
 
 ---
 
@@ -51,7 +60,7 @@ pip install ultralytics opencv-python av tensorboard
 
 数据集为 Spacejam 格式，目录下需要以下文件：
 
-```
+```text
 data/spacejam/
 ├── train.csv                    # 每行: <视频路径> <标签id>
 ├── val.csv                      # 每行: <视频路径> <标签id>
@@ -71,7 +80,7 @@ data/spacejam/
 ```bash
 python tools/precompute_skeleton.py \
     --data-dir data/spacejam \
-    --pose-model /data/ljy23/project/pose/pose/model/yolo11x-pose.pt \
+    --pose-model /path/to/yolo11x-pose.pt \
     --suffix _skeleton
 ```
 
@@ -142,7 +151,7 @@ python tools/train_spacejam.py --config configs/Spacejam/spacejam_skeleton.yaml
 
 训练产物保存在配置的 `OUTPUT_DIR`（默认 `output/teacher`）：
 
-```
+```text
 output/teacher/
 ├── checkpoints/checkpoint_epoch_000018.pyth   # 周期 checkpoint
 ├── best_model.pyth                            # 验证集最优

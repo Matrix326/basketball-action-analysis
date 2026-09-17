@@ -2,14 +2,15 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import itertools
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
-from einops import rearrange
-from sklearn.metrics import confusion_matrix
 
-import slowfast.utils.logging as logging
+from einops import rearrange
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.metrics import confusion_matrix
+import torch
+
 from slowfast.datasets.utils import pack_pathway_output, tensor_normalize
+import slowfast.utils.logging as logging
 
 logger = logging.get_logger(__name__)
 
@@ -60,7 +61,7 @@ def plot_confusion_matrix(cmtx, num_classes, class_names=None, figsize=None):
     Returns:
         img (figure): matplotlib figure.
     """
-    if class_names is None or type(class_names) != list:
+    if class_names is None or type(class_names) is not list:
         class_names = [str(i) for i in range(num_classes)]
 
     figure = plt.figure(figsize=figsize)
@@ -151,7 +152,12 @@ def plot_topk_histogram(tag, array, k=10, class_names=None, figsize=None):
 
     ax.set_title(tag)
 
-    fig.set_tight_layout(True)
+    # Matplotlib 3.11 removed the legacy layout setter.
+    legacy_layout = getattr(fig, "set_tight_layout", None)
+    if legacy_layout is not None:
+        legacy_layout(True)
+    else:
+        fig.set_layout_engine("tight")
 
     return fig
 
@@ -230,7 +236,9 @@ class GetWeightAndActivation:
         activation_dict = {}
         for layer_name, hook in self.hooks.items():
             # list of activations for each instance.
-            activation_dict[layer_name] = rearrange(hook, "(b t) (x y c) h w -> b c t (h x) (w y)",c=3,t=8,x=16)
+            activation_dict[layer_name] = rearrange(
+                hook, "(b t) (x y c) h w -> b c t (h x) (w y)", c=3, t=8, x=16
+            )
 
         return activation_dict, preds
 
@@ -247,9 +255,7 @@ class GetWeightAndActivation:
             if hasattr(cur_layer, "weight"):
                 weights[layer] = cur_layer.weight.clone().detach()
             else:
-                logger.error(
-                    "Layer {} does not have weight attribute.".format(layer)
-                )
+                logger.error("Layer {} does not have weight attribute.".format(layer))
         return weights
 
 

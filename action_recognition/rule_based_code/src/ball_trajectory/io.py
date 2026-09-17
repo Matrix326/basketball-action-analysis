@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field as field
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
@@ -14,11 +14,11 @@ import numpy as np
 class BallObservations:
     """Raw per-frame 3D ball triangulations (post outlier rejection)."""
 
-    frame_indices: np.ndarray          # int64 (N,), sorted strictly increasing
-    positions: np.ndarray              # float64 (N, 3), calibrated world metres, z up
-    views: np.ndarray                  # int (N,), triangulation view count (>=2); 0 if unknown
-    outlier_mask: np.ndarray           # bool (N,), True where rejected as outlier
-    measured_positions: np.ndarray     # float64 (N, 3), raw measurement (pre-rejection)
+    frame_indices: np.ndarray  # int64 (N,), sorted strictly increasing
+    positions: np.ndarray  # float64 (N, 3), calibrated world metres, z up
+    views: np.ndarray  # int (N,), triangulation view count (>=2); 0 if unknown
+    outlier_mask: np.ndarray  # bool (N,), True where rejected as outlier
+    measured_positions: np.ndarray  # float64 (N, 3), raw measurement (pre-rejection)
 
 
 @dataclass
@@ -27,7 +27,7 @@ class TrajectoryInput:
 
     observations: BallObservations
     fps: float
-    skeleton: Optional[dict[int, dict[int, list[list[float]]]]] = None
+    skeleton: Optional[dict[int, dict[int, np.ndarray]]] = None
     #   frame -> player_id -> (17, 3) keypoint positions, NaN where missing
     video_info: Optional[dict[str, Any]] = None
 
@@ -78,14 +78,24 @@ def build_input(data: dict, fps: Optional[float] = None) -> TrajectoryInput:
         observed_flags = np.ones(len(frames), dtype=bool)
 
     order = np.argsort(frames) if frames else np.array([], dtype=np.int64)
-    frame_arr = np.asarray(frames, dtype=np.int64)[order] if frames else np.array([], dtype=np.int64)
+    frame_arr = (
+        np.asarray(frames, dtype=np.int64)[order]
+        if frames
+        else np.array([], dtype=np.int64)
+    )
     pos_arr = (
         np.asarray(positions, dtype=np.float64)[order]
         if positions
         else np.zeros((0, 3), dtype=np.float64)
     )
-    views_arr = np.asarray(views, dtype=np.int64)[order] if views else np.zeros(0, dtype=np.int64)
-    obs_flags = observed_flags[order] if len(observed_flags) else np.zeros(0, dtype=bool)
+    views_arr = (
+        np.asarray(views, dtype=np.int64)[order]
+        if views
+        else np.zeros(0, dtype=np.int64)
+    )
+    obs_flags = (
+        observed_flags[order] if len(observed_flags) else np.zeros(0, dtype=bool)
+    )
 
     if fps is None:
         video_info = data.get("video_info", {})
@@ -140,4 +150,6 @@ def save_interface(output: dict, path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
-        json.dump(_sanitize(output), handle, ensure_ascii=False, indent=1, allow_nan=False)
+        json.dump(
+            _sanitize(output), handle, ensure_ascii=False, indent=1, allow_nan=False
+        )

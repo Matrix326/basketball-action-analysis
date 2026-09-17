@@ -3,11 +3,11 @@
 支持 YAML 配置文件、变量引用（${var}）、深度合并、运行时覆盖
 """
 
-import os
 import copy
-import yaml
+import os
 from typing import Any, Dict, List, Optional, Tuple
 
+import yaml
 
 _DEFAULT_YAML_PATH = os.path.join(os.path.dirname(__file__), "default.yaml")
 
@@ -39,7 +39,7 @@ def _interpolate(s: str, root: Dict) -> Any:
     if start == -1 or end == -1:
         return s
 
-    var_name = s[start + 2:end]
+    var_name = s[start + 2 : end]
     parts = var_name.split(".")
     value = root
     for part in parts:
@@ -52,7 +52,7 @@ def _interpolate(s: str, root: Dict) -> Any:
         return value
 
     prefix = s[:start]
-    suffix = _interpolate(s[end + 1:], root)
+    suffix = _interpolate(s[end + 1 :], root)
     return str(prefix) + str(value) + str(suffix)
 
 

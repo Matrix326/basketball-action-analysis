@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from collections import deque
+from collections.abc import Sequence
+from dataclasses import dataclass
 import queue
 import threading
-from collections import deque
-from dataclasses import dataclass
+from typing import cast
+
 import cv2
 import numpy as np
 
-def parse_points(value: str | None, width: int, height: int, *, min_points: int) -> np.ndarray | None:
+
+def parse_points(
+    value: str | None, width: int, height: int, *, min_points: int
+) -> np.ndarray | None:
     if value is None or not value.strip():
         return None
 
@@ -29,23 +35,29 @@ def parse_points(value: str | None, width: int, height: int, *, min_points: int)
 
     return np.array(points, dtype=np.float32)
 
-def make_roi_mask(shape: tuple[int, int], polygon: np.ndarray | None) -> np.ndarray | None:
+
+def make_roi_mask(
+    shape: tuple[int, int], polygon: np.ndarray | None
+) -> np.ndarray | None:
     if polygon is None:
         return None
     mask = np.zeros(shape, dtype=np.uint8)
-    cv2.fillPoly(mask, [polygon.astype(np.int32)], 1)
+    cv2.fillPoly(mask, [polygon.astype(np.int32)], (1,))
     return mask
+
 
 def point_in_polygon(point: tuple[float, float], polygon: np.ndarray | None) -> bool:
     if polygon is None:
         return True
     return cv2.pointPolygonTest(polygon.astype(np.float32), point, False) >= 0
 
+
 def detection_point(xyxy: np.ndarray, *, mode: str) -> tuple[float, float]:
     x1, y1, x2, y2 = [float(v) for v in xyxy]
     x = (x1 + x2) / 2.0
     y = y2 if mode == "bottom-center" else (y1 + y2) / 2.0
     return x, y
+
 
 def mask_foot_point(
     binary: np.ndarray,
@@ -71,11 +83,13 @@ def mask_foot_point(
         return fallback
     return float(x + np.mean(xs[band])), float(y + y_max)
 
+
 def class_name_at(detections, index: int) -> str:
     names = getattr(detections, "data", {}).get("class_name")
     if names is not None and len(names) > index:
         return str(names[index])
     return str(int(detections.class_id[index]))
+
 
 def color_for_id(track_id: int) -> tuple[int, int, int]:
     palette = [
@@ -89,6 +103,7 @@ def color_for_id(track_id: int) -> tuple[int, int, int]:
         (250, 204, 21),
     ]
     return palette[track_id % len(palette)]
+
 
 def nms_keep_indices(
     boxes: np.ndarray,
@@ -120,14 +135,20 @@ def nms_keep_indices(
             area_current = max(0.0, float(current_box[2] - current_box[0])) * max(
                 0.0, float(current_box[3] - current_box[1])
             )
-            area_rest = np.maximum(0.0, rest_boxes[:, 2] - rest_boxes[:, 0]) * np.maximum(
-                0.0, rest_boxes[:, 3] - rest_boxes[:, 1]
-            )
+            area_rest = np.maximum(
+                0.0, rest_boxes[:, 2] - rest_boxes[:, 0]
+            ) * np.maximum(0.0, rest_boxes[:, 3] - rest_boxes[:, 1])
             denom = area_current + area_rest - inter
-            iou = np.divide(inter, denom, out=np.zeros_like(inter, dtype=np.float32), where=denom > 0)
+            iou = np.divide(
+                inter,
+                denom,
+                out=np.zeros_like(inter, dtype=np.float32),
+                where=denom > 0,
+            )
             order = rest[iou <= threshold]
 
     return np.array(keep, dtype=np.int64)
+
 
 def mask_nms_keep_mask(
     masks: np.ndarray,
@@ -142,7 +163,7 @@ def mask_nms_keep_mask(
     sorted_labels = labels[sort_index]
 
     areas = np.empty((rows,), dtype=np.float32)
-    bounds: list[tuple[int, int, int, int] | None] = []
+    bounds: list[Sequence[int] | None] = []
     for index, mask in enumerate(sorted_masks):
         area = int(cv2.countNonZero(mask))
         areas[index] = float(area)
@@ -150,17 +171,24 @@ def mask_nms_keep_mask(
 
     keep_sorted = np.ones((rows,), dtype=bool)
     for row_index in range(rows):
-        if not keep_sorted[row_index] or bounds[row_index] is None or areas[row_index] <= 0:
+        if (
+            not keep_sorted[row_index]
+            or bounds[row_index] is None
+            or areas[row_index] <= 0
+        ):
             continue
-        x1, y1, w1, h1 = bounds[row_index]
+        x1, y1, w1, h1 = cast(Sequence[int], bounds[row_index])
         ax2 = x1 + w1
         ay2 = y1 + h1
         for other_index in range(row_index + 1, rows):
-            if not keep_sorted[other_index] or sorted_labels[row_index] != sorted_labels[other_index]:
+            if (
+                not keep_sorted[other_index]
+                or sorted_labels[row_index] != sorted_labels[other_index]
+            ):
                 continue
             if bounds[other_index] is None or areas[other_index] <= 0:
                 continue
-            x2, y2, w2, h2 = bounds[other_index]
+            x2, y2, w2, h2 = cast(Sequence[int], bounds[other_index])
             bx2 = x2 + w2
             by2 = y2 + h2
             ix1 = max(x1, x2)
@@ -171,7 +199,8 @@ def mask_nms_keep_mask(
                 continue
             intersection = int(
                 np.count_nonzero(
-                    sorted_masks[row_index, iy1:iy2, ix1:ix2] & sorted_masks[other_index, iy1:iy2, ix1:ix2]
+                    sorted_masks[row_index, iy1:iy2, ix1:ix2]
+                    & sorted_masks[other_index, iy1:iy2, ix1:ix2]
                 )
             )
             if intersection <= 0:
@@ -184,7 +213,10 @@ def mask_nms_keep_mask(
     keep[sort_index] = keep_sorted
     return keep
 
-def fast_detections_nms(detections, *, threshold: float = 0.5, class_agnostic: bool = False):
+
+def fast_detections_nms(
+    detections, *, threshold: float = 0.5, class_agnostic: bool = False
+):
     boxes = np.asarray(detections.xyxy, dtype=np.float32)
     if len(boxes) <= 1 or getattr(detections, "confidence", None) is None:
         return detections
@@ -196,7 +228,9 @@ def fast_detections_nms(detections, *, threshold: float = 0.5, class_agnostic: b
         labels = np.asarray(detections.class_id, dtype=np.int64)
 
     if getattr(detections, "mask", None) is not None:
-        keep_mask = mask_nms_keep_mask(np.asarray(detections.mask), scores, labels, threshold=threshold)
+        keep_mask = mask_nms_keep_mask(
+            np.asarray(detections.mask), scores, labels, threshold=threshold
+        )
         if bool(keep_mask.all()):
             return detections
         return detections[keep_mask]
@@ -206,7 +240,10 @@ def fast_detections_nms(detections, *, threshold: float = 0.5, class_agnostic: b
         return detections
     return detections[keep]
 
-def mask_histogram_from_hsv(frame_hsv: np.ndarray, mask: np.ndarray) -> np.ndarray | None:
+
+def mask_histogram_from_hsv(
+    frame_hsv: np.ndarray, mask: np.ndarray
+) -> np.ndarray | None:
     binary = mask.astype(np.uint8)
     if int(binary.sum()) < 20:
         return None
@@ -214,7 +251,10 @@ def mask_histogram_from_hsv(frame_hsv: np.ndarray, mask: np.ndarray) -> np.ndarr
     cv2.normalize(hist, hist, alpha=1.0, norm_type=cv2.NORM_L1)
     return hist.astype(np.float32)
 
-def mask_geometry(mask: np.ndarray) -> tuple[np.ndarray, int, tuple[int, int, int, int] | None, list[np.ndarray]]:
+
+def mask_geometry(
+    mask: np.ndarray,
+) -> tuple[np.ndarray, int, tuple[int, int, int, int] | None, Sequence[np.ndarray]]:
     binary = mask.astype(np.uint8, copy=False)
     mask_pixels = int(cv2.countNonZero(binary))
     if mask_pixels <= 0:
@@ -228,7 +268,10 @@ def mask_geometry(mask: np.ndarray) -> tuple[np.ndarray, int, tuple[int, int, in
         contours = [contour + offset for contour in contours]
     return binary, mask_pixels, (x, y, width, height), contours
 
-def orange_score(frame_bgr: np.ndarray, bbox_xyxy: np.ndarray, mask: np.ndarray | None) -> float:
+
+def orange_score(
+    frame_bgr: np.ndarray, bbox_xyxy: np.ndarray, mask: np.ndarray | None
+) -> float:
     x1, y1, x2, y2 = [int(round(v)) for v in bbox_xyxy]
     pad = 3
     x1 = max(0, x1 - pad)
@@ -250,15 +293,16 @@ def orange_score(frame_bgr: np.ndarray, bbox_xyxy: np.ndarray, mask: np.ndarray 
     hue = hsv[:, :, 0]
     sat = hsv[:, :, 1]
     val = hsv[:, :, 2]
-    orange = ((hue >= 2) & (hue <= 23) & (sat >= 55) & (val >= 45) & (object_mask > 0))
+    orange = (hue >= 2) & (hue <= 23) & (sat >= 55) & (val >= 45) & (object_mask > 0)
     denom = int((object_mask > 0).sum())
     return float(orange.sum() / denom) if denom else 0.0
+
 
 @dataclass
 class PlayerDetection:
     bbox_xyxy: np.ndarray
     mask: np.ndarray
-    contours: list[np.ndarray]
+    contours: Sequence[np.ndarray]
     confidence: float | None
     foot_xy: tuple[float, float]
     center_xy: tuple[float, float]
@@ -266,15 +310,17 @@ class PlayerDetection:
     mask_pixels: int
     roi_ratio: float | None
 
+
 @dataclass
 class BallDetection:
     bbox_xyxy: np.ndarray
     mask: np.ndarray | None
-    contours: list[np.ndarray]
+    contours: Sequence[np.ndarray]
     confidence: float | None
     center_xy: tuple[float, float]
     size: float
     orange_score: float
+
 
 class BallTracker:
     def __init__(
@@ -334,13 +380,26 @@ class BallTracker:
             nearby: list[BallDetection] = []
             for det in candidates:
                 predicted_distance = float(
-                    np.hypot(det.center_xy[0] - predicted_center[0], det.center_xy[1] - predicted_center[1])
+                    np.hypot(
+                        det.center_xy[0] - predicted_center[0],
+                        det.center_xy[1] - predicted_center[1],
+                    )
                 )
                 direct_distance = float(
-                    np.hypot(det.center_xy[0] - self.last_center[0], det.center_xy[1] - self.last_center[1])
+                    np.hypot(
+                        det.center_xy[0] - self.last_center[0],
+                        det.center_xy[1] - self.last_center[1],
+                    )
                 )
-                is_plausible_jump = direct_distance <= self.max_jump or self.quality(det) >= self.min_jump_quality
-                if predicted_distance <= jump_gate and direct_distance <= self.max_distance and is_plausible_jump:
+                is_plausible_jump = (
+                    direct_distance <= self.max_jump
+                    or self.quality(det) >= self.min_jump_quality
+                )
+                if (
+                    predicted_distance <= jump_gate
+                    and direct_distance <= self.max_distance
+                    and is_plausible_jump
+                ):
                     nearby.append(det)
             if not nearby:
                 self.missed += 1
@@ -353,10 +412,18 @@ class BallTracker:
 
             def cost(det: BallDetection) -> float:
                 predicted_distance = float(
-                    np.hypot(det.center_xy[0] - predicted_center[0], det.center_xy[1] - predicted_center[1])
+                    np.hypot(
+                        det.center_xy[0] - predicted_center[0],
+                        det.center_xy[1] - predicted_center[1],
+                    )
                 )
                 direct_distance = float(
-                    np.hypot(det.center_xy[0] - self.last_center[0], det.center_xy[1] - self.last_center[1])
+                    np.hypot(
+                        det.center_xy[0]
+                        - cast(tuple[float, float], self.last_center)[0],
+                        det.center_xy[1]
+                        - cast(tuple[float, float], self.last_center)[1],
+                    )
                 )
                 return (
                     predicted_distance
@@ -370,13 +437,17 @@ class BallTracker:
             if self.stationary_frames >= self.stationary_switch_frames:
                 best = max(candidates, key=self.quality)
                 best_distance = float(
-                    np.hypot(best.center_xy[0] - self.last_center[0], best.center_xy[1] - self.last_center[1])
+                    np.hypot(
+                        best.center_xy[0] - self.last_center[0],
+                        best.center_xy[1] - self.last_center[1],
+                    )
                 )
                 if (
                     best is not selected
                     and best.orange_score >= 0.08
                     and best_distance <= self.max_jump
-                    and self.quality(best) >= self.quality(selected) + self.switch_margin
+                    and self.quality(best)
+                    >= self.quality(selected) + self.switch_margin
                 ):
                     selected = best
                     reset_trail = True
@@ -388,7 +459,12 @@ class BallTracker:
         if reset_trail:
             self.trail.clear()
         if previous_center is not None:
-            movement = float(np.hypot(selected.center_xy[0] - previous_center[0], selected.center_xy[1] - previous_center[1]))
+            movement = float(
+                np.hypot(
+                    selected.center_xy[0] - previous_center[0],
+                    selected.center_xy[1] - previous_center[1],
+                )
+            )
             measured_velocity = (
                 selected.center_xy[0] - previous_center[0],
                 selected.center_xy[1] - previous_center[1],
@@ -403,6 +479,7 @@ class BallTracker:
             self.stationary_frames = 0
         self.trail.append(selected.center_xy)
         return selected
+
 
 def extract_detections(
     frame_bgr: np.ndarray,
@@ -425,7 +502,9 @@ def extract_detections(
 ) -> tuple[list[PlayerDetection], list[BallDetection]]:
     if run_nms:
         try:
-            detections = fast_detections_nms(detections, threshold=0.5, class_agnostic=False)
+            detections = fast_detections_nms(
+                detections, threshold=0.5, class_agnostic=False
+            )
         except Exception:
             try:
                 detections = detections.with_nms(threshold=0.5, class_agnostic=False)
@@ -434,14 +513,20 @@ def extract_detections(
 
     masks = getattr(detections, "mask", None)
     if masks is None:
-        raise RuntimeError("RF-DETR-Seg did not return masks; use a segmentation model size.")
+        raise RuntimeError(
+            "RF-DETR-Seg did not return masks; use a segmentation model size."
+        )
 
     player_detections: list[PlayerDetection] = []
     ball_detections: list[BallDetection] = []
     for index, mask in enumerate(masks):
         class_name = class_name_at(detections, index)
         xyxy = np.asarray(detections.xyxy[index], dtype=np.float32)
-        score = float(detections.confidence[index]) if detections.confidence is not None else None
+        score = (
+            float(detections.confidence[index])
+            if detections.confidence is not None
+            else None
+        )
         x1, y1, x2, y2 = [float(v) for v in xyxy]
         width, height = x2 - x1, y2 - y1
         center = detection_point(xyxy, mode="center")
@@ -465,7 +550,9 @@ def extract_detections(
                     confidence=score,
                     center_xy=center,
                     size=float(size),
-                    orange_score=orange_score(frame_bgr, xyxy, binary if mask_pixels > 0 else None),
+                    orange_score=orange_score(
+                        frame_bgr, xyxy, binary if mask_pixels > 0 else None
+                    ),
                 )
             )
             continue
@@ -493,7 +580,12 @@ def extract_detections(
                 roi_pixels = 0
             else:
                 mx, my, mw, mh = mask_bounds
-                roi_pixels = int((binary[my : my + mh, mx : mx + mw] * roi_mask[my : my + mh, mx : mx + mw]).sum())
+                roi_pixels = int(
+                    (
+                        binary[my : my + mh, mx : mx + mw]
+                        * roi_mask[my : my + mh, mx : mx + mw]
+                    ).sum()
+                )
             roi_ratio = roi_pixels / float(mask_pixels)
             if roi_ratio < min_mask_roi_ratio:
                 continue
@@ -502,8 +594,12 @@ def extract_detections(
             histogram = None
         else:
             mx, my, mw, mh = mask_bounds
-            hsv_crop = cv2.cvtColor(frame_bgr[my : my + mh, mx : mx + mw], cv2.COLOR_BGR2HSV)
-            histogram = mask_histogram_from_hsv(hsv_crop, binary[my : my + mh, mx : mx + mw])
+            hsv_crop = cv2.cvtColor(
+                frame_bgr[my : my + mh, mx : mx + mw], cv2.COLOR_BGR2HSV
+            )
+            histogram = mask_histogram_from_hsv(
+                hsv_crop, binary[my : my + mh, mx : mx + mw]
+            )
 
         player_detections.append(
             PlayerDetection(
@@ -521,12 +617,17 @@ def extract_detections(
 
     return player_detections, ball_detections
 
+
 class AsyncVideoWriter:
     def __init__(self, writer, *, max_queue: int = 64) -> None:
         self.writer = writer
-        self.queue: queue.Queue[np.ndarray | None] = queue.Queue(maxsize=max(1, max_queue))
+        self.queue: queue.Queue[np.ndarray | None] = queue.Queue(
+            maxsize=max(1, max_queue)
+        )
         self.error: BaseException | None = None
-        self.thread = threading.Thread(target=self._run, name="async-video-writer", daemon=True)
+        self.thread = threading.Thread(
+            target=self._run, name="async-video-writer", daemon=True
+        )
         self.thread.start()
 
     def _run(self) -> None:

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, cast
 
 import cv2
 import numpy as np
 
 from basketball_repro.detection_runtime import BallDetection, PlayerDetection
+
 
 @dataclass
 class PoseObservation:
@@ -25,8 +26,13 @@ class PoseObservation:
 
     @property
     def quality(self) -> float:
-        pose_quality = float(np.mean(self.keypoints_conf[self.keypoints_conf > 0])) if np.any(self.keypoints_conf > 0) else 0.0
+        pose_quality = (
+            float(np.mean(self.keypoints_conf[self.keypoints_conf > 0]))
+            if np.any(self.keypoints_conf > 0)
+            else 0.0
+        )
         return 0.5 * float(self.detection.confidence or 0.0) + 0.5 * pose_quality
+
 
 @dataclass
 class FrameExtraction:
@@ -34,21 +40,42 @@ class FrameExtraction:
     observations: list[PoseObservation]
     balls: list[BallDetection]
 
+
 def _bbox_overlap_ratios(detections: list[PlayerDetection]) -> list[float]:
     """Intersection over the smaller box, used only to guard ReID updates."""
     ratios = np.zeros(len(detections), dtype=np.float32)
     for first_index, first in enumerate(detections):
         first_box = np.asarray(first.bbox_xyxy, dtype=np.float32)
-        first_area = max(float((first_box[2] - first_box[0]) * (first_box[3] - first_box[1])), 1e-6)
+        first_area = max(
+            float((first_box[2] - first_box[0]) * (first_box[3] - first_box[1])), 1e-6
+        )
         for second_index in range(first_index + 1, len(detections)):
-            second_box = np.asarray(detections[second_index].bbox_xyxy, dtype=np.float32)
-            width = max(0.0, float(min(first_box[2], second_box[2]) - max(first_box[0], second_box[0])))
-            height = max(0.0, float(min(first_box[3], second_box[3]) - max(first_box[1], second_box[1])))
-            second_area = max(float((second_box[2] - second_box[0]) * (second_box[3] - second_box[1])), 1e-6)
+            second_box = np.asarray(
+                detections[second_index].bbox_xyxy, dtype=np.float32
+            )
+            width = max(
+                0.0,
+                float(
+                    min(first_box[2], second_box[2]) - max(first_box[0], second_box[0])
+                ),
+            )
+            height = max(
+                0.0,
+                float(
+                    min(first_box[3], second_box[3]) - max(first_box[1], second_box[1])
+                ),
+            )
+            second_area = max(
+                float(
+                    (second_box[2] - second_box[0]) * (second_box[3] - second_box[1])
+                ),
+                1e-6,
+            )
             ratio = width * height / min(first_area, second_area)
             ratios[first_index] = max(ratios[first_index], ratio)
             ratios[second_index] = max(ratios[second_index], ratio)
     return ratios.astype(float).tolist()
+
 
 def _mask_shape_feature(detection: PlayerDetection) -> Optional[np.ndarray]:
     """Compact, translation/scale-normalized silhouette descriptor."""
@@ -61,13 +88,16 @@ def _mask_shape_feature(detection: PlayerDetection) -> Optional[np.ndarray]:
     crop = mask[y1:y2, x1:x2]
     if int(np.count_nonzero(crop)) < 20:
         return None
-    silhouette = cv2.resize(crop.astype(np.float32), (16, 32), interpolation=cv2.INTER_AREA)
+    silhouette = cv2.resize(
+        crop.astype(np.float32), (16, 32), interpolation=cv2.INTER_AREA
+    )
     vertical = silhouette.mean(axis=1)
     horizontal = silhouette.mean(axis=0)
     aspect = np.array([(x2 - x1) / max(float(y2 - y1), 1.0)], dtype=np.float32)
     feature = np.concatenate((silhouette.reshape(-1), vertical, horizontal, aspect))
     norm = float(np.linalg.norm(feature))
     return feature / norm if norm > 0 else None
+
 
 def _refined_mask_contours(
     detection: PlayerDetection,
@@ -94,7 +124,12 @@ def _refined_mask_contours(
     contours, _ = cv2.findContours(smooth, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     minimum_area = max(12.0, float(detection.mask_pixels) * 0.001)
     offset = np.array([[[x1, y1]]], dtype=np.int32)
-    return [contour + offset for contour in contours if cv2.contourArea(contour) >= minimum_area]
+    return [
+        contour + offset
+        for contour in contours
+        if cv2.contourArea(contour) >= minimum_area
+    ]
+
 
 def _has_human_pose_evidence(
     detection: PlayerDetection,
@@ -142,6 +177,7 @@ def _has_human_pose_evidence(
     vertical_span = float(np.ptp(xy[valid, 1]))
     return vertical_span >= max(0.0, float(min_vertical_span_ratio) * height)
 
+
 @dataclass
 class ObservationGroup:
     observations: dict[str, PoseObservation] = field(default_factory=dict)
@@ -149,7 +185,8 @@ class ObservationGroup:
     @property
     def ground_position(self) -> Optional[np.ndarray]:
         clean = [
-            obs for obs in self.observations.values()
+            obs
+            for obs in self.observations.values()
             if obs.ground_position is not None and obs.overlap_ratio < 0.15
         ]
         observations = clean or [
@@ -158,7 +195,9 @@ class ObservationGroup:
         if not observations:
             return None
 
-        points = np.stack([obs.ground_position for obs in observations])
+        points = np.stack(
+            [cast(np.ndarray, obs.ground_position) for obs in observations]
+        )
         if len(points) >= 3:
             center = np.median(points, axis=0)
             residuals = np.linalg.norm(points[:, :2] - center[:2], axis=1)
@@ -176,7 +215,8 @@ class ObservationGroup:
         # Use a clean view when available; if every view is occluded, position
         # continuity carries the ID and the appearance gallery is left intact.
         values = [
-            obs.appearance for obs in self.observations.values()
+            obs.appearance
+            for obs in self.observations.values()
             if obs.appearance is not None and obs.overlap_ratio < 0.15
         ]
         if not values:
@@ -188,7 +228,11 @@ class ObservationGroup:
     @property
     def identity_appearance(self) -> Optional[np.ndarray]:
         """Clothing evidence for matching, including overlap masks but never gallery updates."""
-        values = [obs.appearance for obs in self.observations.values() if obs.appearance is not None]
+        values = [
+            obs.appearance
+            for obs in self.observations.values()
+            if obs.appearance is not None
+        ]
         if not values:
             return None
         value = np.mean(np.stack(values), axis=0)
@@ -196,7 +240,11 @@ class ObservationGroup:
 
     @property
     def face_embedding(self) -> Optional[np.ndarray]:
-        values = [obs.face_embedding for obs in self.observations.values() if obs.face_embedding is not None]
+        values = [
+            obs.face_embedding
+            for obs in self.observations.values()
+            if obs.face_embedding is not None
+        ]
         if not values:
             return None
         value = np.mean(np.stack(values), axis=0)

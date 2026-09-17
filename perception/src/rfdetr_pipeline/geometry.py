@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import math
-from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import TYPE_CHECKING, Iterable, Optional, cast
 
 import numpy as np
 
-from config import Config
 from basketball_repro.detection_runtime import BallDetection
+from config import Config
+
+if TYPE_CHECKING:
+    from .observations import PoseObservation
+
 
 @dataclass
 class CameraParams:
@@ -26,29 +30,42 @@ class CameraParams:
     def center(self) -> np.ndarray:
         return -self.R.T @ self.t.reshape(3)
 
+
 class MultiViewGeometry:
     def __init__(self, config: Config) -> None:
-        with open(config.get("camera.intrinsics_path"), "r", encoding="utf-8") as handle:
+        with open(
+            config.get("camera.intrinsics_path"), "r", encoding="utf-8"
+        ) as handle:
             intrinsics = json.load(handle)
-        with open(config.get("camera.extrinsics_path"), "r", encoding="utf-8") as handle:
+        with open(
+            config.get("camera.extrinsics_path"), "r", encoding="utf-8"
+        ) as handle:
             extrinsics = json.load(handle)
         self.view_to_camera = config.view_to_camera
         self.cameras: dict[str, CameraParams] = {}
         for camera_name, intr in intrinsics.items():
             ext = extrinsics[camera_name]
             self.cameras[camera_name] = CameraParams(
-                K=np.asarray(intr.get("K_undistorted", intr.get("K_original")), dtype=np.float64),
+                K=np.asarray(
+                    intr.get("K_undistorted", intr.get("K_original")), dtype=np.float64
+                ),
                 R=np.asarray(ext.get("R_w2c", ext.get("R")), dtype=np.float64),
                 t=np.asarray(ext.get("t_w2c", ext.get("t")), dtype=np.float64),
             )
-        self.keypoint_threshold = float(config.get("pose.triangulation_keypoint_threshold", 0.20))
-        self.max_reprojection_error = float(config.get("pose.max_reprojection_error_px", 30.0))
+        self.keypoint_threshold = float(
+            config.get("pose.triangulation_keypoint_threshold", 0.20)
+        )
+        self.max_reprojection_error = float(
+            config.get("pose.max_reprojection_error_px", 30.0)
+        )
         self.ball_max_reprojection_error = float(
             config.get("ball.max_reprojection_error_px", 100.0)
         )
         self.court_world_bounds = tuple(
             float(value)
-            for value in config.get("camera.court_world_bounds", [-2.0, 17.0, -4.0, 18.0])
+            for value in config.get(
+                "camera.court_world_bounds", [-2.0, 17.0, -4.0, 18.0]
+            )
         )
         self.ball_max_height = float(config.get("ball.max_height_m", 10.0))
 
@@ -81,7 +98,9 @@ class MultiViewGeometry:
         for view, pixel, confidence in samples:
             p = self.camera(view).P
             weight = math.sqrt(max(float(confidence), 1e-6))
-            rows.extend((weight * (pixel[0] * p[2] - p[0]), weight * (pixel[1] * p[2] - p[1])))
+            rows.extend(
+                (weight * (pixel[0] * p[2] - p[0]), weight * (pixel[1] * p[2] - p[1]))
+            )
         try:
             _, _, vt = np.linalg.svd(np.asarray(rows))
             homogeneous = vt[-1]
@@ -97,7 +116,9 @@ class MultiViewGeometry:
             projected = self.camera(view).P @ np.r_[point, 1.0]
             if abs(projected[2]) < 1e-9:
                 return None
-            errors.append(float(np.linalg.norm(projected[:2] / projected[2] - pixel[:2])))
+            errors.append(
+                float(np.linalg.norm(projected[:2] / projected[2] - pixel[:2]))
+            )
         error_limit = (
             self.max_reprojection_error
             if max_reprojection_error is None
@@ -129,8 +150,15 @@ class MultiViewGeometry:
             for detection in detections
         ]
         best: dict[str, BallDetection] = {}
-        best_score: tuple[int, float, float, float] = (-1, float("-inf"), float("-inf"), float("-inf"))
-        predicted = None if predicted_3d is None else np.asarray(predicted_3d, dtype=np.float64)
+        best_score: tuple[int, float, float, float] = (
+            -1,
+            float("-inf"),
+            float("-inf"),
+            float("-inf"),
+        )
+        predicted = (
+            None if predicted_3d is None else np.asarray(predicted_3d, dtype=np.float64)
+        )
         for first_index in range(len(candidates)):
             first_view, first_detection = candidates[first_index]
             for second_view, second_detection in candidates[first_index + 1 :]:
@@ -138,8 +166,16 @@ class MultiViewGeometry:
                     continue
                 hypothesis = self._triangulate(
                     [
-                        (first_view, np.asarray(first_detection.center_xy), float(first_detection.confidence or 0.1)),
-                        (second_view, np.asarray(second_detection.center_xy), float(second_detection.confidence or 0.1)),
+                        (
+                            first_view,
+                            np.asarray(first_detection.center_xy),
+                            float(first_detection.confidence or 0.1),
+                        ),
+                        (
+                            second_view,
+                            np.asarray(second_detection.center_xy),
+                            float(second_detection.confidence or 0.1),
+                        ),
                     ],
                     self.ball_max_reprojection_error,
                 )
@@ -155,7 +191,14 @@ class MultiViewGeometry:
                     pixel = projection[:2] / projection[2]
                     ranked = sorted(
                         (
-                            (float(np.linalg.norm(np.asarray(detection.center_xy) - pixel)), detection)
+                            (
+                                float(
+                                    np.linalg.norm(
+                                        np.asarray(detection.center_xy) - pixel
+                                    )
+                                ),
+                                detection,
+                            )
                             for detection in detections
                         ),
                         key=lambda item: item[0],
@@ -169,14 +212,22 @@ class MultiViewGeometry:
 
                 refined = self._triangulate(
                     [
-                        (view, np.asarray(detection.center_xy), float(detection.confidence or 0.1))
+                        (
+                            view,
+                            np.asarray(detection.center_xy),
+                            float(detection.confidence or 0.1),
+                        )
                         for view, detection in selected.items()
                     ],
                     self.ball_max_reprojection_error,
                 )
                 if not self._valid_ball_point(refined):
                     continue
-                temporal_distance = 0.0 if predicted is None else float(np.linalg.norm(refined - predicted))
+                temporal_distance = (
+                    0.0
+                    if predicted is None
+                    else float(np.linalg.norm(cast(np.ndarray, refined) - predicted))
+                )
                 quality = sum(
                     float(detection.confidence or 0.0)
                     + 0.95 * float(detection.orange_score)
@@ -193,13 +244,19 @@ class MultiViewGeometry:
                     best, best_score = selected, score
         return best
 
-    def triangulate_pose(self, observations: Iterable["PoseObservation"]) -> tuple[np.ndarray, np.ndarray]:
+    def triangulate_pose(
+        self, observations: Iterable["PoseObservation"]
+    ) -> tuple[np.ndarray, np.ndarray]:
         observations = list(observations)
         pose = np.full((17, 3), np.nan, dtype=np.float32)
         errors = np.full((17,), np.nan, dtype=np.float32)
         for keypoint_index in range(17):
             samples = [
-                (obs.view, obs.keypoints_xy[keypoint_index], float(obs.keypoints_conf[keypoint_index]))
+                (
+                    obs.view,
+                    obs.keypoints_xy[keypoint_index],
+                    float(obs.keypoints_conf[keypoint_index]),
+                )
                 for obs in observations
                 if obs.keypoints_conf[keypoint_index] >= self.keypoint_threshold
                 and np.isfinite(obs.keypoints_xy[keypoint_index]).all()
@@ -211,12 +268,19 @@ class MultiViewGeometry:
             reprojections = []
             for view, pixel, _ in samples:
                 projection = self.camera(view).P @ np.r_[point, 1.0]
-                reprojections.append(np.linalg.norm(projection[:2] / projection[2] - pixel))
+                reprojections.append(
+                    np.linalg.norm(projection[:2] / projection[2] - pixel)
+                )
             errors[keypoint_index] = float(np.mean(reprojections))
         return pose, errors
 
-    def triangulate_ball(self, detections: dict[str, BallDetection]) -> Optional[np.ndarray]:
-        samples = [(view, np.asarray(det.center_xy), float(det.confidence or 0.1)) for view, det in detections.items()]
+    def triangulate_ball(
+        self, detections: dict[str, BallDetection]
+    ) -> Optional[np.ndarray]:
+        samples = [
+            (view, np.asarray(det.center_xy), float(det.confidence or 0.1))
+            for view, det in detections.items()
+        ]
         if len(samples) <= 2:
             point = self._triangulate(samples, self.ball_max_reprojection_error)
             return point if self._valid_ball_point(point) else None
@@ -233,8 +297,12 @@ class MultiViewGeometry:
                 errors = []
                 for view, pixel, _ in samples:
                     projected = self.camera(view).P @ np.r_[point, 1.0]
-                    error = float("inf") if abs(projected[2]) < 1e-9 else float(
-                        np.linalg.norm(projected[:2] / projected[2] - pixel[:2])
+                    error = (
+                        float("inf")
+                        if abs(projected[2]) < 1e-9
+                        else float(
+                            np.linalg.norm(projected[:2] / projected[2] - pixel[:2])
+                        )
                     )
                     errors.append(error)
                 inliers = [
@@ -245,7 +313,9 @@ class MultiViewGeometry:
                 if len(inliers) < 2:
                     continue
                 inlier_errors = [
-                    error for error in errors if error <= self.ball_max_reprojection_error
+                    error
+                    for error in errors
+                    if error <= self.ball_max_reprojection_error
                 ]
                 score = (
                     len(inliers),

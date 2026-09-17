@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
+from einops import rearrange
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
-from einops import rearrange
 
 import slowfast.datasets.utils as data_utils
 from slowfast.visualization.utils import get_layer
@@ -17,9 +17,7 @@ class GradCAM:
     https://arxiv.org/pdf/1610.02391.pdf
     """
 
-    def __init__(
-        self, model, target_layers, data_mean, data_std, colormap="viridis"
-    ):
+    def __init__(self, model, target_layers, data_mean, data_std, colormap="viridis"):
         """
         Args:
             model (model): the model to be used.
@@ -79,9 +77,9 @@ class GradCAM:
                 each corresponding input.
             preds (tensor): shape (n_instances, n_class). Model predictions for `inputs`.
         """
-        assert len(inputs) == len(
-            self.target_layers
-        ), "Must register the same number of target layers as the number of input pathways."
+        assert len(inputs) == len(self.target_layers), (
+            "Must register the same number of target layers as the number of input pathways."
+        )
         input_clone = [inp.clone() for inp in inputs]
         preds = self.model(input_clone)
 
@@ -103,18 +101,20 @@ class GradCAM:
             activations = self.activations[self.target_layers[i]]
             # print(11111,gradients.shape,activations.shape)
             # gradients = rearrange(gradients, "(b t) (x y c) h w -> b c t (h x) (w y)",c=3,b=B,t=T,x=16)
-            gradients = rearrange(gradients, "(b t) (l c) h w -> b c (t l) h w",c=3,b=B,t=T)
+            gradients = rearrange(
+                gradients, "(b t) (l c) h w -> b c (t l) h w", c=3, b=B, t=T
+            )
             # activations = rearrange(activations, "(b t) (x y c) h w -> b c t (h x) (w y)",c=3,b=B,t=T,x=16)
-            activations = rearrange(activations, "(b t) (l c) h w -> b c (t l) h w",c=3,b=B,t=T)
+            activations = rearrange(
+                activations, "(b t) (l c) h w -> b c (t l) h w", c=3, b=B, t=T
+            )
             # print(22222, gradients.shape, activations.shape)
             B, C, Tg, _, _ = gradients.size()
 
             weights = torch.mean(gradients.view(B, C, Tg, -1), dim=3)
 
             weights = weights.view(B, C, Tg, 1, 1)
-            localization_map = torch.sum(
-                weights * activations, dim=1, keepdim=True
-            )
+            localization_map = torch.sum(weights * activations, dim=1, keepdim=True)
             localization_map = F.relu(localization_map)
             localization_map = F.interpolate(
                 localization_map,
@@ -123,12 +123,8 @@ class GradCAM:
                 align_corners=False,
             )
             localization_map_min, localization_map_max = (
-                torch.min(localization_map.view(B, -1), dim=-1, keepdim=True)[
-                    0
-                ],
-                torch.max(localization_map.view(B, -1), dim=-1, keepdim=True)[
-                    0
-                ],
+                torch.min(localization_map.view(B, -1), dim=-1, keepdim=True)[0],
+                torch.max(localization_map.view(B, -1), dim=-1, keepdim=True)[0],
             )
             localization_map_min = torch.reshape(
                 localization_map_min, shape=(B, 1, 1, 1, 1)

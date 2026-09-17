@@ -3,7 +3,9 @@
 
 """ResNe(X)t 3D stem helper."""
 
-import torch
+from typing import Callable, cast
+
+import torch as torch
 import torch.nn as nn
 
 
@@ -12,9 +14,9 @@ def get_stem_func(name):
     Retrieves the stem module by name.
     """
     trans_funcs = {"x3d_stem": X3DStem, "basic_stem": ResNetBasicStem}
-    assert (
-        name in trans_funcs.keys()
-    ), "Transformation function '{}' not supported".format(name)
+    assert name in trans_funcs.keys(), (
+        "Transformation function '{}' not supported".format(name)
+    )
     return trans_funcs[name]
 
 
@@ -114,9 +116,9 @@ class VideoModelStem(nn.Module):
             self.add_module("pathway{}_stem".format(pathway), stem)
 
     def forward(self, x):
-        assert (
-            len(x) == self.num_pathways
-        ), "Input tensor does not contain {} pathway".format(self.num_pathways)
+        assert len(x) == self.num_pathways, (
+            "Input tensor does not contain {} pathway".format(self.num_pathways)
+        )
         # use a new list, don't modify in-place the x list, which is bad for activation checkpointing.
         y = []
         for pathway in range(len(x)):
@@ -188,12 +190,10 @@ class ResNetBasicStem(nn.Module):
             padding=self.padding,
             bias=False,
         )
-        self.bn = norm_module(
-            num_features=dim_out, eps=self.eps, momentum=self.bn_mmt
-        )
+        self.bn = norm_module(num_features=dim_out, eps=self.eps, momentum=self.bn_mmt)
         self.relu = nn.ReLU(self.inplace_relu)
         self.pool_layer = nn.MaxPool3d(
-            kernel_size=[1, 3, 3], stride=[1, 2, 2], padding=[0, 1, 1]
+            kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)
         )
 
     def forward(self, x):
@@ -277,9 +277,7 @@ class X3DStem(nn.Module):
             groups=dim_out,
         )
 
-        self.bn = norm_module(
-            num_features=dim_out, eps=self.eps, momentum=self.bn_mmt
-        )
+        self.bn = norm_module(num_features=dim_out, eps=self.eps, momentum=self.bn_mmt)
         self.relu = nn.ReLU(self.inplace_relu)
 
     def forward(self, x):
@@ -309,7 +307,7 @@ class PatchEmbed(nn.Module):
             conv = nn.Conv2d
         else:
             conv = nn.Conv3d
-        self.proj = conv(
+        self.proj = cast(Callable[..., nn.Module], conv)(
             dim_in,
             dim_out,
             kernel_size=kernel,

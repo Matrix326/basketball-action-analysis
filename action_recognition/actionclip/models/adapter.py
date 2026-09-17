@@ -1,15 +1,11 @@
+from clip.model import CLIP, Transformer
+from mmengine.model import BaseModule
 import torch
 import torch.nn as nn
-from clip.model import Transformer
-from mmengine.model import BaseModule
 
 
 class TransformerAdapter(BaseModule):
-
-    def __init__(self,
-                 clip_model: nn.Module,
-                 num_segs: int,
-                 num_layers: int = 6):
+    def __init__(self, clip_model: CLIP, num_segs: int, num_layers: int = 6):
         super(TransformerAdapter, self).__init__()
         self.num_segs = num_segs
 
@@ -19,7 +15,8 @@ class TransformerAdapter(BaseModule):
 
         self.frame_position_embeddings = nn.Embedding(self.num_segs, embed_dim)
         self.transformer = Transformer(
-            width=embed_dim, layers=num_layers, heads=transformer_heads)
+            width=embed_dim, layers=num_layers, heads=transformer_heads
+        )
 
     def init_weights(self):
         for module in self.modules():
@@ -35,8 +32,7 @@ class TransformerAdapter(BaseModule):
         b, seq_length, c = x.size()
 
         x_original = x
-        position_ids = torch.arange(
-            seq_length, dtype=torch.long, device=x.device)
+        position_ids = torch.arange(seq_length, dtype=torch.long, device=x.device)
         embeddings = self.frame_position_embeddings(position_ids)
         x = x + embeddings.unsqueeze(0)
         x = x.transpose(0, 1)  # NLD -> LND

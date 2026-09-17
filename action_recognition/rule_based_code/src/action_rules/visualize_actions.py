@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 
 import cv2
 import numpy as np
@@ -39,7 +39,9 @@ COLORS = {
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Visualize actions on video")
-    parser.add_argument("--config", default=str(PROJECT_ROOT / "config" / "config.yaml"))
+    parser.add_argument(
+        "--config", default=str(PROJECT_ROOT / "config" / "config.yaml")
+    )
     parser.add_argument("--actions", default=None)
     parser.add_argument("--ball-trajectory", default=None)
     parser.add_argument("--poses-json", default=None)
@@ -50,24 +52,31 @@ def main() -> None:
     parser.add_argument("--end-frame", type=int, default=1800)
     parser.add_argument("--scale", type=float, default=0.75)
     parser.add_argument("--trail-frames", type=int, default=15)
-    parser.add_argument("--handler-only", action="store_true",
-                        help="draw only the handler box, not every person")
+    parser.add_argument(
+        "--handler-only",
+        action="store_true",
+        help="draw only the handler box, not every person",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
     poses_dir = Path(config.get("output.reid_3d_dir"))
     actions_path = Path(args.actions or poses_dir / "actions.json")
-    ball_traj_path = Path(args.ball_trajectory or config.get(
-        "ball_trajectory.output_path", poses_dir / "ball_trajectory.json"))
+    ball_traj_path = Path(
+        args.ball_trajectory
+        or config.get("ball_trajectory.output_path", poses_dir / "ball_trajectory.json")
+    )
     poses_path = Path(args.poses_json or poses_dir / "poses_3d.json")
 
     actions = json.load(open(actions_path, encoding="utf-8"))["actions"]
     poses = json.load(open(poses_path, encoding="utf-8"))
     p2d = poses.get("poses_2d", {})
     ball_traj = json.load(open(ball_traj_path, encoding="utf-8"))
-    ball_pos = {int(k): np.asarray(v["position"], dtype=float)
-                for k, v in ball_traj.get("frames", {}).items()
-                if v.get("position") is not None}
+    ball_pos = {
+        int(k): np.asarray(v["position"], dtype=float)
+        for k, v in ball_traj.get("frames", {}).items()
+        if v.get("position") is not None
+    }
 
     views = list(config.video_paths) if args.all_views else [args.view]
     fps = float(config.get("trajectory.fps", 30.0))
@@ -86,12 +95,15 @@ def main() -> None:
         if ok:
             h0, w0 = frame.shape[:2]
             break
-    if h0 is None:
+    if h0 is None or w0 is None:
         raise SystemExit("cannot read video")
     out_w, out_h = int(w0 * args.scale), int(h0 * args.scale)
-    out = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"),
-                          fps, (out_w, out_h))
-    print(f"output {out_w}x{out_h} @ {fps:.0f}fps, frames {args.start_frame}-{args.end_frame}")
+    out = cv2.VideoWriter(
+        args.output, cv2.VideoWriter.fourcc(*"mp4v"), fps, (out_w, out_h)
+    )
+    print(
+        f"output {out_w}x{out_h} @ {fps:.0f}fps, frames {args.start_frame}-{args.end_frame}"
+    )
 
     # actions indexed by frame
     events_by_frame = {}
@@ -117,8 +129,15 @@ def main() -> None:
                 x1, y1, x2, y2 = [int(x) for x in bb]
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 if not args.handler_only:
-                    cv2.putText(img, f"P{tid}", (x1, y1 - 8),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                    cv2.putText(
+                        img,
+                        f"P{tid}",
+                        (x1, y1 - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 255, 0),
+                        2,
+                    )
             # ball
             if frame_no in ball_pos:
                 p = ball_pos[frame_no]
@@ -127,16 +146,18 @@ def main() -> None:
             for a in events_by_frame.get(frame_no, []):
                 label = a["type"]
                 color = COLORS.get(a["type"], (255, 255, 255))
-                cv2.putText(img, label, (30, 80), cv2.FONT_HERSHEY_SIMPLEX,
-                            1.0, color, 3)
+                cv2.putText(
+                    img, label, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3
+                )
             # shot result top-right
             for a in events_by_frame.get(frame_no, []):
                 if a["type"] in ("shoot", "layup") and a.get("result"):
                     res = a["result"]
                     txt = "MAKE!" if res == "make" else "MISS"
                     c = (0, 255, 0) if res == "make" else (0, 0, 255)
-                    cv2.putText(img, txt, (w0 - 260, 60), cv2.FONT_HERSHEY_SIMPLEX,
-                                1.4, c, 4)
+                    cv2.putText(
+                        img, txt, (w0 - 260, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.4, c, 4
+                    )
             if args.scale != 1.0:
                 img = cv2.resize(img, (out_w, out_h))
             tiles.append(img)

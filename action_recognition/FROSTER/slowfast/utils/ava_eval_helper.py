@@ -29,18 +29,21 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+
+from collections import defaultdict
 import csv
 import logging
-import numpy as np
 import pprint
 import time
-from collections import defaultdict
+from typing import TextIO, cast
 
-import slowfast.utils.distributed as du
+import numpy as np
+
 from slowfast.utils.ava_evaluation import (
     object_detection_evaluation,
     standard_fields,
 )
+import slowfast.utils.distributed as du
 from slowfast.utils.env import pathmgr
 
 logger = logging.getLogger(__name__)
@@ -70,10 +73,10 @@ def read_csv(csv_file, class_whitelist=None, load_score=False):
     boxes = defaultdict(list)
     labels = defaultdict(list)
     scores = defaultdict(list)
-    with pathmgr.open(csv_file, "r") as f:
+    with cast(TextIO, pathmgr.open(csv_file, "r")) as f:
         reader = csv.reader(f)
         for row in reader:
-            assert len(row) in [7, 8], "Wrong number of columns: " + row
+            assert len(row) in [7, 8], "Wrong number of columns: " + str(row)
             image_key = make_image_key(row[0], row[1])
             x1, y1, x2, y2 = [float(n) for n in row[2:6]]
             action_id = int(row[6])
@@ -98,10 +101,10 @@ def read_exclusions(exclusions_file):
     """
     excluded = set()
     if exclusions_file:
-        with pathmgr.open(exclusions_file, "r") as f:
+        with cast(TextIO, pathmgr.open(exclusions_file, "r")) as f:
             reader = csv.reader(f)
             for row in reader:
-                assert len(row) == 2, "Expected only 2 columns, got: " + row
+                assert len(row) == 2, "Expected only 2 columns, got: " + str(row)
                 excluded.add(make_image_key(row[0], row[1]))
     return excluded
 
@@ -113,7 +116,7 @@ def read_labelmap(labelmap_file):
     class_ids = set()
     name = ""
     class_id = ""
-    with pathmgr.open(labelmap_file, "r") as f:
+    with cast(TextIO, pathmgr.open(labelmap_file, "r")) as f:
         for line in f:
             if line.startswith("  name:"):
                 name = line.split('"')[1]
@@ -157,10 +160,10 @@ def evaluate_ava(
         video_idx_to_name=video_idx_to_name,
     )
 
-    logger.info("Evaluating with %d unique GT frames." % len(groundtruth[0]))
     logger.info(
-        "Evaluating with %d unique detection frames" % len(detections[0])
+        "Evaluating with %d unique GT frames." % len(cast(tuple, groundtruth)[0])
     )
+    logger.info("Evaluating with %d unique detection frames" % len(detections[0]))
 
     write_results(detections, "detections_%s.csv" % name)
     write_results(groundtruth, "groundtruth_%s.csv" % name)
@@ -171,14 +174,10 @@ def evaluate_ava(
     return results["PascalBoxes_Precision/mAP@0.5IOU"]
 
 
-def run_evaluation(
-    categories, groundtruth, detections, excluded_keys, verbose=True
-):
+def run_evaluation(categories, groundtruth, detections, excluded_keys, verbose=True):
     """AVA evaluation main logic."""
 
-    pascal_evaluator = object_detection_evaluation.PascalDetectionEvaluator(
-        categories
-    )
+    pascal_evaluator = object_detection_evaluation.PascalDetectionEvaluator(categories)
 
     boxes, labels, _ = groundtruth
 
@@ -188,10 +187,7 @@ def run_evaluation(
     for image_key in boxes:
         if image_key in excluded_keys:
             logging.info(
-                (
-                    "Found excluded timestamp in ground truth: %s. "
-                    "It will be ignored."
-                ),
+                ("Found excluded timestamp in ground truth: %s. It will be ignored."),
                 image_key,
             )
             continue
@@ -217,10 +213,7 @@ def run_evaluation(
     for image_key in boxes:
         if image_key in excluded_keys:
             logging.info(
-                (
-                    "Found excluded timestamp in detections: %s. "
-                    "It will be ignored."
-                ),
+                ("Found excluded timestamp in detections: %s. It will be ignored."),
                 image_key,
             )
             continue
@@ -269,7 +262,7 @@ def get_ava_eval_data(
         video_idx = int(np.round(metadata[i][0]))
         sec = int(np.round(metadata[i][1]))
 
-        video = video_idx_to_name[video_idx]
+        video = cast(dict[int, str], video_idx_to_name)[video_idx]
 
         key = video + "," + "%04d" % (sec)
         batch_box = boxes[i].tolist()
@@ -292,7 +285,7 @@ def write_results(detections, filename):
     start = time.time()
 
     boxes, labels, scores = detections
-    with pathmgr.open(filename, "w") as f:
+    with cast(TextIO, pathmgr.open(filename, "w")) as f:
         for key in boxes.keys():
             for box, label, score in zip(boxes[key], labels[key], scores[key]):
                 f.write(

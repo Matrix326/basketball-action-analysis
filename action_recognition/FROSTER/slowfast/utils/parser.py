@@ -6,8 +6,8 @@
 import argparse
 import sys
 
-import slowfast.utils.checkpoint as cu
 from slowfast.config.defaults import get_cfg
+import slowfast.utils.checkpoint as cu
 
 
 def parse_args():
@@ -79,7 +79,7 @@ def load_config(args, path_to_config=None):
     # Load config from command line, overwrite config from opts.
     if args.opts is not None:
         cfg.merge_from_list(args.opts)
-    
+
     # Inherit parameters from args.
     if hasattr(args, "num_shards") and hasattr(args, "shard_id"):
         cfg.NUM_SHARDS = args.num_shards

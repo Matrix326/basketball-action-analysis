@@ -18,17 +18,19 @@ python openmede_yolo_sliding_window.py \
 """
 
 import argparse
-import cv2
-import numpy as np
+import json
 import os
 import sys
+from typing import Any, TypedDict
+
+import cv2
+import numpy as np
 import torch
-import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from slowfast.config.defaults import get_cfg, assert_and_infer_cfg
 from slowfast.config.custom_config import add_custom_config
+from slowfast.config.defaults import assert_and_infer_cfg, get_cfg
 from slowfast.models import build_model
 
 
@@ -36,37 +38,59 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Open-MeDe Multi-Person Sliding Window Recognition"
     )
-    parser.add_argument("--video", type=str, default='/data/ljy23/data/videodata/11.19/A1/A1-1_camera1_undistorted.mp4', help="视频文件路径")
     parser.add_argument(
-        "--checkpoint", type=str, default='/data/ljy23/project/vlm/Open-MeDe/checkpoints/expand_FOMAML_spacejam/vitb16_8x16/checkpoints/checkpoint_epoch_00002.pyth', help="模型权重路径 (.pyth 文件)"
+        "--video",
+        type=str,
+        default="/data/ljy23/data/videodata/11.19/A1/A1-1_camera1_undistorted.mp4",
+        help="视频文件路径",
     )
     parser.add_argument(
-        "--config", type=str,
+        "--checkpoint",
+        type=str,
+        default="/data/ljy23/project/vlm/Open-MeDe/checkpoints/expand_FOMAML_spacejam/vitb16_8x16/checkpoints/checkpoint_epoch_00002.pyth",
+        help="模型权重路径 (.pyth 文件)",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
         default="configs/Kinetics/TemporalCLIP_vitb16_8x16_STAdapter_spacejam.yaml",
-        help="配置文件路径"
+        help="配置文件路径",
     )
     parser.add_argument("--start-frame", type=int, default=900, help="起始帧索引")
-    parser.add_argument("--end-frame", type=int, default=1200, help="结束帧索引(-1到末尾)")
-    parser.add_argument("--yolo-model", type=str,
-        default="/data/ljy23/project/motion/NBAction/Yolo-Model/yolov8n.pt", help="YOLO模型路径")
+    parser.add_argument(
+        "--end-frame", type=int, default=1200, help="结束帧索引(-1到末尾)"
+    )
+    parser.add_argument(
+        "--yolo-model",
+        type=str,
+        default="/data/ljy23/project/motion/NBAction/Yolo-Model/yolov8n.pt",
+        help="YOLO模型路径",
+    )
     parser.add_argument("--device", type=str, default="cuda", help="计算设备")
     parser.add_argument("--out-filename", type=str, default="", help="输出视频路径")
     parser.add_argument("--fps", type=int, default=15, help="输出视频帧率")
     parser.add_argument("--conf-thres", type=float, default=0.3, help="YOLO置信度阈值")
-    parser.add_argument("--expand-ratio", type=float, default=1.7, help="检测框扩展比例")
+    parser.add_argument(
+        "--expand-ratio", type=float, default=1.7, help="检测框扩展比例"
+    )
     parser.add_argument("--input-size", type=int, default=224, help="模型输入尺寸")
-    parser.add_argument("--padding-mode", type=bool,default=True, help="使用填充模式")
+    parser.add_argument("--padding-mode", type=bool, default=True, help="使用填充模式")
     parser.add_argument("--window-len", type=int, default=32, help="滑动窗口帧数")
     parser.add_argument("--stride", type=int, default=14, help="滑动步长")
     parser.add_argument("--label-map", type=str, default="", help="标签映射JSON路径")
     parser.add_argument("--save-clips", action="store_true", help="保存模型输入片段")
-    parser.add_argument("--logit-scale-fix", type=float, default=None,
-        help="修复logit_scale (如训练时被破坏, 设为14.29对应0.07初始值)")
+    parser.add_argument(
+        "--logit-scale-fix",
+        type=float,
+        default=None,
+        help="修复logit_scale (如训练时被破坏, 设为14.29对应0.07初始值)",
+    )
     return parser.parse_args()
 
 
-def load_openmede_model(config_path, checkpoint_path, device="cuda",
-                        logit_scale_fix=None):
+def load_openmede_model(
+    config_path, checkpoint_path, device="cuda", logit_scale_fix=None
+):
     """加载Open-MeDe模型"""
     cfg = get_cfg()
     add_custom_config(cfg)
@@ -102,8 +126,10 @@ def load_openmede_model(config_path, checkpoint_path, device="cuda",
     if logit_scale_fix is not None:
         with torch.no_grad():
             model.model.logit_scale.fill_(np.log(1.0 / logit_scale_fix))
-        print(f"logit_scale 修复为: {model.model.logit_scale.item():.4f} "
-              f"(exp={model.model.logit_scale.exp().item():.4f})")
+        print(
+            f"logit_scale 修复为: {model.model.logit_scale.item():.4f} "
+            f"(exp={model.model.logit_scale.exp().item():.4f})"
+        )
 
     model = model.to(device)
     model.eval()
@@ -113,8 +139,10 @@ def load_openmede_model(config_path, checkpoint_path, device="cuda",
     print(f"NUM_FRAMES: {cfg.DATA.NUM_FRAMES}")
     print(f"INPUT_SIZE: {cfg.DATA.TRAIN_CROP_SIZE}")
     print(f"NUM_CLASSES: {cfg.MODEL.NUM_CLASSES}")
-    print(f"logit_scale: {model.model.logit_scale.item():.4f} "
-          f"(exp={model.model.logit_scale.exp().item():.4f})")
+    print(
+        f"logit_scale: {model.model.logit_scale.item():.4f} "
+        f"(exp={model.model.logit_scale.exp().item():.4f})"
+    )
 
     num_frames = cfg.DATA.NUM_FRAMES
     input_size = cfg.DATA.TRAIN_CROP_SIZE
@@ -140,7 +168,9 @@ def load_video_frames(video_path, start_frame=0, end_frame=-1):
         frames.append(frame)
 
     cap.release()
-    print(f"视频总帧数: {total_frames}, 加载: [{start_frame}, {end_frame}], 实际: {len(frames)} 帧")
+    print(
+        f"视频总帧数: {total_frames}, 加载: [{start_frame}, {end_frame}], 实际: {len(frames)} 帧"
+    )
     return frames
 
 
@@ -172,11 +202,13 @@ def detect_persons_yolo(frame, yolo_model, conf_thres=0.5):
         for box in results[0].boxes:
             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
             conf = box.conf[0].cpu().numpy()
-            persons.append({
-                "bbox": [int(x1), int(y1), int(x2), int(y2)],
-                "confidence": float(conf),
-                "center": ((x1 + x2) / 2, (y1 + y2) / 2),
-            })
+            persons.append(
+                {
+                    "bbox": [int(x1), int(y1), int(x2), int(y2)],
+                    "confidence": float(conf),
+                    "center": ((x1 + x2) / 2, (y1 + y2) / 2),
+                }
+            )
     return persons
 
 
@@ -266,30 +298,42 @@ def create_sliding_windows(total_frames, window_len=32, stride=10):
     start = 0
     idx = 0
     while start + window_len <= total_frames:
-        windows.append({
-            "window_idx": idx,
-            "start_frame": start,
-            "end_frame": start + window_len - 1,
-            "frame_indices": list(range(start, start + window_len)),
-        })
+        windows.append(
+            {
+                "window_idx": idx,
+                "start_frame": start,
+                "end_frame": start + window_len - 1,
+                "frame_indices": list(range(start, start + window_len)),
+            }
+        )
         start += stride
         idx += 1
     return windows
 
 
+class PersonTrack(TypedDict, total=False):
+    person_idx: int
+    bboxes: list[Any]
+    centers: list[Any]
+    valid_frames: list[int]
+    num_valid_frames: int
+
+
 def track_persons(all_frame_detections, max_distance=100):
     """使用简单的追踪算法关联跨帧的同一个人"""
-    tracked = []
+    tracked: list[PersonTrack] = []
     total = len(all_frame_detections)
 
     for fi, detections in enumerate(all_frame_detections):
         if fi == 0:
             for i, det in enumerate(detections):
-                tracked.append({
-                    "person_idx": i,
-                    "bboxes": [None] * total,
-                    "centers": [None] * total,
-                })
+                tracked.append(
+                    {
+                        "person_idx": i,
+                        "bboxes": [None] * total,
+                        "centers": [None] * total,
+                    }
+                )
                 tracked[i]["bboxes"][fi] = det["bbox"]
                 tracked[i]["centers"][fi] = det["center"]
         else:
@@ -305,8 +349,10 @@ def track_persons(all_frame_detections, max_distance=100):
                 if last_c is None:
                     continue
                 for di, det in enumerate(detections):
-                    d = np.sqrt((last_c[0] - det["center"][0])**2 +
-                                (last_c[1] - det["center"][1])**2)
+                    d = np.sqrt(
+                        (last_c[0] - det["center"][0]) ** 2
+                        + (last_c[1] - det["center"][1]) ** 2
+                    )
                     cost[ti, di] = d
 
             while unmatched:
@@ -324,7 +370,7 @@ def track_persons(all_frame_detections, max_distance=100):
                     break
 
             for di in unmatched:
-                new_p = {
+                new_p: PersonTrack = {
                     "person_idx": len(tracked),
                     "bboxes": [None] * total,
                     "centers": [None] * total,
@@ -340,17 +386,27 @@ def track_persons(all_frame_detections, max_distance=100):
     return tracked
 
 
-def visualize_results(frames, persons_windows, tracked_persons, labels, output_path, fps=30):
+def visualize_results(
+    frames, persons_windows, tracked_persons, labels, output_path, fps=30
+):
     """可视化多人滑动窗口动作识别结果"""
     height, width = frames[0].shape[:2]
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter.fourcc(*"mp4v")
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     colors = [
-        (255, 80, 80), (80, 255, 80), (80, 80, 255),
-        (255, 255, 80), (255, 80, 255), (80, 255, 255),
-        (255, 165, 0), (128, 0, 128), (0, 128, 128),
-        (128, 128, 0), (255, 192, 203), (0, 255, 127),
+        (255, 80, 80),
+        (80, 255, 80),
+        (80, 80, 255),
+        (255, 255, 80),
+        (255, 80, 255),
+        (80, 255, 255),
+        (255, 165, 0),
+        (128, 0, 128),
+        (0, 128, 128),
+        (128, 128, 0),
+        (255, 192, 203),
+        (0, 255, 127),
     ]
 
     for frame_idx, frame in enumerate(frames):
@@ -362,7 +418,9 @@ def visualize_results(frames, persons_windows, tracked_persons, labels, output_p
                     break
 
             current_bbox = None
-            if pidx < len(tracked_persons) and frame_idx < len(tracked_persons[pidx]["bboxes"]):
+            if pidx < len(tracked_persons) and frame_idx < len(
+                tracked_persons[pidx]["bboxes"]
+            ):
                 current_bbox = tracked_persons[pidx]["bboxes"][frame_idx]
 
             if current_bbox is not None and current_window is not None:
@@ -376,8 +434,18 @@ def visualize_results(frames, persons_windows, tracked_persons, labels, output_p
                 text = f"P{pidx}: {action_name} ({prob:.1%})"
                 (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
                 ly = y1 - 10 if y1 > 20 else y2 + 20
-                cv2.rectangle(frame, (x1, ly - th - 5), (x1 + tw + 5, ly + 5), color, -1)
-                cv2.putText(frame, text, (x1 + 2, ly), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.rectangle(
+                    frame, (x1, ly - th - 5), (x1 + tw + 5, ly + 5), color, -1
+                )
+                cv2.putText(
+                    frame,
+                    text,
+                    (x1 + 2, ly),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 255),
+                    2,
+                )
 
         out.write(frame)
 
@@ -396,7 +464,9 @@ def main():
     print(f"设备: {args.device}")
 
     model, cfg, num_frames, input_size = load_openmede_model(
-        args.config, args.checkpoint, device=args.device,
+        args.config,
+        args.checkpoint,
+        device=args.device,
         logit_scale_fix=args.logit_scale_fix,
     )
 
@@ -413,17 +483,20 @@ def main():
             raise FileNotFoundError(f"标签映射文件未找到: {mapping_path}")
 
     # 提取冒号前的动作名用于可视化
-    labels = [label_mapping[str(i)].split(':')[0].strip() for i in range(len(label_mapping))]
+    labels = [
+        label_mapping[str(i)].split(":")[0].strip() for i in range(len(label_mapping))
+    ]
     print(f"\n动作标签 ({len(labels)} 类): {labels}")
 
-    print(f"\n初始化YOLO模型...")
+    print("\n初始化YOLO模型...")
     from ultralytics import YOLO
+
     yolo_model = YOLO(args.yolo_model)
 
-    print(f"\n加载视频...")
+    print("\n加载视频...")
     frames = load_video_frames(args.video, args.start_frame, args.end_frame)
 
-    print(f"\n检测每帧人物...")
+    print("\n检测每帧人物...")
     all_detections = []
     for fi, frame in enumerate(frames):
         persons = detect_persons_yolo(frame, yolo_model, args.conf_thres)
@@ -431,7 +504,7 @@ def main():
         if (fi + 1) % 60 == 0:
             print(f"  已检测 {fi + 1}/{len(frames)} 帧")
 
-    print(f"\n追踪人物...")
+    print("\n追踪人物...")
     tracked = track_persons(all_detections)
     print(f"追踪到 {len(tracked)} 个球员")
 
@@ -477,25 +550,25 @@ def main():
                 video_tensor = prepare_video_clip(
                     window_frames, num_frames, input_size, args.device
                 )
-                probs, top1_label, top1_prob = inference_video_clip(
-                    model, video_tensor
-                )
+                probs, top1_label, top1_prob = inference_video_clip(model, video_tensor)
 
-                person_results.append({
-                    "window_idx": window["window_idx"],
-                    "start_frame": window["start_frame"],
-                    "end_frame": window["end_frame"],
-                    "top1_label": top1_label,
-                    "top1_prob": top1_prob,
-                    "probs": probs.tolist(),
-                })
+                person_results.append(
+                    {
+                        "window_idx": window["window_idx"],
+                        "start_frame": window["start_frame"],
+                        "end_frame": window["end_frame"],
+                        "top1_label": top1_label,
+                        "top1_prob": top1_prob,
+                        "probs": probs.tolist(),
+                    }
+                )
 
                 if clips_dir:
                     label_name = labels[top1_label]
                     clip_name = f"w{window['window_idx']:04d}_p{pidx:02d}_{label_name}_{top1_prob:.2f}.mp4"
                     clip_path = os.path.join(clips_dir, clip_name)
                     h, w = window_frames[0].shape[:2]
-                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    fourcc = cv2.VideoWriter.fourcc(*"mp4v")
                     out = cv2.VideoWriter(clip_path, fourcc, 30, (w, h))
                     for frm in window_frames:
                         out.write(frm)
@@ -512,7 +585,7 @@ def main():
                 pct = cnt / len(person_results) * 100
                 print(f"    {act}: {cnt} 窗口 ({pct:.1f}%)")
 
-    print(f"\n" + "=" * 60)
+    print("\n" + "=" * 60)
     print("推理结果统计")
     print("=" * 60)
     all_counts = {}
@@ -530,8 +603,7 @@ def main():
         video_name = os.path.splitext(os.path.basename(args.video))[0]
         fs = f"_f{args.start_frame}_{args.end_frame if args.end_frame >= 0 else 'end'}"
         out_dir = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "..",
-            "output", "spacejam"
+            os.path.dirname(os.path.abspath(__file__)), "..", "output", "spacejam"
         )
         os.makedirs(out_dir, exist_ok=True)
         output_path = os.path.join(out_dir, f"{video_name}{fs}_openmede.mp4")

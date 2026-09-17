@@ -6,6 +6,7 @@ import copy
 import queue
 import threading
 import time
+
 import cv2
 
 import slowfast.utils.logging as logging
@@ -25,13 +26,11 @@ class VideoManager:
             cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
         """
-        assert (
-            cfg.DEMO.WEBCAM > -1 or cfg.DEMO.INPUT_VIDEO != ""
-        ), "Must specify a data source as input."
-
-        self.source = (
-            cfg.DEMO.WEBCAM if cfg.DEMO.WEBCAM > -1 else cfg.DEMO.INPUT_VIDEO
+        assert cfg.DEMO.WEBCAM > -1 or cfg.DEMO.INPUT_VIDEO != "", (
+            "Must specify a data source as input."
         )
+
+        self.source = cfg.DEMO.WEBCAM if cfg.DEMO.WEBCAM > -1 else cfg.DEMO.INPUT_VIDEO
 
         self.display_width = cfg.DEMO.DISPLAY_WIDTH
         self.display_height = cfg.DEMO.DISPLAY_HEIGHT
@@ -106,7 +105,7 @@ class VideoManager:
         """
         return cv2.VideoWriter(
             filename=path,
-            fourcc=cv2.VideoWriter_fourcc(*"mp4v"),
+            fourcc=cv2.VideoWriter.fourcc(*"mp4v"),
             fps=float(fps),
             frameSize=(self.display_width, self.display_height),
             isColor=True,
@@ -156,13 +155,11 @@ class ThreadVideoManager:
             cfg (CfgNode): configs. Details can be found in
             slowfast/config/defaults.py
         """
-        assert (
-            cfg.DEMO.WEBCAM > -1 or cfg.DEMO.INPUT_VIDEO != ""
-        ), "Must specify a data source as input."
-
-        self.source = (
-            cfg.DEMO.WEBCAM if cfg.DEMO.WEBCAM > -1 else cfg.DEMO.INPUT_VIDEO
+        assert cfg.DEMO.WEBCAM > -1 or cfg.DEMO.INPUT_VIDEO != "", (
+            "Must specify a data source as input."
         )
+
+        self.source = cfg.DEMO.WEBCAM if cfg.DEMO.WEBCAM > -1 else cfg.DEMO.INPUT_VIDEO
 
         self.display_width = cfg.DEMO.DISPLAY_WIDTH
         self.display_height = cfg.DEMO.DISPLAY_HEIGHT
@@ -217,7 +214,7 @@ class ThreadVideoManager:
         """
         return cv2.VideoWriter(
             filename=path,
-            fourcc=cv2.VideoWriter_fourcc(*"mp4v"),
+            fourcc=cv2.VideoWriter.fourcc(*"mp4v"),
             fps=float(fps),
             frameSize=(self.display_width, self.display_height),
             isColor=True,
@@ -251,9 +248,7 @@ class ThreadVideoManager:
                 self.buffer = frames[-self.buffer_size :]
 
             task.add_frames(self.put_id + 1, frames)
-            task.num_buffer_frames = (
-                0 if self.put_id == -1 else self.buffer_size
-            )
+            task.num_buffer_frames = 0 if self.put_id == -1 else self.buffer_size
             with self.put_id_lock:
                 self.put_id += 1
                 self.not_end = was_read

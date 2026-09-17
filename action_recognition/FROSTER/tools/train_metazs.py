@@ -3,24 +3,17 @@
 
 """Train a video classification model."""
 
-import math
-import numpy as np
-import pprint
-import torch
-from torch.nn import functional as F
-from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
-from pytorchvideo.layers.distributed import get_local_rank
 import copy
-import higher
+import math
+import os
+import pprint
+import random as random
+from typing import Sized, cast
 
-import slowfast.models.losses as losses
-import slowfast.models.optimizer as optim
-import slowfast.utils.checkpoint as cu
-import slowfast.utils.distributed as du
-import slowfast.utils.logging as logging
-import slowfast.utils.metrics as metrics
-import slowfast.utils.misc as misc
-import slowfast.visualization.tensorboard_vis as tb
+from fvcore.nn.precise_bn import get_bn_modules, update_bn_stats
+import higher as higher
+import numpy as np
+from pytorchvideo.layers.distributed import get_local_rank
 from slowfast.datasets import loader
 from slowfast.datasets.mixup import MixUp
 from slowfast.models import build_model
@@ -28,24 +21,32 @@ from slowfast.models.contrastive import (
     contrastive_forward,
     contrastive_parameter_surgery,
 )
-from slowfast.utils.meters import AVAMeter, EpochTimer, TrainMeter, ValMeter
-from slowfast.utils.multigrid import MultigridSchedule
+import slowfast.models.losses as losses
+import slowfast.models.optimizer as optim
+import slowfast.utils.checkpoint as cu
+import slowfast.utils.distributed as du
 from slowfast.utils.env import pathmgr
-import os
-import random
+import slowfast.utils.logging as logging
+from slowfast.utils.meters import AVAMeter, EpochTimer, TrainMeter, ValMeter
+import slowfast.utils.metrics as metrics
+import slowfast.utils.misc as misc
+from slowfast.utils.multigrid import MultigridSchedule
+import slowfast.visualization.tensorboard_vis as tb
+import torch
+from torch.nn import functional as F
 
 logger = logging.get_logger(__name__)
 
 
 def compute_fisher_matrix_diag(
-        train_loader,
-        model,
-        optimizer,
-        scaler,
-        train_meter,
-        cur_epoch,
-        cfg,
-        writer=None,
+    train_loader,
+    model,
+    optimizer,
+    scaler,
+    train_meter,
+    cur_epoch,
+    cfg,
+    writer=None,
 ):
     """
     Calculate the fisher matrix diag.
@@ -73,9 +74,7 @@ def compute_fisher_matrix_diag(
     loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="none")
     n_samples = 0
 
-    for cur_iter, (inputs, labels, index, time, meta) in enumerate(
-            train_loader
-    ):
+    for cur_iter, (inputs, labels, index, time, meta) in enumerate(train_loader):
         # Transfer the data to the current GPU device.
         if cfg.NUM_GPUS:
             if isinstance(inputs, (list,)):
@@ -99,9 +98,7 @@ def compute_fisher_matrix_diag(
                     meta[key] = val.cuda(non_blocking=True)
 
         batch_size = (
-            inputs[0][0].size(0)
-            if isinstance(inputs[0], list)
-            else inputs[0].size(0)
+            inputs[0][0].size(0) if isinstance(inputs[0], list) else inputs[0].size(0)
         )
         # Update the learning rate.
         epoch_exact = cur_epoch + float(cur_iter) / data_size
@@ -109,10 +106,9 @@ def compute_fisher_matrix_diag(
         optim.set_lr(optimizer, lr)
 
         train_meter.data_toc()
-        with torch.cuda.amp.autocast(enabled=False):
-
+        with torch.cuda.amp.autocast(enabled=False):  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
             # Explicitly declare reduction to mean.
-            perform_backward = True
+            _perform_backward = True
             optimizer.zero_grad()
             preds = model(inputs)
             if len(preds) == 4:
@@ -153,7 +149,7 @@ def compute_fisher_matrix_diag(
         model, update_param = contrastive_parameter_surgery(
             model, cfg, epoch_exact, cur_iter
         )
-        """ 
+        """
         if update_param:
             scaler.step(optimizer)
         """
@@ -229,9 +225,11 @@ def compute_fisher_matrix_diag(
 
     if cfg.TRAIN.EWC_IDENTITY_FISHER:
         for key in gather_fisher:
-            gather_fisher[key] = gather_fisher[key] * 0. + 1.
+            gather_fisher[key] = gather_fisher[key] * 0.0 + 1.0
 
-    torch.save(gather_fisher, os.path.join(cfg.OUTPUT_DIR, 'fisher_%d.pth' % get_local_rank()))
+    torch.save(
+        gather_fisher, os.path.join(cfg.OUTPUT_DIR, "fisher_%d.pth" % get_local_rank())
+    )
     del inputs
     # in case of fragmented memory
     torch.cuda.empty_cache()
@@ -244,16 +242,16 @@ def compute_fisher_matrix_diag(
 
 
 def train_epoch(
-        train_loader,
-        model,
-        optimizer,
-        inner_opt,
-        scaler,
-        train_meter,
-        cur_epoch,
-        cfg,
-        writer=None,
-        fisher_map=None,
+    train_loader,
+    model,
+    optimizer,
+    inner_opt,
+    scaler,
+    train_meter,
+    cur_epoch,
+    cfg,
+    writer=None,
+    fisher_map=None,
 ):
     """
     Perform the video training for one epoch.
@@ -275,7 +273,7 @@ def train_epoch(
     data_size = len(train_loader)
 
     if cfg.MIXUP.ENABLE:
-        mixup_fn = MixUp(
+        _mixup_fn = MixUp(
             mixup_alpha=cfg.MIXUP.ALPHA,
             cutmix_alpha=cfg.MIXUP.CUTMIX_ALPHA,
             mix_prob=cfg.MIXUP.PROB,
@@ -291,9 +289,14 @@ def train_epoch(
 
     # save the raw clip weight
     if cfg.TRAIN.LINEAR_CONNECT_CLIMB:
-        assert cfg.TRAIN.CLIP_ORI_PATH != None
-        prev_weights = torch.jit.load(cfg.TRAIN.CLIP_ORI_PATH, map_location=model.device).state_dict()
-        _ = [prev_weights.pop(i) for i in ['input_resolution', 'context_length', 'vocab_size']]
+        assert cfg.TRAIN.CLIP_ORI_PATH is not None
+        prev_weights = torch.jit.load(
+            cfg.TRAIN.CLIP_ORI_PATH, map_location=model.device
+        ).state_dict()
+        _ = [
+            prev_weights.pop(i)
+            for i in ["input_resolution", "context_length", "vocab_size"]
+        ]
         # float32
         for key in prev_weights:
             prev_weights[key] = prev_weights[key].float()
@@ -301,60 +304,95 @@ def train_epoch(
     if cfg.MODEL.KEEP_RAW_MODEL:
         raw_clip_params = {}
         for n, p in model.named_parameters():
-            if 'raw_model' in n:
+            if "raw_model" in n:
                 p.requires_grad = False
                 raw_clip_params[n] = p
 
     # extract raw clip params
 
-    for cur_iter, task_dict in enumerate(
-            train_loader
-    ):
-        if cur_iter >= 48*5009//cfg.TRAIN.BATCH_SIZE//4:
+    inputs = None
+    for cur_iter, task_dict in enumerate(train_loader):
+        if cur_iter >= 48 * 5009 // cfg.TRAIN.BATCH_SIZE // 4:
             break
 
-        cur_epoch = cur_iter*4*cfg.TRAIN.BATCH_SIZE // (48*5009)
-        spt_inputs = task_dict['spt_inputs']
-        spt_labels = task_dict['spt_labels']
-        spt_index = task_dict['spt_index']
-        qry_inputs = task_dict['qry_inputs']
-        qry_labels = task_dict['qry_labels']
-        qry_index = task_dict['qry_index']
-        # Transfer the data to the current GPU device.
-        if cfg.NUM_GPUS:
-            if isinstance(spt_inputs, (list,)):
-                for i in range(len(spt_inputs)):
-                    if isinstance(spt_inputs[i], (list,)):
-                        for j in range(len(spt_inputs[i])):
-                            spt_inputs[i][j] = spt_inputs[i][j].cuda(non_blocking=True)
-                    else:
-                        spt_inputs[i] = spt_inputs[i].cuda(non_blocking=True)
-            else:
-                spt_inputs = spt_inputs.cuda(non_blocking=True)
-            if isinstance(qry_inputs, (list,)):
-                for i in range(len(qry_inputs)):
-                    if isinstance(qry_inputs[i], (list,)):
-                        for j in range(len(qry_inputs[i])):
-                            qry_inputs[i][j] = qry_inputs[i][j].cuda(non_blocking=True)
-                    else:
-                        qry_inputs[i] = qry_inputs[i].cuda(non_blocking=True)
-            else:
-                qry_inputs = qry_inputs.cuda(non_blocking=True)
-            if not isinstance(spt_labels, list):
-                spt_labels = spt_labels.cuda(non_blocking=True)
-                spt_index = spt_index.cuda(non_blocking=True)
-                # time = time.cuda(non_blocking=True)
-            if not isinstance(qry_labels, list):
-                qry_labels = qry_labels.cuda(non_blocking=True)
-                qry_index = qry_index.cuda(non_blocking=True)
-                # time = time.cuda(non_blocking=True)
+        cur_epoch = cur_iter * 4 * cfg.TRAIN.BATCH_SIZE // (48 * 5009)
+        if cfg.TRAIN.ZERO_SHOT_META_LEARN:
+            spt_inputs = task_dict["spt_inputs"]
+            spt_labels = task_dict["spt_labels"]
+            spt_index = task_dict["spt_index"]
+            qry_inputs = task_dict["qry_inputs"]
+            qry_labels = task_dict["qry_labels"]
+            qry_index = task_dict["qry_index"]
+            # Transfer the data to the current GPU device.
+            if cfg.NUM_GPUS:
+                if isinstance(spt_inputs, (list,)):
+                    for i in range(len(spt_inputs)):
+                        if isinstance(spt_inputs[i], (list,)):
+                            for j in range(len(spt_inputs[i])):
+                                spt_inputs[i][j] = spt_inputs[i][j].cuda(
+                                    non_blocking=True
+                                )
+                        else:
+                            spt_inputs[i] = spt_inputs[i].cuda(non_blocking=True)
+                else:
+                    spt_inputs = spt_inputs.cuda(non_blocking=True)
+                if isinstance(qry_inputs, (list,)):
+                    for i in range(len(qry_inputs)):
+                        if isinstance(qry_inputs[i], (list,)):
+                            for j in range(len(qry_inputs[i])):
+                                qry_inputs[i][j] = qry_inputs[i][j].cuda(
+                                    non_blocking=True
+                                )
+                        else:
+                            qry_inputs[i] = qry_inputs[i].cuda(non_blocking=True)
+                else:
+                    qry_inputs = qry_inputs.cuda(non_blocking=True)
+                if not isinstance(spt_labels, list):
+                    spt_labels = spt_labels.cuda(non_blocking=True)
+                    spt_index = spt_index.cuda(non_blocking=True)
+                    # time = time.cuda(non_blocking=True)
+                if not isinstance(qry_labels, list):
+                    qry_labels = qry_labels.cuda(non_blocking=True)
+                    qry_index = qry_index.cuda(non_blocking=True)
+                    # time = time.cuda(non_blocking=True)
 
-            # for key, val in meta.items():
-            #     if isinstance(val, (list,)):
-            #         for i in range(len(val)):
-            #             val[i] = val[i].cuda(non_blocking=True)
-            #     else:
-            #         meta[key] = val.cuda(non_blocking=True)
+            labels = torch.cat([spt_labels, qry_labels], dim=0)
+            batch_size = labels.size(0)
+        else:
+            # Match the standard loader contract used by train_net.train_epoch.
+            inputs, labels, index, time, meta = task_dict
+            if cfg.NUM_GPUS:
+                if isinstance(inputs, list):
+                    for i, pathway in enumerate(inputs):
+                        if isinstance(pathway, list):
+                            inputs[i] = [
+                                clip.cuda(non_blocking=True) for clip in pathway
+                            ]
+                        else:
+                            inputs[i] = pathway.cuda(non_blocking=True)
+                else:
+                    inputs = inputs.cuda(non_blocking=True)
+                if not isinstance(labels, list):
+                    labels = labels.cuda(non_blocking=True)
+                    index = index.cuda(non_blocking=True)
+                    time = time.cuda(non_blocking=True)
+                for key, value in meta.items():
+                    meta[key] = (
+                        [item.cuda(non_blocking=True) for item in value]
+                        if isinstance(value, list)
+                        else value.cuda(non_blocking=True)
+                    )
+            batch_size = (
+                inputs[0][0].size(0)
+                if isinstance(inputs[0], list)
+                else inputs[0].size(0)
+            )
+        # for key, val in meta.items():
+        #     if isinstance(val, (list,)):
+        #         for i in range(len(val)):
+        #             val[i] = val[i].cuda(non_blocking=True)
+        #     else:
+        #         meta[key] = val.cuda(non_blocking=True)
         #
         # batch_size = (
         #     spt_inputs[0][0].size(0)
@@ -416,7 +454,7 @@ def train_epoch(
         #     # achieve param grads based on the interpolated model
         #     grads_record = {}
         #     for name, params in model.named_parameters():
-        #         if params.grad != None:
+        #         if params.grad is not None:
         #             # grads_record[name] = params.grad.clone().detach() * (1-patch_ratio)
         #             grads_record[name] = params.grad.clone().detach()
         #         else:
@@ -432,51 +470,69 @@ def train_epoch(
         if cfg.TRAIN.ZERO_SHOT_META_LEARN:
             cur_weights = copy.deepcopy(model.state_dict())
             # print('cur_weights', cur_weights['model.visual.ln_post.bias'])
-            N, K = 4, 1
+            _N, _K = 4, 1
             # inner_batch = cfg.TRAIN.BATCH_SIZE  // cfg.NUM_GPUS // 2
             spt_inputs[0] = spt_inputs[0].squeeze(1)
             print(0, spt_inputs[0].shape)
             print(1, spt_labels)
             qry_inputs[0] = qry_inputs[0].squeeze(1)
 
-
-            with torch.cuda.amp.autocast(enabled=cfg.TRAIN.MIXED_PRECISION):
+            with torch.cuda.amp.autocast(enabled=cfg.TRAIN.MIXED_PRECISION):  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
                 # Compute the loss.
                 perform_backward = True
                 spt_logits = model(spt_inputs)
-                spt_preds = spt_logits.mean(1) if cfg.TRAIN.CROSS_BATCH_META_DEBIAS else spt_logits
+                spt_preds = (
+                    spt_logits.mean(1)
+                    if cfg.TRAIN.CROSS_BATCH_META_DEBIAS
+                    else spt_logits
+                )
                 spt_loss = loss_fun(spt_preds, spt_labels)
             if perform_backward:
                 inner_opt.zero_grad()
                 scaler.scale(spt_loss).backward()
 
             # 保存spt更新后的梯度和权重
-            grads_record = {name: params.grad.clone().detach() if params.grad != None else params.grad for name, params
-                            in model.named_parameters()}
-            fast_weights = {name: params.clone().detach() - lr * grads_record[name] if grads_record[
-                                                                                           name] != None else params.clone().detach()
-                            for name, params in model.named_parameters()}
+            grads_record = {
+                name: params.grad.clone().detach()
+                if params.grad is not None
+                else params.grad
+                for name, params in model.named_parameters()
+            }
+            fast_weights = {
+                name: params.clone().detach() - lr * grads_record[name]
+                if grads_record[name] is not None
+                else params.clone().detach()
+                for name, params in model.named_parameters()
+            }
 
             if cfg.TRAIN.CROSS_BATCH_META_DEBIAS:
-                correct_logits = spt_logits[torch.arange(spt_logits.size(0)), :, spt_labels]
+                correct_logits = spt_logits[
+                    torch.arange(spt_logits.size(0)), :, spt_labels
+                ]
                 max_scores, max_indices = correct_logits.max(dim=1)
-                spt_select = spt_inputs[0][torch.arange(spt_inputs[0].size(0)), :, max_indices, ...]
+                spt_select = spt_inputs[0][
+                    torch.arange(spt_inputs[0].size(0)), :, max_indices, ...
+                ]
                 spt_select = spt_select.unsqueeze(2).expand_as(qry_inputs[0])
-                qry_inputs[0] = spt_select * cfg.TRAIN.CROSS_BATCH_META_DEBIAS_RATIO + qry_inputs[0] * (
-                            1 - cfg.TRAIN.CROSS_BATCH_META_DEBIAS_RATIO)
+                qry_inputs[0] = (
+                    spt_select * cfg.TRAIN.CROSS_BATCH_META_DEBIAS_RATIO
+                    + qry_inputs[0] * (1 - cfg.TRAIN.CROSS_BATCH_META_DEBIAS_RATIO)
+                )
             # 计算更新后的损失
-            with torch.cuda.amp.autocast(enabled=cfg.TRAIN.MIXED_PRECISION):
+            with torch.cuda.amp.autocast(enabled=cfg.TRAIN.MIXED_PRECISION):  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
                 qry_logits = model(qry_inputs)
-                qry_preds = qry_logits.mean(1) if cfg.TRAIN.CROSS_BATCH_META_DEBIAS else qry_logits
+                qry_preds = (
+                    qry_logits.mean(1)
+                    if cfg.TRAIN.CROSS_BATCH_META_DEBIAS
+                    else qry_logits
+                )
                 loss = loss_fun(qry_preds, qry_labels)
             preds = torch.cat([spt_preds, qry_preds], dim=0)
             scaler.scale(loss).backward()
             scaler.step(inner_opt)
 
-
         else:  # normal training
-            with torch.cuda.amp.autocast(enabled=cfg.TRAIN.MIXED_PRECISION):
-
+            with torch.cuda.amp.autocast(enabled=cfg.TRAIN.MIXED_PRECISION):  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
                 # Explicitly declare reduction to mean.
                 perform_backward = True
                 optimizer.zero_grad()
@@ -504,11 +560,13 @@ def train_epoch(
                         # dis = torch.clamp(cfg.MODEL.ROUTING_FREQUENCE_CONSTRAIN - ori_clip_freq, min=0.0)
                         dis = cfg.MODEL.ROUTING_FREQUENCE_CONSTRAIN - ori_clip_freq
                         if cfg.MODEL.LOSS_FREQ_TYPE == "mse":
-                            loss_freq = (dis ** 2).mean()
+                            loss_freq = (dis**2).mean()
                         elif cfg.MODEL.LOSS_FREQ_TYPE == "hinge":
                             loss_freq = torch.clamp(dis, min=0).mean()
                         else:
-                            raise ValueError("Invalid loss_freq type: ", cfg.MODEL.LOSS_FREQ_TYPE)
+                            raise ValueError(
+                                "Invalid loss_freq type: ", cfg.MODEL.LOSS_FREQ_TYPE
+                            )
 
                     elif cfg.MODEL.KEEP_RAW_MODEL and cfg.MODEL.RAW_MODEL_DISTILLATION:
                         preds, raw_preds = model(inputs)
@@ -529,57 +587,90 @@ def train_epoch(
 
                     if cfg.MODEL.RECORD_ROUTING:
                         ori_loss = loss
-                        loss = cfg.MODEL.CLS_LOSS_RATIO * loss + cfg.MODEL.ROUTING_FREQ_CONS_FACTOR * loss_freq
+                        loss = (
+                            cfg.MODEL.CLS_LOSS_RATIO * loss
+                            + cfg.MODEL.ROUTING_FREQ_CONS_FACTOR * loss_freq
+                        )
                         if cur_iter % cfg.LOG_PERIOD == 0:
-                            print('Routing average choose clip weight ratio:%.4f' % ori_clip_freq.mean().item())
-                            print('Cls loss:%.4f' % ori_loss.item())
-                            print('Freq loss:%.4f' % loss_freq.item())
-                            print('Freq loss factor:%f' % cfg.MODEL.ROUTING_FREQ_CONS_FACTOR)
-                            print('Routing average choose clip weight ratio each router: ')
-                            print(ori_clip_freq.mean(-1).mean(-1).detach().cpu().numpy())
-                            print('\n')
+                            print(
+                                "Routing average choose clip weight ratio:%.4f"
+                                % ori_clip_freq.mean().item()
+                            )
+                            print("Cls loss:%.4f" % ori_loss.item())
+                            print("Freq loss:%.4f" % loss_freq.item())
+                            print(
+                                "Freq loss factor:%f"
+                                % cfg.MODEL.ROUTING_FREQ_CONS_FACTOR
+                            )
+                            print(
+                                "Routing average choose clip weight ratio each router: "
+                            )
+                            print(
+                                ori_clip_freq.mean(-1).mean(-1).detach().cpu().numpy()
+                            )
+                            print("\n")
 
                     if cfg.MODEL.KEEP_RAW_MODEL and cfg.MODEL.RAW_MODEL_DISTILLATION:
                         T = 1.0
-                        distillation_loss = F.kl_div(
-                            F.log_softmax(preds / T, dim=1),
-                            F.log_softmax(raw_preds / T, dim=1),
-                            reduction='sum',
-                            log_target=True
-                        ) * (T * T) / preds.numel()
+                        distillation_loss = (
+                            F.kl_div(
+                                F.log_softmax(preds / T, dim=1),
+                                F.log_softmax(raw_preds / T, dim=1),
+                                reduction="sum",
+                                log_target=True,
+                            )
+                            * (T * T)
+                            / preds.numel()
+                        )
 
                         if cur_iter % cfg.LOG_PERIOD == 0:
-                            logger.info('Distillation Loss: %.8f' % distillation_loss.item())
-                            logger.info('Distillation Loss Ratio: %f' % cfg.MODEL.DISTILLATION_RATIO)
+                            logger.info(
+                                "Distillation Loss: %.8f" % distillation_loss.item()
+                            )
+                            logger.info(
+                                "Distillation Loss Ratio: %f"
+                                % cfg.MODEL.DISTILLATION_RATIO
+                            )
 
                         loss += cfg.MODEL.DISTILLATION_RATIO * distillation_loss
 
                     if cfg.TRAIN.EWC_SET:
-                        if (cfg.TRAIN.ZS_RESTART_CONS and cfg.TRAIN.ZS_RESTART_EPOCH != -1 and (
-                                cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1) % cfg.TRAIN.ZS_RESTART_EPOCH == 0 and (
-                                    cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1 > 0)) or cfg.TRAIN.ZS_RESTART_CONS == False:
-
+                        if (
+                            cfg.TRAIN.ZS_RESTART_CONS
+                            and cfg.TRAIN.ZS_RESTART_EPOCH != -1
+                            and (cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1)
+                            % cfg.TRAIN.ZS_RESTART_EPOCH
+                            == 0
+                            and (cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1 > 0)
+                        ) or not cfg.TRAIN.ZS_RESTART_CONS:
                             loss_reg = 0
 
                             for n, p in model.named_parameters():
                                 # maybe ignore module.model.logit_scale ?
                                 rawclip_name = None
-                                if 'module.model' in n:
-                                    rawclip_name = n.replace('model', 'raw_model')
+                                if "module.model" in n:
+                                    rawclip_name = n.replace("model", "raw_model")
                                 else:
                                     continue
-                                """ 
+                                """
                                 if cfg.TRAIN.EWC_IDENTITY_FISHER:
                                     loss_reg += torch.sum((p - raw_clip_params[rawclip_name]).pow(2)) / 2
 
                                 else:
                                 """
-                                if n in fisher_map:
-                                    loss_reg += torch.sum(
-                                        fisher_map[n] * (p - raw_clip_params[rawclip_name]).pow(2)) / 2
+                                if n in cast(dict, fisher_map):
+                                    loss_reg += (
+                                        torch.sum(
+                                            cast(dict, fisher_map)[n]
+                                            * (p - raw_clip_params[rawclip_name]).pow(2)
+                                        )
+                                        / 2
+                                    )
                             if cur_iter % cfg.LOG_PERIOD == 0:
-                                logger.info('Reg Loss: %.8f' % loss_reg)
-                                logger.info('Reg Loss Ratio: %f' % cfg.TRAIN.EWC_CONSTRAIN_RATIO)
+                                logger.info("Reg Loss: %.8f" % loss_reg)
+                                logger.info(
+                                    "Reg Loss Ratio: %f" % cfg.TRAIN.EWC_CONSTRAIN_RATIO
+                                )
 
                             loss += cfg.TRAIN.EWC_CONSTRAIN_RATIO * loss_reg
 
@@ -597,7 +688,7 @@ def train_epoch(
         if cfg.TRAIN.LINEAR_CONNECT_CLIMB:
             state_dict = model.state_dict(keep_vars=True)
             for param_name in state_dict.keys():
-                if state_dict[param_name].grad == None:
+                if state_dict[param_name].grad is None:
                     continue
                 # param grads based on the current model and the interpolated model
                 state_dict[param_name].grad += grads_record[param_name]
@@ -613,8 +704,13 @@ def train_epoch(
                 p.grad.data.zero_()
                 reptile_grad = scaler._scale.squeeze() * (fast_weights[n] - p.data)
                 p.grad.data.add_(
-                    reptile_grad * torch.tensor(cfg.TRAIN.CROSS_BATCH_META_LEARN_RATIO, device=reptile_grad.device) +
-                    grads_record[n])
+                    reptile_grad
+                    * torch.tensor(
+                        cfg.TRAIN.CROSS_BATCH_META_LEARN_RATIO,
+                        device=reptile_grad.device,
+                    )
+                    + grads_record[n]
+                )
 
             # restore model weights
             model.load_state_dict(cur_weights)
@@ -624,9 +720,10 @@ def train_epoch(
 
         # Clip gradients if necessary
         if cfg.SOLVER.CLIP_GRAD_VAL:
-            grad_norm = torch.nn.utils.clip_grad_value_(
+            torch.nn.utils.clip_grad_value_(
                 model.parameters(), cfg.SOLVER.CLIP_GRAD_VAL
             )
+            grad_norm = optim.get_grad_norm_(model.parameters())
         elif cfg.SOLVER.CLIP_GRAD_L2NORM:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 model.parameters(), cfg.SOLVER.CLIP_GRAD_L2NORM
@@ -751,9 +848,7 @@ def train_epoch(
 
 
 @torch.no_grad()
-def eval_epoch(
-        val_loader, model, val_meter, cur_epoch, cfg, train_loader, writer
-):
+def eval_epoch(val_loader, model, val_meter, cur_epoch, cfg, train_loader, writer):
     """
     Evaluate the model on the val set.
     Args:
@@ -789,9 +884,7 @@ def eval_epoch(
             index = index.cuda()
             time = time.cuda()
         batch_size = (
-            inputs[0][0].size(0)
-            if isinstance(inputs[0], list)
-            else inputs[0].size(0)
+            inputs[0][0].size(0) if isinstance(inputs[0], list) else inputs[0].size(0)
         )
         val_meter.data_toc()
 
@@ -826,9 +919,7 @@ def eval_epoch(
                 )
                 yd, yi = model(inputs, index, time)
                 K = yi.shape[1]
-                C = (
-                    cfg.CONTRASTIVE.NUM_CLASSES_DOWNSTREAM
-                )  # eg 400 for Kinetics400
+                C = cfg.CONTRASTIVE.NUM_CLASSES_DOWNSTREAM  # eg 400 for Kinetics400
                 candidates = train_labels.view(1, -1).expand(batch_size, -1)
                 retrieval = torch.gather(candidates, 1, yi)
                 retrieval_one_hot = torch.zeros((batch_size * K, C)).cuda()
@@ -895,20 +986,14 @@ def eval_epoch(
     # write to tensorboard format if available.
     if writer is not None:
         if cfg.DETECTION.ENABLE:
-            writer.add_scalars(
-                {"Val/mAP": val_meter.full_map}, global_step=cur_epoch
-            )
+            writer.add_scalars({"Val/mAP": val_meter.full_map}, global_step=cur_epoch)
         else:
             all_preds = [pred.clone().detach() for pred in val_meter.all_preds]
-            all_labels = [
-                label.clone().detach() for label in val_meter.all_labels
-            ]
+            all_labels = [label.clone().detach() for label in val_meter.all_labels]
             if cfg.NUM_GPUS:
                 all_preds = [pred.cpu() for pred in all_preds]
                 all_labels = [label.cpu() for label in all_labels]
-            writer.plot_eval(
-                preds=all_preds, labels=all_labels, global_step=cur_epoch
-            )
+            writer.plot_eval(preds=all_preds, labels=all_labels, global_step=cur_epoch)
 
     val_meter.reset()
 
@@ -966,9 +1051,7 @@ def build_trainer(cfg):
     # Create the video train and val loaders.
     train_loader = loader.construct_loader(cfg, "train")
     val_loader = loader.construct_loader(cfg, "val")
-    precise_bn_loader = loader.construct_loader(
-        cfg, "train", is_precise_bn=True
-    )
+    precise_bn_loader = loader.construct_loader(cfg, "train", is_precise_bn=True)
     # Create meters.
     train_meter = TrainMeter(len(train_loader), cfg)
     val_meter = ValMeter(len(val_loader), cfg)
@@ -993,8 +1076,8 @@ def train(cfg):
     """
     # Set up environment.
     try:
-        du.init_distributed_training(cfg)
-    except:
+        du.init_distributed_training(cfg.NUM_GPUS, cfg.SHARD_ID)
+    except BaseException:  # Preserve the original catch-all behavior.
         du.init_distributed_training(cfg.NUM_GPUS, cfg.SHARD_ID)
     # Set random seed from configs.
     np.random.seed(cfg.RNG_SEED)
@@ -1020,24 +1103,31 @@ def train(cfg):
     # custom load checkpoint here
     if cfg.TRAIN.CUSTOM_LOAD:
         custom_load_file = cfg.TRAIN.CUSTOM_LOAD_FILE
-        assert pathmgr.exists(
+        assert pathmgr.exists(custom_load_file), "Checkpoint '{}' not found".format(
             custom_load_file
-        ), "Checkpoint '{}' not found".format(custom_load_file)
+        )
         logger.info("Loading custom network weights from {}.".format(custom_load_file))
-        checkpoint = torch.load(custom_load_file, map_location='cpu')
-        checkpoint_model = checkpoint['model_state']
+        checkpoint = torch.load(custom_load_file, map_location="cpu")
+        checkpoint_model = checkpoint["model_state"]
         state_dict = model.state_dict()
 
         if cfg.VAL_MODE and cfg.TEST.PATCHING_MODEL and cfg.TEST.CLIP_ORI_PATH:
             logger.info("patching model")
             patching_ratio = cfg.TEST.PATCHING_RATIO
             try:
-                clip_ori_state = torch.jit.load(cfg.TEST.CLIP_ORI_PATH, map_location='cpu').state_dict()
+                clip_ori_state = torch.jit.load(
+                    cfg.TEST.CLIP_ORI_PATH, map_location="cpu"
+                ).state_dict()
                 # pop some unnessesary keys
-                _ = [clip_ori_state.pop(i) for i in ['input_resolution', 'context_length', 'vocab_size']]
+                _ = [
+                    clip_ori_state.pop(i)
+                    for i in ["input_resolution", "context_length", "vocab_size"]
+                ]
                 raw_clip_flag = True
-            except:
-                clip_ori_state = torch.load(cfg.TEST.CLIP_ORI_PATH, map_location='cpu')['model_state']
+            except BaseException:  # Preserve the original catch-all behavior.
+                clip_ori_state = torch.load(cfg.TEST.CLIP_ORI_PATH, map_location="cpu")[
+                    "model_state"
+                ]
                 raw_clip_flag = False
 
             logger.info("model contains %d keys for patching" % len(checkpoint_model))
@@ -1049,35 +1139,50 @@ def train(cfg):
             else:
                 if raw_clip_flag:
                     logger.info("Missing Params for patching:")
-                    logger.info(list(set(checkpoint_model.keys()) - set(['model.' + i for i in clip_ori_state.keys()])))
+                    logger.info(
+                        list(
+                            set(checkpoint_model.keys())
+                            - set(["model." + i for i in clip_ori_state.keys()])
+                        )
+                    )
                     missing_params_name = list(
-                        set(checkpoint_model.keys()) - set(['model.' + i for i in clip_ori_state.keys()]))
+                        set(checkpoint_model.keys())
+                        - set(["model." + i for i in clip_ori_state.keys()])
+                    )
                 else:
-                    missing_params_name = list(set(checkpoint_model.keys()) - set([i for i in clip_ori_state.keys()]))
+                    missing_params_name = list(
+                        set(checkpoint_model.keys())
+                        - set([i for i in clip_ori_state.keys()])
+                    )
 
             # add model prefix
             patching_checkpoint_model = {}
             for key in clip_ori_state:
                 if raw_clip_flag:
-                    patching_checkpoint_model['model.' + key] = clip_ori_state[key] * cfg.TEST.PATCHING_RATIO + \
-                                                                checkpoint_model['model.' + key] * (
-                                                                        1 - cfg.TEST.PATCHING_RATIO)
+                    patching_checkpoint_model["model." + key] = clip_ori_state[
+                        key
+                    ] * cfg.TEST.PATCHING_RATIO + checkpoint_model["model." + key] * (
+                        1 - cfg.TEST.PATCHING_RATIO
+                    )
                 else:
                     if key not in checkpoint_model:
                         continue
-                    patching_checkpoint_model[key] = clip_ori_state[key] * cfg.TEST.PATCHING_RATIO + checkpoint_model[
-                        key] * (1 - cfg.TEST.PATCHING_RATIO)
+                    patching_checkpoint_model[key] = clip_ori_state[
+                        key
+                    ] * cfg.TEST.PATCHING_RATIO + checkpoint_model[key] * (
+                        1 - cfg.TEST.PATCHING_RATIO
+                    )
 
-            if missing_params_name != None:
+            if missing_params_name is not None:
                 for key in missing_params_name:
                     patching_checkpoint_model[key] = checkpoint_model[key]
 
             checkpoint_model = patching_checkpoint_model
 
-        if 'module' in list(state_dict.keys())[0]:
+        if "module" in list(state_dict.keys())[0]:
             new_checkpoint_model = {}
             for key, value in checkpoint_model.items():
-                new_checkpoint_model['module.' + key] = value
+                new_checkpoint_model["module." + key] = value
                 # new_checkpoint_model['module.' + key.replace('model', 'raw_model')] = value
             checkpoint_model = new_checkpoint_model
 
@@ -1098,7 +1203,7 @@ def train(cfg):
         inner_opt = optim.construct_optimizer(model, cfg)
     else:
         inner_opt = None
-    """ 
+    """
     for m_name, m in model.module.named_modules():
         for p_name, p in m.named_parameters(recurse=False):
             if p.requires_grad == True:
@@ -1109,7 +1214,9 @@ def train(cfg):
     exit()
     """
     # Create a GradScaler for mixed precision training
-    scaler = torch.cuda.amp.GradScaler(enabled=cfg.TRAIN.MIXED_PRECISION, init_scale=2 ** 10)
+    scaler = torch.cuda.amp.GradScaler(  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
+        enabled=cfg.TRAIN.MIXED_PRECISION, init_scale=2**10
+    )
     # Load a checkpoint to resume training if applicable.
     if cfg.TRAIN.AUTO_RESUME and cu.has_checkpoint(cfg.OUTPUT_DIR):
         logger.info("Load from last checkpoint.")
@@ -1177,9 +1284,9 @@ def train(cfg):
     )
 
     if (
-            cfg.TASK == "ssl"
-            and cfg.MODEL.MODEL_NAME == "ContrastiveModel"
-            and cfg.CONTRASTIVE.KNN_ON
+        cfg.TASK == "ssl"
+        and cfg.MODEL.MODEL_NAME == "ContrastiveModel"
+        and cfg.CONTRASTIVE.KNN_ON
     ):
         if hasattr(model, "module"):
             model.module.init_knn_labels(train_loader)
@@ -1195,9 +1302,7 @@ def train(cfg):
         val_meter = ValMeter(len(val_loader), cfg)
 
     # set up writer for logging to Tensorboard format.
-    if cfg.TENSORBOARD.ENABLE and du.is_master_proc(
-            cfg.NUM_GPUS * cfg.NUM_SHARDS
-    ):
+    if cfg.TENSORBOARD.ENABLE and du.is_master_proc(cfg.NUM_GPUS * cfg.NUM_SHARDS):
         writer = tb.TensorboardWriter(cfg)
     else:
         writer = None
@@ -1222,7 +1327,7 @@ def train(cfg):
 
     if cfg.TRAIN.EWC_SET:
         if cfg.TRAIN.EWC_LOAD_FILE:
-            fisher_map = torch.load(cfg.TRAIN.EWC_LOAD_FILE, map_location='cpu')
+            fisher_map = torch.load(cfg.TRAIN.EWC_LOAD_FILE, map_location="cpu")
             # fisher_map = fisher_map.to(model.device)
             for key in fisher_map:
                 fisher_map[key] = fisher_map[key].to(model.device)
@@ -1248,7 +1353,6 @@ def train(cfg):
     # maybe ignore the module.model.logit_scale fisher value
 
     for cur_epoch in range(start_epoch, cfg.SOLVER.MAX_EPOCH):
-
         if cur_epoch > 0 and cfg.DATA.LOADER_CHUNK_SIZE > 0:
             num_chunks = math.ceil(
                 cfg.DATA.LOADER_CHUNK_OVERALL_SIZE / cfg.DATA.LOADER_CHUNK_SIZE
@@ -1263,7 +1367,9 @@ def train(cfg):
             loader.shuffle_dataset(train_loader, cur_epoch)
 
         if cfg.MULTIGRID.LONG_CYCLE:
-            cfg, changed = multigrid.update_long_cycle(cfg, cur_epoch)
+            cfg, changed = cast(MultigridSchedule, multigrid).update_long_cycle(
+                cfg, cur_epoch
+            )
             if changed:
                 (
                     model,
@@ -1284,9 +1390,7 @@ def train(cfg):
                 else:
                     last_checkpoint = cfg.TRAIN.CHECKPOINT_FILE_PATH
                 logger.info("Load from {}".format(last_checkpoint))
-                cu.load_checkpoint(
-                    last_checkpoint, model, cfg.NUM_GPUS > 1, optimizer
-                )
+                cu.load_checkpoint(last_checkpoint, model, cfg.NUM_GPUS > 1, optimizer)
 
         # Shuffle the dataset.
         loader.shuffle_dataset(train_loader, cur_epoch)
@@ -1295,14 +1399,18 @@ def train(cfg):
         # Train for one epoch.
         epoch_timer.epoch_tic()
         # If do the zs_constrain
-        if (cfg.TRAIN.ZS_CONS
+        if (
+            cfg.TRAIN.ZS_CONS
             or (cfg.TRAIN.ZS_INIT_CONS and cur_epoch == 0)
-            or (cfg.TRAIN.ZS_RESTART_CONS and cfg.TRAIN.ZS_RESTART_EPOCH != -1 and (
-                        cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1) % cfg.TRAIN.ZS_RESTART_EPOCH == 0 and (
-                        cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1 > 0))
-        ) \
-                and cfg.TRAIN.CLIP_ORI_PATH:
-
+            or (
+                cfg.TRAIN.ZS_RESTART_CONS
+                and cfg.TRAIN.ZS_RESTART_EPOCH != -1
+                and (cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1)
+                % cfg.TRAIN.ZS_RESTART_EPOCH
+                == 0
+                and (cur_epoch - cfg.SOLVER.WARMUP_EPOCHS + 1 > 0)
+            )
+        ) and cfg.TRAIN.CLIP_ORI_PATH:
             logger.info("Constrain Model Parameter Change Per Epoch")
 
             # current model ckpt
@@ -1311,38 +1419,54 @@ def train(cfg):
             # latest checkpoint params, almost the same as "state_dict"
             # checkpoint = torch.load(os.path.join(cfg.OUTPUT_DIR, 'checkpoints', "checkpoint_epoch_{:05d}.pyth".format(-1)), map_location='cpu')
             # checkpoint_model = checkpoint['model_state']
-            checkpoint_model = model.module.state_dict() if cfg.NUM_GPUS > 1 else model.state_dict()
+            checkpoint_model = (
+                model.module.state_dict() if cfg.NUM_GPUS > 1 else model.state_dict()
+            )
             checkpoint_model = cu.sub_to_normal_bn(checkpoint_model)
             logger.info("model contains %d keys for patching" % len(checkpoint_model))
 
             try:
                 # zero shot model
-                clip_ori_state = torch.jit.load(cfg.TRAIN.CLIP_ORI_PATH, map_location=model.device).state_dict()
+                clip_ori_state = torch.jit.load(
+                    cfg.TRAIN.CLIP_ORI_PATH, map_location=model.device
+                ).state_dict()
                 # pop some unnessesary keys
-                _ = [clip_ori_state.pop(i) for i in ['input_resolution', 'context_length', 'vocab_size']]
+                _ = [
+                    clip_ori_state.pop(i)
+                    for i in ["input_resolution", "context_length", "vocab_size"]
+                ]
                 raw_clip_flag = True
-            except:
-                clip_ori_state = torch.load(cfg.TRAIN.CLIP_ORI_PATH, map_location=model.device)['model_state']
+            except BaseException:  # Preserve the original catch-all behavior.
+                clip_ori_state = torch.load(
+                    cfg.TRAIN.CLIP_ORI_PATH, map_location=model.device
+                )["model_state"]
                 raw_clip_flag = False
 
             logger.info("model contains %d keys for patching" % len(checkpoint_model))
-            clip_model_keys = clip_ori_state.keys()
-            new_model_keys = checkpoint_model.keys()
+            _clip_model_keys = clip_ori_state.keys()
+            _new_model_keys = checkpoint_model.keys()
 
             if cfg.MODEL.NUM_EXPERTS > 0:
                 for key in list(clip_ori_state.keys()):
-                    if 'mlp' in key and key.startswith('visual'):
-                        layer_id = int(key.split('.mlp')[0].split('.')[-1])
+                    if "mlp" in key and key.startswith("visual"):
+                        layer_id = int(key.split(".mlp")[0].split(".")[-1])
                         if layer_id not in cfg.MODEL.EXPERT_INSERT_LAYERS:
                             continue
                         for expert_id in range(cfg.MODEL.NUM_EXPERTS):
-                            if 'c_fc' in key or 'gelu' in key:
-                                new_key = key.replace('mlp', 'experts_head.%d' % expert_id)
+                            if "c_fc" in key or "gelu" in key:
+                                new_key = key.replace(
+                                    "mlp", "experts_head.%d" % expert_id
+                                )
                             else:
-                                new_key = key.replace('mlp', 'experts_tail.%d' % expert_id)
+                                new_key = key.replace(
+                                    "mlp", "experts_tail.%d" % expert_id
+                                )
                             clip_ori_state[new_key] = clip_ori_state[key]
 
-                    logger.info("expanded original clip model contains %d keys" % len(clip_ori_state))
+                    logger.info(
+                        "expanded original clip model contains %d keys"
+                        % len(clip_ori_state)
+                    )
 
             missing_params_name = None
             if len(clip_ori_state) == len(checkpoint_model):
@@ -1350,11 +1474,21 @@ def train(cfg):
             else:
                 if raw_clip_flag:
                     logger.info("Missing Params for patching:")
-                    logger.info(list(set(checkpoint_model.keys()) - set(['model.' + i for i in clip_ori_state.keys()])))
+                    logger.info(
+                        list(
+                            set(checkpoint_model.keys())
+                            - set(["model." + i for i in clip_ori_state.keys()])
+                        )
+                    )
                     missing_params_name = list(
-                        set(checkpoint_model.keys()) - set(['model.' + i for i in clip_ori_state.keys()]))
+                        set(checkpoint_model.keys())
+                        - set(["model." + i for i in clip_ori_state.keys()])
+                    )
                 else:
-                    missing_params_name = list(set(checkpoint_model.keys()) - set([i for i in clip_ori_state.keys()]))
+                    missing_params_name = list(
+                        set(checkpoint_model.keys())
+                        - set([i for i in clip_ori_state.keys()])
+                    )
 
             # add model prefix
             patching_checkpoint_model = {}
@@ -1366,34 +1500,41 @@ def train(cfg):
 
             for key in clip_ori_state:
                 if raw_clip_flag:
-                    patching_checkpoint_model['model.' + key] = clip_ori_state[key] * patching_ratio + checkpoint_model[
-                        'model.' + key] * (1 - patching_ratio)
-                    patching_checkpoint_model['raw_model.' + key] = clip_ori_state[key] * patching_ratio + \
-                                                                    checkpoint_model['model.' + key] * (
-                                                                            1 - patching_ratio)
+                    patching_checkpoint_model["model." + key] = clip_ori_state[
+                        key
+                    ] * patching_ratio + checkpoint_model["model." + key] * (
+                        1 - patching_ratio
+                    )
+                    patching_checkpoint_model["raw_model." + key] = clip_ori_state[
+                        key
+                    ] * patching_ratio + checkpoint_model["model." + key] * (
+                        1 - patching_ratio
+                    )
                 else:
                     if key not in checkpoint_model:
                         continue
 
-                    patching_checkpoint_model[key] = clip_ori_state[key] * patching_ratio + checkpoint_model[key] * (
-                            1 - patching_ratio)
-                    if 'model' in key and 'raw_model' not in key:
-                        patching_checkpoint_model[key.replace('model', 'raw_model', 1)] = clip_ori_state[
-                                                                                              key] * patching_ratio + \
-                                                                                          checkpoint_model[key] * (
-                                                                                                  1 - patching_ratio)
+                    patching_checkpoint_model[key] = clip_ori_state[
+                        key
+                    ] * patching_ratio + checkpoint_model[key] * (1 - patching_ratio)
+                    if "model" in key and "raw_model" not in key:
+                        patching_checkpoint_model[
+                            key.replace("model", "raw_model", 1)
+                        ] = clip_ori_state[key] * patching_ratio + checkpoint_model[
+                            key
+                        ] * (1 - patching_ratio)
 
-            if missing_params_name != None:
+            if missing_params_name is not None:
                 for key in missing_params_name:
-                    if 'raw_model' not in key:
+                    if "raw_model" not in key:
                         patching_checkpoint_model[key] = checkpoint_model[key]
 
             checkpoint_model = patching_checkpoint_model
 
-            if 'module' in list(state_dict.keys())[0]:
+            if "module" in list(state_dict.keys())[0]:
                 new_checkpoint_model = {}
                 for key, value in checkpoint_model.items():
-                    new_checkpoint_model['module.' + key] = value
+                    new_checkpoint_model["module." + key] = value
                 checkpoint_model = new_checkpoint_model
 
             for key in checkpoint_model.keys():
@@ -1429,20 +1570,20 @@ def train(cfg):
         )
 
         is_checkp_epoch = (
-                cu.is_checkpoint_epoch(
-                    cfg,
-                    cur_epoch,
-                    None if multigrid is None else multigrid.schedule,
-                )
-                or cur_epoch == cfg.SOLVER.MAX_EPOCH - 1
+            cu.is_checkpoint_epoch(
+                cfg,
+                cur_epoch,
+                None if multigrid is None else multigrid.schedule,
+            )
+            or cur_epoch == cfg.SOLVER.MAX_EPOCH - 1
         )
         is_eval_epoch = (
-                misc.is_eval_epoch(
-                    cfg,
-                    cur_epoch,
-                    None if multigrid is None else multigrid.schedule,
-                )
-                and not cfg.MASK.ENABLE
+            misc.is_eval_epoch(
+                cfg,
+                cur_epoch,
+                None if multigrid is None else multigrid.schedule,
+            )
+            and not cfg.MASK.ENABLE
         )
 
         """
@@ -1455,7 +1596,7 @@ def train(cfg):
             calculate_and_update_precise_bn(
                 precise_bn_loader,
                 model,
-                min(cfg.BN.NUM_BATCHES_PRECISE, len(precise_bn_loader)),
+                min(cfg.BN.NUM_BATCHES_PRECISE, len(cast(Sized, precise_bn_loader))),
                 cfg.NUM_GPUS > 0,
             )
         _ = misc.aggregate_sub_bn_stats(model)
@@ -1464,7 +1605,7 @@ def train(cfg):
             calculate_and_update_precise_bn(
                 precise_bn_loader,
                 model,
-                min(cfg.BN.NUM_BATCHES_PRECISE, len(precise_bn_loader)),
+                min(cfg.BN.NUM_BATCHES_PRECISE, len(cast(Sized, precise_bn_loader))),
                 cfg.NUM_GPUS > 0,
             )
         _ = misc.aggregate_sub_bn_stats(model)

@@ -4,7 +4,7 @@
 
 ## 目录结构
 
-```
+```text
 actionclip/
 ├── train_actionclip_spacejam.py        # 训练脚本
 ├── actionclip_yolo_sliding_window.py   # 推理脚本（YOLO检测 + 滑动窗口识别）
@@ -45,7 +45,7 @@ pip install git+https://github.com/openai/CLIP.git
 
 数据集文件夹组织如下：
 
-```
+```text
 spacejam/
 ├── examples/                  # 原始视频片段（按球员裁剪的短 mp4）
 │   ├── 0000000.mp4
@@ -70,7 +70,7 @@ spacejam/
 
 每行一条样本，格式为 `视频路径,标签索引`（逗号分隔）：
 
-```
+```text
 /path/to/video_001.mp4,3
 /path/to/video_002.mp4,0
 /path/to/video_003.mp4,4
@@ -83,7 +83,7 @@ spacejam/
 
 每行一个类名，**行号即为标签索引**，顺序不能乱：
 
-```
+```text
 block
 pass
 run
@@ -102,7 +102,7 @@ walk
 
 用于生成 CLIP 文本特征，格式为 `类名:描述文本`：
 
-```
+```text
 block:a basketball player without possession of the ball jumping vertically ...
 pass:a basketball player using one or both hands to thrust the ball horizontally ...
 ```
@@ -236,8 +236,9 @@ python actionclip_yolo_sliding_window.py \
    ```python
    # 统计 train.csv 每类样本数
    from collections import Counter
-   with open('data/spacejam/train.csv') as f:
-       labels = [int(line.strip().split(',')[1]) for line in f if line.strip()]
+
+   with open("data/spacejam/train.csv") as f:
+       labels = [int(line.strip().split(",")[1]) for line in f if line.strip()]
    print(Counter(labels))  # 按 0,1,2... 顺序填入 class_counts
    ```
 
@@ -246,7 +247,7 @@ python actionclip_yolo_sliding_window.py \
    - `ViT-B/16-8` → `--clip-len 8`
    - `ViT-B/16-16` → `--clip-len 16`
    - `ViT-B/16-32` → `--clip-len 32`
-   
+
    不匹配会导致 adapter 位置编码维度对不上，报错。
 
 3. **路径修改**：代码中默认路径为原作者环境（`/data/ljy23/...`）。使用前请将 `train_actionclip_spacejam.py`、`actionclip_yolo_sliding_window.py`、`train_spacejam.sh` 中的数据路径、模型路径、输出路径、conda 环境名、GPU 编号改为你自己的。

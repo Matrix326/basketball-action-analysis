@@ -21,6 +21,7 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+
 import numpy as np
 
 
@@ -51,9 +52,7 @@ class BoxList(object):
         if len(data.shape) != 2 or data.shape[1] != 4:
             raise ValueError("Invalid dimensions for box data.")
         if data.dtype != np.float32 and data.dtype != np.float64:
-            raise ValueError(
-                "Invalid data type for box data: float is required."
-            )
+            raise ValueError("Invalid data type for box data: float is required.")
         if not self._is_valid_boxes(data):
             raise ValueError(
                 "Invalid box data. data must be a numpy array of "

@@ -37,12 +37,8 @@ class MultigridSchedule(object):
             self.schedule = self.get_long_cycle_schedule(cfg)
             cfg.SOLVER.STEPS = [0] + [s[-1] for s in self.schedule]
             # Fine-tuning phase.
-            cfg.SOLVER.STEPS[-1] = (
-                cfg.SOLVER.STEPS[-2] + cfg.SOLVER.STEPS[-1]
-            ) // 2
-            cfg.SOLVER.LRS = [
-                cfg.SOLVER.GAMMA ** s[0] * s[1][0] for s in self.schedule
-            ]
+            cfg.SOLVER.STEPS[-1] = (cfg.SOLVER.STEPS[-2] + cfg.SOLVER.STEPS[-1]) // 2
+            cfg.SOLVER.LRS = [cfg.SOLVER.GAMMA ** s[0] * s[1][0] for s in self.schedule]
             # Fine-tuning phase.
             cfg.SOLVER.LRS = cfg.SOLVER.LRS[:-1] + [
                 cfg.SOLVER.LRS[-2],
@@ -73,18 +69,14 @@ class MultigridSchedule(object):
             cfg (configs): the updated cfg.
             changed (bool): do we change long cycle shape at this epoch?
         """
-        base_b, base_t, base_s = get_current_long_cycle_shape(
-            self.schedule, cur_epoch
-        )
+        base_b, base_t, base_s = get_current_long_cycle_shape(self.schedule, cur_epoch)
         if base_s != cfg.DATA.TRAIN_CROP_SIZE or base_t != cfg.DATA.NUM_FRAMES:
-
             cfg.DATA.NUM_FRAMES = base_t
             cfg.DATA.TRAIN_CROP_SIZE = base_s
             cfg.TRAIN.BATCH_SIZE = base_b * cfg.MULTIGRID.DEFAULT_B
 
             bs_factor = (
-                float(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS)
-                / cfg.MULTIGRID.BN_BASE_SIZE
+                float(cfg.TRAIN.BATCH_SIZE / cfg.NUM_GPUS) / cfg.MULTIGRID.BN_BASE_SIZE
             )
 
             if bs_factor < 1:
@@ -102,9 +94,7 @@ class MultigridSchedule(object):
             logger.info("Long cycle updates:")
             logger.info("\tBN.NORM_TYPE: {}".format(cfg.BN.NORM_TYPE))
             if cfg.BN.NORM_TYPE == "sync_batchnorm":
-                logger.info(
-                    "\tBN.NUM_SYNC_DEVICES: {}".format(cfg.BN.NUM_SYNC_DEVICES)
-                )
+                logger.info("\tBN.NUM_SYNC_DEVICES: {}".format(cfg.BN.NUM_SYNC_DEVICES))
             elif cfg.BN.NORM_TYPE == "sub_batchnorm":
                 logger.info("\tBN.NUM_SPLITS: {}".format(cfg.BN.NUM_SPLITS))
             logger.info("\tTRAIN.BATCH_SIZE: {}".format(cfg.TRAIN.BATCH_SIZE))
@@ -113,9 +103,7 @@ class MultigridSchedule(object):
                     cfg.DATA.NUM_FRAMES, cfg.MULTIGRID.LONG_CYCLE_SAMPLING_RATE
                 )
             )
-            logger.info(
-                "\tDATA.TRAIN_CROP_SIZE: {}".format(cfg.DATA.TRAIN_CROP_SIZE)
-            )
+            logger.info("\tDATA.TRAIN_CROP_SIZE: {}".format(cfg.DATA.TRAIN_CROP_SIZE))
             return cfg, True
         else:
             return cfg, False
@@ -134,9 +122,7 @@ class MultigridSchedule(object):
 
         steps = cfg.SOLVER.STEPS
 
-        default_size = float(
-            cfg.DATA.NUM_FRAMES * cfg.DATA.TRAIN_CROP_SIZE**2
-        )
+        default_size = float(cfg.DATA.NUM_FRAMES * cfg.DATA.TRAIN_CROP_SIZE**2)
         default_iters = steps[-1]
 
         # Get shapes and average batch size for each long cycle shape.
@@ -149,13 +135,11 @@ class MultigridSchedule(object):
                 shapes = [
                     [
                         base_t,
-                        cfg.MULTIGRID.DEFAULT_S
-                        * cfg.MULTIGRID.SHORT_CYCLE_FACTORS[0],
+                        cfg.MULTIGRID.DEFAULT_S * cfg.MULTIGRID.SHORT_CYCLE_FACTORS[0],
                     ],
                     [
                         base_t,
-                        cfg.MULTIGRID.DEFAULT_S
-                        * cfg.MULTIGRID.SHORT_CYCLE_FACTORS[1],
+                        cfg.MULTIGRID.DEFAULT_S * cfg.MULTIGRID.SHORT_CYCLE_FACTORS[1],
                     ],
                     [base_t, base_s],
                 ]
@@ -177,9 +161,7 @@ class MultigridSchedule(object):
             step_epochs = steps[step_index + 1] - steps[step_index]
 
             for long_cycle_index, shapes in enumerate(all_shapes):
-                cur_epochs = (
-                    step_epochs * avg_bs[long_cycle_index] / sum(avg_bs)
-                )
+                cur_epochs = step_epochs * avg_bs[long_cycle_index] / sum(avg_bs)
 
                 cur_iters = cur_epochs / avg_bs[long_cycle_index]
                 total_iters += cur_iters

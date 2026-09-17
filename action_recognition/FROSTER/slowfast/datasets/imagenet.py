@@ -1,21 +1,23 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
 import json
-import numpy as np
 import os
 import random
 import re
+from typing import BinaryIO, TextIO, cast
+
+import numpy as np
+from PIL import Image
 import torch
 import torch.utils.data
-from PIL import Image
 from torchvision import transforms as transforms_tv
 
 import slowfast.datasets.transform as transform
-import slowfast.utils.logging as logging
 from slowfast.models.utils import calc_mvit_feature_geometry
 
 # import cv2
 from slowfast.utils.env import pathmgr
+import slowfast.utils.logging as logging
 
 from .build import DATASET_REGISTRY
 from .transform import MaskingGenerator, transforms_imagenet_train
@@ -50,7 +52,7 @@ class Imagenet(torch.utils.data.Dataset):
         split_path = os.path.join(
             self.cfg.DATA.PATH_TO_PRELOAD_IMDB, f"{self.mode}.json"
         )
-        with pathmgr.open(split_path, "r") as f:
+        with cast(TextIO, pathmgr.open(split_path, "r")) as f:
             data = f.read()
         self._imdb = json.loads(data)
 
@@ -61,9 +63,7 @@ class Imagenet(torch.utils.data.Dataset):
         logger.info("{} data path: {}".format(self.mode, split_path))
         # Images are stored per class in subdirs (format: n<number>)
         split_files = pathmgr.ls(split_path)
-        self._class_ids = sorted(
-            f for f in split_files if re.match(r"^n[0-9]+$", f)
-        )
+        self._class_ids = sorted(f for f in split_files if re.match(r"^n[0-9]+$", f))
         # Map ImageNet class ids to contiguous ids
         self._class_id_cont_id = {v: i for i, v in enumerate(self._class_ids)}
         # Construct the image db
@@ -79,7 +79,7 @@ class Imagenet(torch.utils.data.Dataset):
 
     def load_image(self, im_path):
         """Prepares the image for network input with format of CHW RGB float"""
-        with pathmgr.open(im_path, "rb") as f:
+        with cast(BinaryIO, pathmgr.open(im_path, "rb")) as f:
             with Image.open(f) as im:
                 im = im.convert("RGB")
         im = torch.from_numpy(np.array(im).astype(np.float32) / 255.0)
@@ -117,13 +117,11 @@ class Imagenet(torch.utils.data.Dataset):
                 im, test_size, spatial_idx=1, scale_size=train_size
             )
         # For training and testing use color normalization
-        im = transform.color_normalization(
-            im, self.cfg.DATA.MEAN, self.cfg.DATA.STD
-        )
+        im = transform.color_normalization(im, self.cfg.DATA.MEAN, self.cfg.DATA.STD)
         return im
 
     def _prepare_im_tf(self, im_path):
-        with pathmgr.open(im_path, "rb") as f:
+        with cast(BinaryIO, pathmgr.open(im_path, "rb")) as f:
             with Image.open(f) as im:
                 im = im.convert("RGB")
         # Convert HWC/BGR/int to HWC/RGB/float format for applying transforms
@@ -148,8 +146,10 @@ class Imagenet(torch.utils.data.Dataset):
             t = []
             if self.cfg.DATA.IN_VAL_CROP_RATIO == 0.0:
                 t.append(
-                    transforms_tv.Resize((test_size, test_size),
-                    interpolation=transforms_tv.InterpolationMode.BICUBIC),
+                    transforms_tv.Resize(
+                        (test_size, test_size),
+                        interpolation=transforms_tv.InterpolationMode.BICUBIC,
+                    ),
                 )
             else:
                 size = int(
@@ -157,26 +157,22 @@ class Imagenet(torch.utils.data.Dataset):
                 )  # = 1/0.875 * test_size
                 t.append(
                     transforms_tv.Resize(
-                        size,
-                        interpolation=transforms_tv.InterpolationMode.BICUBIC
+                        size, interpolation=transforms_tv.InterpolationMode.BICUBIC
                     ),  # to maintain same ratio w.r.t. 224 images
                 )
                 t.append(transforms_tv.CenterCrop(test_size))
             t.append(transforms_tv.ToTensor())
-            t.append(
-                transforms_tv.Normalize(self.cfg.DATA.MEAN, self.cfg.DATA.STD)
-            )
+            t.append(transforms_tv.Normalize(self.cfg.DATA.MEAN, self.cfg.DATA.STD))
             aug_transform = transforms_tv.Compose(t)
         im = aug_transform(im)
         return im
 
     def _prepare_im_masked(self, im_path):
-        with pathmgr.open(im_path, "rb") as f:
+        with cast(BinaryIO, pathmgr.open(im_path, "rb")) as f:
             with Image.open(f) as im:
                 im = im.convert("RGB")
 
         if self.mode in ["train", "val"]:
-
             depth = self.cfg.MASK.PRETRAIN_DEPTH[-1]
             assert depth == max(self.cfg.MASK.PRETRAIN_DEPTH)
             max_mask = self.cfg.AUG.MAX_MASK_PATCHES_PER_BLOCK

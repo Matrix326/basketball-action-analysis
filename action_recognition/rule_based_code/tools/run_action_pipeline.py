@@ -20,13 +20,14 @@ Usage:
         [--extrinsics <json>] [--intrinsics <json>]   # for hoop triangulation
         [--skip-ball-trajectory]      # reuse an existing ball_trajectory.json
 """
+
 from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -35,14 +36,15 @@ sys.path.insert(0, str(ROOT / "src"))
 from config import load_config  # noqa: E402
 
 
-def run(cmd: list[str]) -> None:
+def run(cmd: list[str | Path]) -> None:
     print("[run]", " ".join(str(c) for c in cmd))
     subprocess.run([str(c) for c in cmd], check=True)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--poses", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--config", default=str(ROOT / "config" / "config.yaml"))
@@ -59,8 +61,14 @@ def main() -> None:
     poses = Path(args.poses)
 
     # 1) schema bridge: build ball_measurements + hoop in the file's frame
-    adapt_cmd = [py, ROOT / "tools" / "adapt_perception.py",
-                 "--poses", poses, "--out-dir", out_dir]
+    adapt_cmd = [
+        py,
+        ROOT / "tools" / "adapt_perception.py",
+        "--poses",
+        poses,
+        "--out-dir",
+        out_dir,
+    ]
     if args.hoop_3d:
         # explicit hoop: copy it next to the adapted poses
         hoop = json.load(open(args.hoop_3d, encoding="utf-8"))
@@ -71,24 +79,42 @@ def main() -> None:
         adapt_cmd += ["--intrinsics", args.intrinsics]
     run(adapt_cmd)
 
-    config = load_config(args.config)
+    _config = load_config(args.config)
 
     # 2) ball trajectory (ballistic segmentation + states)
     traj_path = out_dir / "ball_trajectory.json"
     if not args.skip_ball_trajectory:
-        run([py, ROOT / "src" / "ball_trajectory" / "run_ball_trajectory.py",
-             "--config", args.config,
-             "--poses-json", out_dir / "poses_3d.json",
-             "--output", traj_path])
+        run(
+            [
+                py,
+                ROOT / "src" / "ball_trajectory" / "run_ball_trajectory.py",
+                "--config",
+                args.config,
+                "--poses-json",
+                out_dir / "poses_3d.json",
+                "--output",
+                traj_path,
+            ]
+        )
 
     # 3) rule engine
     actions_path = out_dir / "actions.json"
-    run([py, ROOT / "src" / "action_rules" / "run_action_rules.py",
-         "--config", args.config,
-         "--ball-trajectory", traj_path,
-         "--poses-json", out_dir / "poses_3d.json",
-         "--hoop-3d", out_dir / "hoop_3d.json",
-         "--output", actions_path])
+    run(
+        [
+            py,
+            ROOT / "src" / "action_rules" / "run_action_rules.py",
+            "--config",
+            args.config,
+            "--ball-trajectory",
+            traj_path,
+            "--poses-json",
+            out_dir / "poses_3d.json",
+            "--hoop-3d",
+            out_dir / "hoop_3d.json",
+            "--output",
+            actions_path,
+        ]
+    )
 
     if args.print_stats:
         result = json.load(open(actions_path, encoding="utf-8"))

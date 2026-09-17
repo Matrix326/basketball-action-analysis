@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = Path(__file__).resolve().parents[1]
@@ -26,8 +26,9 @@ for p in (PROJECT_ROOT, SRC_ROOT):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from config import load_config  # noqa: E402
 from ball_trajectory import BallTrajectoryPostProcessor  # noqa: E402
+from config import load_config  # noqa: E402
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ball-trajectory post-processing")
@@ -46,18 +47,28 @@ def main() -> None:
         default=None,
         help="Output interface JSON (default: config ball_trajectory.output_path)",
     )
-    parser.add_argument("--print-stats", action="store_true", help="Print stats after processing")
+    parser.add_argument(
+        "--print-stats", action="store_true", help="Print stats after processing"
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
 
     poses_json = Path(
         args.poses_json
-        or config.get("ball_trajectory.poses_json", str(PROJECT_ROOT / "output" / "rfdetr_multiview" / "poses" / "poses_3d.json"))
+        or config.get(
+            "ball_trajectory.poses_json",
+            str(
+                PROJECT_ROOT / "output" / "rfdetr_multiview" / "poses" / "poses_3d.json"
+            ),
+        )
     )
     output_path = Path(
         args.output
-        or config.get("ball_trajectory.output_path", str(poses_json.parent / "ball_trajectory.json"))
+        or config.get(
+            "ball_trajectory.output_path",
+            str(poses_json.parent / "ball_trajectory.json"),
+        )
     )
 
     if not poses_json.exists():
@@ -72,4 +83,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

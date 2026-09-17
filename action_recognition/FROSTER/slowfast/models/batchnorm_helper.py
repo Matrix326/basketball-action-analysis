@@ -4,16 +4,17 @@
 """BatchNorm (BN) utility functions and custom batch-size BN implementations"""
 
 from functools import partial
+from typing import Callable, cast
+
+from pytorchvideo.layers.batch_norm import (
+    NaiveSyncBatchNorm1d as NaiveSyncBatchNorm1d,
+    NaiveSyncBatchNorm3d,
+)  # noqa
 import torch
 import torch.nn as nn
 
-from pytorchvideo.layers.batch_norm import (
-    NaiveSyncBatchNorm1d,
-    NaiveSyncBatchNorm3d,
-)  # noqa
 
-
-def get_norm(cfg):
+def get_norm(cfg) -> Callable[..., nn.Module]:
     """
     Args:
         cfg (CfgNode): model building configs, details are in the comments of
@@ -90,8 +91,8 @@ class SubBatchNorm3d(nn.Module):
         """
         if self.split_bn.track_running_stats:
             (
-                self.bn.running_mean.data,
-                self.bn.running_var.data,
+                cast(torch.Tensor, self.bn.running_mean).data,
+                cast(torch.Tensor, self.bn.running_var).data,
             ) = self._get_aggregated_mean_std(
                 self.split_bn.running_mean,
                 self.split_bn.running_var,

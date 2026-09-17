@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import cast
 
 import cv2
 import numpy as np
 from PIL import Image
+from PIL.GifImagePlugin import GifImageFile
 
 
 def verify(root: Path, start: int, end: int, fps: float) -> dict:
@@ -24,8 +26,10 @@ def verify(root: Path, start: int, end: int, fps: float) -> dict:
     for frame, players in data["poses_3d"].items():
         assert set(players) <= set(data["ground_positions_3d"][frame])
         ids.update(int(player) for player in data["ground_positions_3d"][frame])
-        assert all(np.isfinite(point).all()
-                   for point in data["ground_positions_3d"][frame].values())
+        assert all(
+            np.isfinite(point).all()
+            for point in data["ground_positions_3d"][frame].values()
+        )
         for player_id, values in players.items():
             ids.add(int(player_id))
             joints = np.asarray(values, dtype=float)
@@ -45,7 +49,10 @@ def verify(root: Path, start: int, end: int, fps: float) -> dict:
                 assert len(observation["bbox"]) == 4
 
     jsonl_counts = {}
-    for filename, kind in (("player_tracks.jsonl", "player"), ("ball_tracks.jsonl", "ball")):
+    for filename, kind in (
+        ("player_tracks.jsonl", "player"),
+        ("ball_tracks.jsonl", "ball"),
+    ):
         count = 0
         with (root / "poses/tracks" / filename).open(encoding="utf-8") as stream:
             for line in stream:
@@ -59,8 +66,11 @@ def verify(root: Path, start: int, end: int, fps: float) -> dict:
                     assert record["views"] == data["balls_2d"][frame]
                     assert record["world_xyz"] == data["balls_3d"].get(frame)
                 count += 1
-        expected = (sum(len(p) for p in data["ground_positions_3d"].values())
-                    if kind == "player" else len(data["balls_2d"]))
+        expected = (
+            sum(len(p) for p in data["ground_positions_3d"].values())
+            if kind == "player"
+            else len(data["balls_2d"])
+        )
         assert count == expected
         jsonl_counts[filename] = count
 
@@ -73,7 +83,9 @@ def verify(root: Path, start: int, end: int, fps: float) -> dict:
         expected_videos[f"{prefix}/output_video_final.mp4"] = source_size
         expected_videos[f"{prefix}/topview_smooth.mp4"] = (800, 1400)
         for name in ("player_trajectory.json", "smooth_traj.json"):
-            trajectories = json.loads((root / prefix / name).read_text(encoding="utf-8"))
+            trajectories = json.loads(
+                (root / prefix / name).read_text(encoding="utf-8")
+            )
             tracks = trajectories["final_merged_finished_trajectories"]
             assert tracks
             for player, points in tracks.items():
@@ -81,13 +93,17 @@ def verify(root: Path, start: int, end: int, fps: float) -> dict:
                 assert {int(f) for f in points} <= frames
                 assert all(np.isfinite([p["x"], p["y"]]).all() for p in points.values())
     expected_videos["skeletons_3d/skeletons_3d_multi_view.mp4"] = (1600, 1200)
-    assert {str(p.relative_to(root)) for p in root.rglob("*.mp4")} == set(expected_videos)
+    assert {str(p.relative_to(root)) for p in root.rglob("*.mp4")} == set(
+        expected_videos
+    )
 
     videos = {}
     previews = []
-    preview_names = {next(iter(expected_videos)),
-                     "trajectory_pipeline/1/traj_gen/topview_smooth.mp4",
-                     "skeletons_3d/skeletons_3d_multi_view.mp4"}
+    preview_names = {
+        next(iter(expected_videos)),
+        "trajectory_pipeline/1/traj_gen/topview_smooth.mp4",
+        "skeletons_3d/skeletons_3d_multi_view.mp4",
+    }
     for relative, size in expected_videos.items():
         cap = cv2.VideoCapture(str(root / relative))
         try:
@@ -111,33 +127,52 @@ def verify(root: Path, start: int, end: int, fps: float) -> dict:
                     resized = cv2.resize(frame, None, fx=scale, fy=scale)
                     tile = np.full((520, 640, 3), 245, dtype=np.uint8)
                     h, w = resized.shape[:2]
-                    tile[40:40 + h, (640 - w) // 2:(640 - w) // 2 + w] = resized
-                    cv2.putText(tile, relative.split("/")[-1], (10, 25),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 1)
+                    tile[40 : 40 + h, (640 - w) // 2 : (640 - w) // 2 + w] = resized
+                    cv2.putText(
+                        tile,
+                        relative.split("/")[-1],
+                        (10, 25),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.55,
+                        (20, 20, 20),
+                        1,
+                    )
                     previews.append(tile)
                 count += 1
             assert count == end - start, (relative, count)
-            videos[relative] = {"frames": count, "fps": actual_fps, "size": list(size),
-                                "first_mean": first_mean, "last_mean": last_mean}
+            videos[relative] = {
+                "frames": count,
+                "fps": actual_fps,
+                "size": list(size),
+                "first_mean": first_mean,
+                "last_mean": last_mean,
+            }
         finally:
             cap.release()
 
     gif_path = root / "skeletons_3d/skeletons_3d_multi_view.gif"
     with Image.open(gif_path) as gif:
-        gif_frames = gif.n_frames
+        gif_frames = cast(GifImageFile, gif).n_frames
         assert gif_frames > 0
         for index in range(gif_frames):
             gif.seek(index)
             gif.load()
     assert len(previews) == 3
     assert cv2.imwrite(str(root / "verification_preview.jpg"), np.hstack(previews))
-    report = {"status": "passed", "frame_range": [start, end], "track_ids": sorted(ids),
-              "pose_records": sum(len(p) for p in data["poses_3d"].values()),
-              "missing_3d_joints": missing_joints, "jsonl_records": jsonl_counts,
-              "videos": videos, "gif_frames": gif_frames,
-              "scope": "Default dimensions/FPS, smoothing and 3D enabled; artifact integrity, not accuracy."}
+    report = {
+        "status": "passed",
+        "frame_range": [start, end],
+        "track_ids": sorted(ids),
+        "pose_records": sum(len(p) for p in data["poses_3d"].values()),
+        "missing_3d_joints": missing_joints,
+        "jsonl_records": jsonl_counts,
+        "videos": videos,
+        "gif_frames": gif_frames,
+        "scope": "Default dimensions/FPS, smoothing and 3D enabled; artifact integrity, not accuracy.",
+    }
     (root / "verification.json").write_text(
-        json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+        json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8"
+    )
     return report
 
 
@@ -148,7 +183,9 @@ def main():
     parser.add_argument("--end-frame", type=int, required=True)
     parser.add_argument("--fps", type=float, default=30)
     args = parser.parse_args()
-    report = verify(args.output_root.resolve(), args.start_frame, args.end_frame, args.fps)
+    report = verify(
+        args.output_root.resolve(), args.start_frame, args.end_frame, args.fps
+    )
     print(json.dumps(report, indent=2, allow_nan=False))
 
 

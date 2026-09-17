@@ -38,6 +38,8 @@ def build_pose_estimator(cfg):
 def build_posenet(cfg):
     """Build posenet."""
     warnings.warn(
-        '``build_posenet`` will be deprecated soon, '
-        'please use ``build_pose_estimator`` instead.', DeprecationWarning)
+        "``build_posenet`` will be deprecated soon, "
+        "please use ``build_pose_estimator`` instead.",
+        DeprecationWarning,
+    )
     return build_pose_estimator(cfg)

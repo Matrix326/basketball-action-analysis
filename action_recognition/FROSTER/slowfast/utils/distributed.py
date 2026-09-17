@@ -6,8 +6,6 @@
 import functools
 import logging
 import pickle
-import torch
-import torch.distributed as dist
 
 from pytorchvideo.layers.distributed import (  # noqa
     cat_all_gather,
@@ -17,6 +15,8 @@ from pytorchvideo.layers.distributed import (  # noqa
     get_world_size,
     init_distributed_training,
 )
+import torch
+import torch.distributed as dist
 
 
 def all_gather(tensors):
@@ -31,9 +31,7 @@ def all_gather(tensors):
     output_tensor = []
     world_size = dist.get_world_size()
     for tensor in tensors:
-        tensor_placeholder = [
-            torch.ones_like(tensor) for _ in range(world_size)
-        ]
+        tensor_placeholder = [torch.ones_like(tensor) for _ in range(world_size)]
         dist.all_gather(tensor_placeholder, tensor, async_op=False)
         gather_list.append(tensor_placeholder)
     for gathered_tensor in gather_list:
@@ -197,12 +195,10 @@ def _pad_to_largest_tensor(tensor, group):
         Tensor: padded tensor that has the max size
     """
     world_size = dist.get_world_size(group=group)
-    assert (
-        world_size >= 1
-    ), "comm.gather/all_gather must be called from ranks within the given group!"
-    local_size = torch.tensor(
-        [tensor.numel()], dtype=torch.int64, device=tensor.device
+    assert world_size >= 1, (
+        "comm.gather/all_gather must be called from ranks within the given group!"
     )
+    local_size = torch.tensor([tensor.numel()], dtype=torch.int64, device=tensor.device)
     size_list = [
         torch.zeros([1], dtype=torch.int64, device=tensor.device)
         for _ in range(world_size)
@@ -216,7 +212,9 @@ def _pad_to_largest_tensor(tensor, group):
     # gathering tensors of different shapes
     if local_size != max_size:
         padding = torch.zeros(
-            (max_size - local_size,), dtype=torch.uint8, device=tensor.device
+            (max_size - int(local_size.item()),),
+            dtype=torch.uint8,
+            device=tensor.device,
         )
         tensor = torch.cat((tensor, padding), dim=0)
     return size_list, tensor
@@ -291,7 +289,8 @@ class AllGatherWithGradient(torch.autograd.Function):
         return x_gather
 
     @staticmethod
-    def backward(ctx, grad_output):
+    # Autograd fixes backward arity from this Function\'s forward outputs.
+    def backward(ctx, grad_output):  # ty: ignore[invalid-method-override]
 
         reduction = torch.distributed.all_reduce(grad_output, async_op=True)
         reduction.wait()

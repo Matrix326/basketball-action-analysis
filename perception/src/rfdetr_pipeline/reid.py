@@ -4,30 +4,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 
 import cv2
 import numpy as np
-import torch
 from scipy.optimize import linear_sum_assignment
+import torch
 from torchvision import models
 
-from config import Config
 from basketball_repro.detection_runtime import PlayerDetection
+from config import Config
+
 from .observations import ObservationGroup, PoseObservation, _bbox_overlap_ratios
 from .pose import _device
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 class AppearanceEncoder:
     """Mask-aware deep + colour embedding for temporal and cross-view ReID."""
 
     def __init__(self, config: Config) -> None:
         self.enabled = bool(config.get("reid.use_appearance_embeddings", True))
-        self.use_deep_embeddings = bool(config.get("reid.use_deep_appearance_embeddings", True))
-        self.device = torch.device(_device(config.get("reid.appearance_device", "auto")))
+        self.use_deep_embeddings = bool(
+            config.get("reid.use_deep_appearance_embeddings", True)
+        )
+        self.device = torch.device(
+            _device(config.get("reid.appearance_device", "auto"))
+        )
         self.input_size = max(96, int(config.get("reid.appearance_input_size", 160)))
-        self.use_fp16 = bool(config.get("reid.appearance_fp16", True)) and self.device.type == "cuda"
+        self.use_fp16 = (
+            bool(config.get("reid.appearance_fp16", True))
+            and self.device.type == "cuda"
+        )
         self.deep_refresh_interval = max(
             1,
             int(config.get("reid.appearance_deep_refresh_interval_packets", 1)),
@@ -44,7 +53,9 @@ class AppearanceEncoder:
             )
         )
         if not checkpoint.exists():
-            print(f"[warn] appearance checkpoint missing; using HSV features only: {checkpoint}")
+            print(
+                f"[warn] appearance checkpoint missing; using HSV features only: {checkpoint}"
+            )
             return
         network = models.mobilenet_v2(weights=None)
         state = torch.load(checkpoint, map_location="cpu", weights_only=True)
@@ -53,14 +64,18 @@ class AppearanceEncoder:
         self.model = network.features.eval().to(self.device, dtype=dtype)
         if self.device.type == "cuda":
             self.model = self.model.to(memory_format=torch.channels_last)
-        self.mean = torch.tensor([0.485, 0.456, 0.406], device=self.device, dtype=dtype).view(1, 3, 1, 1)
-        self.std = torch.tensor([0.229, 0.224, 0.225], device=self.device, dtype=dtype).view(1, 3, 1, 1)
+        self.mean = torch.tensor(
+            [0.485, 0.456, 0.406], device=self.device, dtype=dtype
+        ).view(1, 3, 1, 1)
+        self.std = torch.tensor(
+            [0.229, 0.224, 0.225], device=self.device, dtype=dtype
+        ).view(1, 3, 1, 1)
 
     @staticmethod
     def _colour_feature(crop_bgr: np.ndarray, mask: np.ndarray) -> np.ndarray:
         """Use full-body and clothing-only HSV histograms without background."""
         hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
-        mask_u8 = (mask.astype(np.uint8) * 255)
+        mask_u8 = mask.astype(np.uint8) * 255
         clothing_mask = mask_u8.copy()
         clothing_mask[: int(round(clothing_mask.shape[0] * 0.15))] = 0
         clothing_mask[int(round(clothing_mask.shape[0] * 0.68)) :] = 0
@@ -69,14 +84,18 @@ class AppearanceEncoder:
             if not np.any(current_mask):
                 histogram = np.zeros((16, 4), dtype=np.float32)
             else:
-                histogram = cv2.calcHist([hsv], [0, 1], current_mask, [16, 4], [0, 180, 0, 256])
+                histogram = cv2.calcHist(
+                    [hsv], [0, 1], current_mask, [16, 4], [0, 180, 0, 256]
+                )
             flattened = histogram.reshape(-1).astype(np.float32)
             flattened /= max(float(np.linalg.norm(flattened)), 1e-8)
             features.append(flattened)
         result = np.concatenate(features)
         return result / max(float(np.linalg.norm(result)), 1e-8)
 
-    def encode(self, frame_bgr: np.ndarray, detections: List[PlayerDetection]) -> List[Optional[np.ndarray]]:
+    def encode(
+        self, frame_bgr: np.ndarray, detections: List[PlayerDetection]
+    ) -> List[Optional[np.ndarray]]:
         return self.encode_many([(frame_bgr, detections)])[0]
 
     def encode_many(
@@ -87,7 +106,10 @@ class AppearanceEncoder:
         counts = [len(detections) for _, detections in items]
         if not self.enabled:
             return [[None] * count for count in counts]
-        run_deep = self.model is not None and self.packet_index % self.deep_refresh_interval == 0
+        run_deep = (
+            self.model is not None
+            and self.packet_index % self.deep_refresh_interval == 0
+        )
         self.packet_index += 1
         resized_crops: list[np.ndarray] = []
         colour_features: list[np.ndarray] = []
@@ -99,7 +121,13 @@ class AppearanceEncoder:
                 if x2 <= x1 or y2 <= y1:
                     colour_features.append(np.zeros(128, dtype=np.float32))
                     if run_deep:
-                        resized_crops.append(np.full((self.input_size, self.input_size, 3), 114, dtype=np.uint8))
+                        resized_crops.append(
+                            np.full(
+                                (self.input_size, self.input_size, 3),
+                                114,
+                                dtype=np.uint8,
+                            )
+                        )
                     continue
                 crop = frame_bgr[y1:y2, x1:x2].copy()
                 mask = det.mask[y1:y2, x1:x2].astype(bool)
@@ -109,34 +137,52 @@ class AppearanceEncoder:
                 clothing_mask[int(round(clothing_mask.shape[0] * 0.75)) :] = False
                 crop[~clothing_mask] = 114
                 if run_deep:
-                    resized = cv2.resize(crop, (self.input_size, self.input_size), interpolation=cv2.INTER_LINEAR)
+                    resized = cv2.resize(
+                        crop,
+                        (self.input_size, self.input_size),
+                        interpolation=cv2.INTER_LINEAR,
+                    )
                     resized_crops.append(cv2.cvtColor(resized, cv2.COLOR_BGR2RGB))
         if self.model is None:
             flat_output: list[Optional[np.ndarray]] = list(colour_features)
         elif not run_deep:
             zeros = np.zeros(1280, dtype=np.float32)
-            flat_output = [np.concatenate((zeros, colour)).astype(np.float32) for colour in colour_features]
+            flat_output = [
+                np.concatenate((zeros, colour)).astype(np.float32)
+                for colour in colour_features
+            ]
         elif not resized_crops:
             flat_output = []
         else:
             with torch.inference_mode():
                 dtype = torch.float16 if self.use_fp16 else torch.float32
-                batch = torch.from_numpy(np.stack(resized_crops)).to(self.device, dtype=dtype)
-                batch = batch.permute(0, 3, 1, 2).contiguous(memory_format=torch.channels_last)
+                batch = torch.from_numpy(np.stack(resized_crops)).to(
+                    self.device, dtype=dtype
+                )
+                batch = batch.permute(0, 3, 1, 2).contiguous(
+                    memory_format=torch.channels_last
+                )
                 batch = (batch / 255.0 - self.mean) / self.std
                 features = self.model(batch).mean(dim=(-2, -1))
                 features = torch.nn.functional.normalize(features, dim=1)
             flat_output = []
-            for deep, colour in zip(features.detach().cpu().numpy().astype(np.float32), colour_features):
+            for deep, colour in zip(
+                features.detach().cpu().numpy().astype(np.float32), colour_features
+            ):
                 combined = np.concatenate((deep, colour)).astype(np.float32)
-                flat_output.append(combined / max(float(np.linalg.norm(combined)), 1e-8))
+                flat_output.append(
+                    combined / max(float(np.linalg.norm(combined)), 1e-8)
+                )
 
         grouped: list[List[Optional[np.ndarray]]] = []
         cursor = 0
         for count in counts:
-            grouped.append(flat_output[cursor : cursor + count])
+            grouped.append(
+                cast(list[Optional[np.ndarray]], flat_output[cursor : cursor + count])
+            )
             cursor += count
         return grouped
+
 
 class FaceEncoder:
     """Local InsightFace detector + ArcFace embedding, assigned by RTMPose head points."""
@@ -146,23 +192,37 @@ class FaceEncoder:
         self.app: Any = None
         self.min_score = float(config.get("reid.face_min_score", 0.55))
         self.min_size = float(config.get("reid.face_min_size_px", 22.0))
-        self.refresh_interval = max(1, int(config.get("reid.face_refresh_interval_packets", 3)))
+        self.refresh_interval = max(
+            1, int(config.get("reid.face_refresh_interval_packets", 3))
+        )
         self.overlap_refresh_interval = max(
             1,
-            int(config.get("reid.face_overlap_refresh_interval_packets", self.refresh_interval)),
+            int(
+                config.get(
+                    "reid.face_overlap_refresh_interval_packets", self.refresh_interval
+                )
+            ),
         )
         self.packet_index = 0
         if not self.enabled:
             return
-        root = Path(config.get("reid.insightface_root", PROJECT_ROOT / "models/insightface"))
+        root = Path(
+            config.get("reid.insightface_root", PROJECT_ROOT / "models/insightface")
+        )
         name = str(config.get("model.insightface_name", "buffalo_l"))
         model_dir = root / "models" / name
         required = (model_dir / "det_10g.onnx", model_dir / "w600k_r50.onnx")
         if not all(path.exists() for path in required):
-            raise FileNotFoundError(f"Local InsightFace models are incomplete: {model_dir}")
+            raise FileNotFoundError(
+                f"Local InsightFace models are incomplete: {model_dir}"
+            )
         from insightface.app import FaceAnalysis
 
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if torch.cuda.is_available() else ["CPUExecutionProvider"]
+        providers = (
+            ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            if torch.cuda.is_available()
+            else ["CPUExecutionProvider"]
+        )
         self.app = FaceAnalysis(
             name=name,
             root=str(root),
@@ -170,11 +230,17 @@ class FaceEncoder:
             providers=providers,
         )
         det_size = int(config.get("reid.face_det_size", 1024))
-        self.app.prepare(ctx_id=0 if torch.cuda.is_available() else -1, det_size=(det_size, det_size))
+        self.app.prepare(
+            ctx_id=0 if torch.cuda.is_available() else -1, det_size=(det_size, det_size)
+        )
 
     def encode_many(
         self,
-        items: list[tuple[np.ndarray, List[PlayerDetection], list[tuple[np.ndarray, np.ndarray]]]],
+        items: list[
+            tuple[
+                np.ndarray, List[PlayerDetection], list[tuple[np.ndarray, np.ndarray]]
+            ]
+        ],
     ) -> list[List[Optional[np.ndarray]]]:
         outputs: list[List[Optional[np.ndarray]]] = []
         periodic_refresh = self.packet_index % self.refresh_interval == 0
@@ -187,7 +253,9 @@ class FaceEncoder:
                 continue
             # Refresh the face gallery periodically and more often around
             # overlaps, while rate-limiting persistent overlap sequences.
-            has_overlap = any(value >= 0.15 for value in _bbox_overlap_ratios(detections))
+            has_overlap = any(
+                value >= 0.15 for value in _bbox_overlap_ratios(detections)
+            )
             if not periodic_refresh and not (has_overlap and overlap_refresh):
                 outputs.append(assigned)
                 continue
@@ -195,23 +263,42 @@ class FaceEncoder:
                 face
                 for face in self.app.get(frame)
                 if float(face.det_score) >= self.min_score
-                and min(float(face.bbox[2] - face.bbox[0]), float(face.bbox[3] - face.bbox[1])) >= self.min_size
+                and min(
+                    float(face.bbox[2] - face.bbox[0]),
+                    float(face.bbox[3] - face.bbox[1]),
+                )
+                >= self.min_size
             ]
             if not faces:
                 outputs.append(assigned)
                 continue
             costs = np.full((len(detections), len(faces)), 1e6, dtype=np.float64)
-            for det_index, (detection, (xy, scores)) in enumerate(zip(detections, poses)):
+            for det_index, (detection, (xy, scores)) in enumerate(
+                zip(detections, poses)
+            ):
                 bbox = np.asarray(detection.bbox_xyxy, dtype=np.float32)
-                head_points = xy[:5][(scores[:5] >= 0.20) & np.isfinite(xy[:5]).all(axis=1)]
-                anchor = np.mean(head_points, axis=0) if len(head_points) else np.array(
-                    [(bbox[0] + bbox[2]) * 0.5, bbox[1] + (bbox[3] - bbox[1]) * 0.16], dtype=np.float32
+                head_points = xy[:5][
+                    (scores[:5] >= 0.20) & np.isfinite(xy[:5]).all(axis=1)
+                ]
+                anchor = (
+                    np.mean(head_points, axis=0)
+                    if len(head_points)
+                    else np.array(
+                        [
+                            (bbox[0] + bbox[2]) * 0.5,
+                            bbox[1] + (bbox[3] - bbox[1]) * 0.16,
+                        ],
+                        dtype=np.float32,
+                    )
                 )
                 height = max(float(bbox[3] - bbox[1]), 1.0)
                 for face_index, face in enumerate(faces):
                     face_bbox = np.asarray(face.bbox, dtype=np.float32)
                     center = (face_bbox[:2] + face_bbox[2:]) * 0.5
-                    if not (bbox[0] <= center[0] <= bbox[2] and bbox[1] <= center[1] <= bbox[1] + 0.55 * height):
+                    if not (
+                        bbox[0] <= center[0] <= bbox[2]
+                        and bbox[1] <= center[1] <= bbox[1] + 0.55 * height
+                    ):
                         continue
                     distance = float(np.linalg.norm(center - anchor)) / height
                     if distance <= 0.28:
@@ -222,21 +309,34 @@ class FaceEncoder:
                     if costs[row, column] >= 1e5:
                         continue
                     embedding = np.asarray(faces[column].embedding, dtype=np.float32)
-                    assigned[int(row)] = embedding / max(float(np.linalg.norm(embedding)), 1e-8)
+                    assigned[int(row)] = embedding / max(
+                        float(np.linalg.norm(embedding)), 1e-8
+                    )
             outputs.append(assigned)
         return outputs
 
-def _cosine_distance(first: Optional[np.ndarray], second: Optional[np.ndarray]) -> float:
+
+def _cosine_distance(
+    first: Optional[np.ndarray], second: Optional[np.ndarray]
+) -> float:
     if first is None or second is None:
         return 0.5
     denom = float(np.linalg.norm(first) * np.linalg.norm(second))
     return float(1.0 - np.dot(first, second) / denom) if denom > 0 else 0.5
 
+
 def _has_deep_appearance(value: Optional[np.ndarray]) -> bool:
     """Combined MobileNet+HSV vectors reserve their final 128 values for colour."""
-    return value is not None and value.size > 128 and float(np.linalg.norm(value[:-128])) > 0.1
+    return (
+        value is not None
+        and value.size > 128
+        and float(np.linalg.norm(value[:-128])) > 0.1
+    )
 
-def _appearance_distance(first: Optional[np.ndarray], second: Optional[np.ndarray]) -> float:
+
+def _appearance_distance(
+    first: Optional[np.ndarray], second: Optional[np.ndarray]
+) -> float:
     if first is None or second is None:
         return 0.5
     if first.size == second.size and first.size > 128:
@@ -244,12 +344,14 @@ def _appearance_distance(first: Optional[np.ndarray], second: Optional[np.ndarra
             return _cosine_distance(first[-128:], second[-128:])
     return _cosine_distance(first, second)
 
+
 def _optional_cosine_distance(
     first: Optional[np.ndarray], second: Optional[np.ndarray]
 ) -> Optional[float]:
     if first is None or second is None:
         return None
     return _cosine_distance(first, second)
+
 
 def _face_evidence_cost(distance: Optional[float], weight: float) -> float:
     """Reward a strong ArcFace match; do not punish a low-resolution uncertain face."""
@@ -260,6 +362,7 @@ def _face_evidence_cost(distance: Optional[float], weight: float) -> float:
     if distance >= 0.75:
         return float(weight) * (distance - 0.75)
     return 0.0
+
 
 class CrossViewFuser:
     def __init__(
@@ -274,11 +377,19 @@ class CrossViewFuser:
         self.face_weight = face_weight
         self.mask_weight = mask_weight
 
-    def fuse(self, observations_by_view: dict[str, list[PoseObservation]]) -> list[ObservationGroup]:
-        views = sorted(observations_by_view, key=lambda view: len(observations_by_view[view]), reverse=True)
+    def fuse(
+        self, observations_by_view: dict[str, list[PoseObservation]]
+    ) -> list[ObservationGroup]:
+        views = sorted(
+            observations_by_view,
+            key=lambda view: len(observations_by_view[view]),
+            reverse=True,
+        )
         if not views:
             return []
-        groups = [ObservationGroup({views[0]: obs}) for obs in observations_by_view[views[0]]]
+        groups = [
+            ObservationGroup({views[0]: obs}) for obs in observations_by_view[views[0]]
+        ]
         for view in views[1:]:
             observations = observations_by_view[view]
             if not groups:
@@ -290,23 +401,37 @@ class CrossViewFuser:
                 for obs_index, obs in enumerate(observations):
                     if group_ground is None or obs.ground_position is None:
                         continue
-                    distance = float(np.linalg.norm(group_ground[:2] - obs.ground_position[:2]))
+                    distance = float(
+                        np.linalg.norm(group_ground[:2] - obs.ground_position[:2])
+                    )
                     if distance <= self.max_ground_distance:
-                        face_distance = _optional_cosine_distance(group.face_embedding, obs.face_embedding)
+                        face_distance = _optional_cosine_distance(
+                            group.face_embedding, obs.face_embedding
+                        )
                         if face_distance is not None and face_distance > 0.85:
                             continue
                         mask_values = [
-                            item.mask_shape for item in group.observations.values() if item.mask_shape is not None
+                            item.mask_shape
+                            for item in group.observations.values()
+                            if item.mask_shape is not None
                         ]
-                        mask_reference = np.mean(np.stack(mask_values), axis=0) if mask_values else None
-                        mask_distance = _optional_cosine_distance(mask_reference, obs.mask_shape)
+                        mask_reference = (
+                            np.mean(np.stack(mask_values), axis=0)
+                            if mask_values
+                            else None
+                        )
+                        mask_distance = _optional_cosine_distance(
+                            mask_reference, obs.mask_shape
+                        )
                         costs[group_index, obs_index] = (
                             distance / max(self.max_ground_distance, 1e-6)
-                            + self.appearance_weight * _appearance_distance(
+                            + self.appearance_weight
+                            * _appearance_distance(
                                 group.identity_appearance, obs.appearance
                             )
                             + _face_evidence_cost(face_distance, self.face_weight)
-                            + self.mask_weight * (mask_distance if mask_distance is not None else 0.0)
+                            + self.mask_weight
+                            * (mask_distance if mask_distance is not None else 0.0)
                         )
             used: set[int] = set()
             if costs.size:
@@ -315,8 +440,13 @@ class CrossViewFuser:
                     if costs[row, column] < 1e5:
                         groups[row].observations[view] = observations[column]
                         used.add(int(column))
-            groups.extend(ObservationGroup({view: obs}) for index, obs in enumerate(observations) if index not in used)
+            groups.extend(
+                ObservationGroup({view: obs})
+                for index, obs in enumerate(observations)
+                if index not in used
+            )
         return groups
+
 
 @dataclass
 class GlobalPlayerTrack:
@@ -366,7 +496,8 @@ class GlobalPlayerTrack:
         distances = [
             _cosine_distance(self.reference_mask(view), observation.mask_shape)
             for view, observation in group.observations.items()
-            if self.reference_mask(view) is not None and observation.mask_shape is not None
+            if self.reference_mask(view) is not None
+            and observation.mask_shape is not None
         ]
         return float(np.median(distances)) if distances else None
 
@@ -378,16 +509,26 @@ class GlobalPlayerTrack:
         costs = []
         steps = min(self.lost + 1, 3)
         for view, observation in group.observations.items():
-            if view not in self.view_centers or not hasattr(observation.detection, "center_xy"):
+            if view not in self.view_centers or not hasattr(
+                observation.detection, "center_xy"
+            ):
                 continue
-            predicted = self.view_centers[view] + self.view_velocities.get(view, np.zeros(2)) * steps
+            predicted = (
+                self.view_centers[view]
+                + self.view_velocities.get(view, np.zeros(2)) * steps
+            )
             center = np.asarray(observation.detection.center_xy, dtype=np.float32)
-            costs.append(float(np.linalg.norm(predicted - center)) / max(self.view_scales.get(view, 1.0), 1.0))
+            costs.append(
+                float(np.linalg.norm(predicted - center))
+                / max(self.view_scales.get(view, 1.0), 1.0)
+            )
         return float(np.median(costs)) if costs else None
 
     def _update_view_motion(self, group: ObservationGroup) -> None:
         for view, observation in group.observations.items():
-            if not hasattr(observation.detection, "center_xy") or not hasattr(observation.detection, "bbox_xyxy"):
+            if not hasattr(observation.detection, "center_xy") or not hasattr(
+                observation.detection, "bbox_xyxy"
+            ):
                 continue
             center = np.asarray(observation.detection.center_xy, dtype=np.float32)
             bbox = np.asarray(observation.detection.bbox_xyxy, dtype=np.float32)
@@ -395,29 +536,38 @@ class GlobalPlayerTrack:
             previous = self.view_centers.get(view)
             if previous is not None:
                 measured = center - previous
-                old_velocity = self.view_velocities.get(view, np.zeros(2, dtype=np.float32))
-                self.view_velocities[view] = (0.7 * old_velocity + 0.3 * measured).astype(np.float32)
+                old_velocity = self.view_velocities.get(
+                    view, np.zeros(2, dtype=np.float32)
+                )
+                self.view_velocities[view] = (
+                    0.7 * old_velocity + 0.3 * measured
+                ).astype(np.float32)
             else:
                 self.view_velocities[view] = np.zeros(2, dtype=np.float32)
             self.view_centers[view] = center
             self.view_scales[view] = scale
 
     def update(self, group: ObservationGroup, *, position_alpha: float) -> None:
-        position = group.ground_position
+        position = cast(np.ndarray, group.ground_position)
         if position is not None:
             old_position = self.ground_position.copy()
             updated_position = (
-                float(position_alpha) * position + (1.0 - float(position_alpha)) * self.ground_position
+                float(position_alpha) * position
+                + (1.0 - float(position_alpha)) * self.ground_position
             ).astype(np.float32)
             measured_velocity = updated_position - old_position
             if float(np.linalg.norm(measured_velocity[:2])) <= 0.75:
-                self.velocity = (0.7 * self.velocity + 0.3 * measured_velocity).astype(np.float32)
+                self.velocity = (0.7 * self.velocity + 0.3 * measured_velocity).astype(
+                    np.float32
+                )
             else:
                 self.velocity *= 0.5
             self.previous_position = old_position
             self.ground_position = updated_position
         appearance = group.appearance
-        if appearance is not None and (appearance.size <= 128 or _has_deep_appearance(appearance)):
+        if appearance is not None and (
+            appearance.size <= 128 or _has_deep_appearance(appearance)
+        ):
             reference = self.reference_appearance
             if reference is None or _cosine_distance(reference, appearance) <= 0.40:
                 self.appearance_history.append(appearance.copy())
@@ -436,13 +586,17 @@ class GlobalPlayerTrack:
             if observation.mask_shape is None or observation.overlap_ratio >= 0.15:
                 continue
             reference_mask = self.reference_mask(view)
-            if reference_mask is None or _cosine_distance(reference_mask, observation.mask_shape) <= 0.45:
+            if (
+                reference_mask is None
+                or _cosine_distance(reference_mask, observation.mask_shape) <= 0.45
+            ):
                 history = self.view_mask_history.setdefault(view, [])
                 history.append(observation.mask_shape.copy())
                 self.view_mask_history[view] = history[-30:]
         self._update_view_motion(group)
         self.lost = 0
         self.hits += 1
+
 
 class GlobalPlayerTracker:
     def __init__(
@@ -473,7 +627,9 @@ class GlobalPlayerTracker:
         self.next_id = 1
         self.tracks: dict[int, GlobalPlayerTrack] = {}
 
-    def update(self, groups: list[ObservationGroup]) -> list[tuple[GlobalPlayerTrack, ObservationGroup]]:
+    def update(
+        self, groups: list[ObservationGroup]
+    ) -> list[tuple[GlobalPlayerTrack, ObservationGroup]]:
         # IDs represent a fixed roster. Keep dormant tracks available for a
         # conservative appearance-gated revival instead of permanently losing
         # an ID after a long bench/occlusion interval.
@@ -481,28 +637,45 @@ class GlobalPlayerTracker:
         costs = np.full((len(candidates), len(groups)), 1e6, dtype=np.float64)
         for track_index, track in enumerate(candidates):
             for group_index, group in enumerate(groups):
-                position = group.ground_position
+                position = cast(np.ndarray, group.ground_position)
                 if position is None:
                     continue
-                distance = float(np.linalg.norm(track.predicted_position()[:2] - position[:2]))
+                distance = float(
+                    np.linalg.norm(track.predicted_position()[:2] - position[:2])
+                )
                 appearance_distance = None
-                if track.reference_appearance is not None and group.identity_appearance is not None:
+                if (
+                    track.reference_appearance is not None
+                    and group.identity_appearance is not None
+                ):
                     appearance_distance = _appearance_distance(
                         track.reference_appearance, group.identity_appearance
                     )
-                face_distance = _optional_cosine_distance(track.reference_face, group.face_embedding)
+                face_distance = _optional_cosine_distance(
+                    track.reference_face, group.face_embedding
+                )
                 mask_distance = track.mask_distance(group)
                 image_motion = track.image_motion_cost(group)
-                image_cost = self.image_motion_weight * image_motion if image_motion is not None else 0.0
+                image_cost = (
+                    self.image_motion_weight * image_motion
+                    if image_motion is not None
+                    else 0.0
+                )
                 # Face is the strongest identity cue. A definite ArcFace
                 # contradiction is never allowed to be overruled by position.
-                if group.is_occluded and face_distance is not None and face_distance > 0.70:
+                if (
+                    group.is_occluded
+                    and face_distance is not None
+                    and face_distance > 0.70
+                ):
                     continue
                 evidence = [
                     value
                     for value in (
                         None if face_distance is None else face_distance <= 0.55,
-                        None if appearance_distance is None else appearance_distance <= 0.42,
+                        None
+                        if appearance_distance is None
+                        else appearance_distance <= 0.42,
                         None if mask_distance is None else mask_distance <= 0.42,
                     )
                     if value is not None
@@ -535,24 +708,34 @@ class GlobalPlayerTracker:
                     if distance <= gate:
                         costs[track_index, group_index] = (
                             distance / max(self.max_distance, 1e-6)
-                            + self.appearance_weight * (
-                                appearance_distance if appearance_distance is not None else 0.25
+                            + self.appearance_weight
+                            * (
+                                appearance_distance
+                                if appearance_distance is not None
+                                else 0.25
                             )
                             + _face_evidence_cost(face_distance, self.face_weight)
-                            + self.mask_weight * (mask_distance if mask_distance is not None else 0.0)
+                            + self.mask_weight
+                            * (mask_distance if mask_distance is not None else 0.0)
                             + image_cost
                         )
                 else:
                     revival_gate = self.max_distance * 4.0
                     revival_identity = (
-                        (face_distance is not None and face_distance <= 0.50)
-                        or (appearance_distance is not None and appearance_distance <= 0.35)
+                        face_distance is not None and face_distance <= 0.50
+                    ) or (
+                        appearance_distance is not None and appearance_distance <= 0.35
                     )
                     if distance <= revival_gate and revival_identity:
                         costs[track_index, group_index] = (
                             0.75
                             + 0.25 * distance / max(revival_gate, 1e-6)
-                            + 1.5 * (appearance_distance if appearance_distance is not None else 0.25)
+                            + 1.5
+                            * (
+                                appearance_distance
+                                if appearance_distance is not None
+                                else 0.25
+                            )
                             + _face_evidence_cost(face_distance, self.face_weight)
                         )
 
@@ -575,16 +758,26 @@ class GlobalPlayerTracker:
                 track.lost += 1
 
         unmatched = [
-            (index, group) for index, group in enumerate(groups)
+            (index, group)
+            for index, group in enumerate(groups)
             if index not in matched_groups and group.ground_position is not None
         ]
-        unmatched.sort(key=lambda item: (-len(item[1].observations), -item[1].quality, item[1].ground_position[0]))
+        unmatched.sort(
+            key=lambda item: (
+                -len(item[1].observations),
+                -item[1].quality,
+                cast(np.ndarray, item[1].ground_position)[0],
+            )
+        )
         for index, group in unmatched:
             if self.next_id > self.num_players:
                 break
-            if len(group.observations) < self.new_track_min_views or group.quality < self.new_track_min_confidence:
+            if (
+                len(group.observations) < self.new_track_min_views
+                or group.quality < self.new_track_min_confidence
+            ):
                 continue
-            position = group.ground_position
+            position = cast(np.ndarray, group.ground_position)
             track = GlobalPlayerTrack(
                 track_id=self.next_id,
                 ground_position=position.copy(),
@@ -593,11 +786,13 @@ class GlobalPlayerTracker:
                 face=group.face_embedding,
             )
             for view, observation in group.observations.items():
-                if observation.mask_shape is not None and observation.overlap_ratio < 0.15:
+                if (
+                    observation.mask_shape is not None
+                    and observation.overlap_ratio < 0.15
+                ):
                     track.view_mask_history[view] = [observation.mask_shape.copy()]
             track._update_view_motion(group)
             self.tracks[track.track_id] = track
             self.next_id += 1
             matches.append((track, group))
         return sorted(matches, key=lambda pair: pair[0].track_id)
-

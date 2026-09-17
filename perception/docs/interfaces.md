@@ -135,8 +135,7 @@ for frame_key in sorted(data["poses_3d"], key=int):
 observed_balls = {
     int(frame): xyz
     for frame, xyz in data["balls_3d"].items()
-    if not data["balls_3d_predicted"].get(frame, False)
-    and np.isfinite(xyz).all()
+    if not data["balls_3d_predicted"].get(frame, False) and np.isfinite(xyz).all()
 }
 ```
 

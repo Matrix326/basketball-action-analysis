@@ -14,31 +14,35 @@ Or using torchrun:
 
 import argparse
 import json
-import logging
+import logging as _stdlib_logging  # noqa: F401 - Preserve import initialization.
 import os
 import sys
-import time
+import time as time
+from typing import cast
 
 import numpy as np
 import torch
+from torch.cuda.amp import (
+    GradScaler,
+    autocast,  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
+)
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
 
 # Add FROSTER to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from slowfast.config.defaults import assert_and_infer_cfg
+from slowfast.datasets import loader
+from slowfast.models import build_model
 import slowfast.models.optimizer as optim_module
 import slowfast.utils.checkpoint as cu
 import slowfast.utils.distributed as du
 import slowfast.utils.logging as logging
-import slowfast.utils.metrics as metrics
-import slowfast.utils.misc as misc
-from slowfast.config.defaults import assert_and_infer_cfg
-from slowfast.datasets import loader
-from slowfast.models import build_model
 from slowfast.utils.meters import EpochTimer, TrainMeter, ValMeter
+import slowfast.utils.metrics as metrics
+import slowfast.utils.misc as misc  # noqa: F401
 
 
 def parse_args():
@@ -72,11 +76,7 @@ def parse_args():
         default=42,
         help="Random seed",
     )
-    parser.add_argument(
-        "--use-teacher",
-        action="store_true",
-        help="蒸馏"
-    )
+    parser.add_argument("--use-teacher", action="store_true", help="蒸馏")
     parser.add_argument(
         "--distill-weight",
         type=float,
@@ -88,8 +88,8 @@ def parse_args():
 
 def load_config(config_path):
     """Load and merge config from YAML file."""
-    from slowfast.config.defaults import get_cfg
     from slowfast.config.custom_config import add_custom_config
+    from slowfast.config.defaults import get_cfg
 
     cfg = get_cfg()
     # Ensure custom configs are registered
@@ -160,9 +160,7 @@ def train_epoch(
             time_info = time_info.cuda(non_blocking=True)
 
         batch_size = (
-            inputs[0][0].size(0)
-            if isinstance(inputs[0], list)
-            else inputs[0].size(0)
+            inputs[0][0].size(0) if isinstance(inputs[0], list) else inputs[0].size(0)
         )
 
         # Update learning rate
@@ -191,12 +189,13 @@ def train_epoch(
                 if distill_weight > 0:
                     s_feat, t_feat = student_out[1], teacher_out[1]
                     s_cls, t_cls = student_out[2], teacher_out[2]
-                    feat_loss = 1.0 - F.cosine_similarity(
-                        s_feat, t_feat.detach(), dim=-1
-                    ).mean()
-                    cls_loss = 1.0 - F.cosine_similarity(
-                        s_cls, t_cls.detach(), dim=-1
-                    ).mean()
+                    feat_loss = (
+                        1.0
+                        - F.cosine_similarity(s_feat, t_feat.detach(), dim=-1).mean()
+                    )
+                    cls_loss = (
+                        1.0 - F.cosine_similarity(s_cls, t_cls.detach(), dim=-1).mean()
+                    )
                     distill_loss_val = (feat_loss + cls_loss).item()
                     loss = ce_loss + distill_weight * (feat_loss + cls_loss)
                 else:
@@ -208,7 +207,7 @@ def train_epoch(
                 return preds, loss
 
         if cfg.TRAIN.MIXED_PRECISION:
-            with autocast():
+            with autocast():  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
                 outputs = model(inputs)
                 preds, loss = _compute_loss(outputs)
         else:
@@ -260,7 +259,11 @@ def train_epoch(
 
         # Update stats
         train_meter.update_stats(
-            top1_err, top5_err, loss, lr, grad_norm,
+            top1_err,
+            top5_err,
+            loss,
+            lr,
+            grad_norm,
             batch_size * max(cfg.NUM_GPUS, 1),
         )
 
@@ -319,9 +322,7 @@ def eval_epoch(
             time_info = time_info.cuda()
 
         batch_size = (
-            inputs[0][0].size(0)
-            if isinstance(inputs[0], list)
-            else inputs[0].size(0)
+            inputs[0][0].size(0) if isinstance(inputs[0], list) else inputs[0].size(0)
         )
         val_meter.data_toc()
 
@@ -340,7 +341,9 @@ def eval_epoch(
         pred_label = preds.argmax(dim=1)
         correct_mask = (pred_label == labels).float()
         class_correct.scatter_add_(0, labels, correct_mask)
-        class_total.scatter_add_(0, labels, torch.ones_like(labels, dtype=torch.float))
+        cast(torch.Tensor, class_total).scatter_add_(
+            0, labels, torch.ones_like(labels, dtype=torch.float)
+        )
 
         num_topks_correct = metrics.topks_correct(preds, labels, (1, 5))
         top1_err, top5_err = [
@@ -354,7 +357,9 @@ def eval_epoch(
 
         val_meter.iter_toc()
         val_meter.update_stats(
-            top1_err, top5_err, batch_size * max(cfg.NUM_GPUS, 1),
+            top1_err,
+            top5_err,
+            batch_size * max(cfg.NUM_GPUS, 1),
         )
 
         if writer is not None:
@@ -387,12 +392,10 @@ def eval_epoch(
             names = None
 
         n_classes = len(class_correct)
-        total_samples = int(class_total.sum().item())
-        logger.info(
-            f"===== Validation per-class accuracy (epoch {cur_epoch}) ====="
-        )
+        total_samples = int(cast(torch.Tensor, class_total).sum().item())
+        logger.info(f"===== Validation per-class accuracy (epoch {cur_epoch}) =====")
         for c in range(n_classes):
-            t = int(class_total[c].item())
+            t = int(cast(torch.Tensor, class_total)[c].item())
             name = names[c] if names and c < len(names) else f"class_{c}"
             if t > 0:
                 acc = class_correct[c].item() / t * 100.0
@@ -402,12 +405,8 @@ def eval_epoch(
                 )
             else:
                 logger.info(f"  [{c:3d}] {name:<20s}:   N/A (0 samples)")
-        mean_acc = (
-            class_correct.sum().item() / max(total_samples, 1) * 100.0
-        )
-        logger.info(
-            f"  Overall(mean): {mean_acc:6.2f}% ({total_samples} samples)"
-        )
+        mean_acc = class_correct.sum().item() / max(total_samples, 1) * 100.0
+        logger.info(f"  Overall(mean): {mean_acc:6.2f}% ({total_samples} samples)")
         logger.info("=" * 60)
 
 
@@ -427,7 +426,7 @@ def train(args):
         torch.cuda.manual_seed_all(args.seed)
 
     # Initialize distributed training
-    du.init_distributed_training(cfg)
+    du.init_distributed_training(cfg.NUM_GPUS, cfg.SHARD_ID)
 
     # Setup logging
     logging.setup_logging(cfg.OUTPUT_DIR)
@@ -515,7 +514,7 @@ def train(args):
         logger.info(f"Resuming from epoch {start_epoch}")
     elif cfg.TRAIN.AUTO_RESUME and cu.has_checkpoint(cfg.OUTPUT_DIR):
         logger.info("Auto-resuming from last checkpoint")
-        last_checkpoint = cu.get_last_checkpoint(cfg.OUTPUT_DIR)
+        last_checkpoint = cu.get_last_checkpoint(cfg.OUTPUT_DIR, task=cfg.TASK)
         if last_checkpoint is not None:
             checkpoint_epoch = cu.load_checkpoint(
                 last_checkpoint,
@@ -528,7 +527,7 @@ def train(args):
     optimizer = optim_module.construct_optimizer(model, cfg)
 
     # Create GradScaler for mixed precision
-    scaler = GradScaler(enabled=cfg.TRAIN.MIXED_PRECISION)
+    scaler = GradScaler(enabled=cfg.TRAIN.MIXED_PRECISION)  # ty: ignore[deprecated]  # Keep Torch 1.12 compatibility.
 
     # Create data loaders
     logger.info("Creating data loaders...")
@@ -570,8 +569,15 @@ def train(args):
 
         # Train
         train_epoch(
-            train_loader, model, optimizer, scaler,
-            train_meter, cur_epoch, cfg, writer, class_weights,
+            train_loader,
+            model,
+            optimizer,
+            scaler,
+            train_meter,
+            cur_epoch,
+            cfg,
+            writer,
+            class_weights,
             distill_weight=args.distill_weight if args.use_teacher else 0.0,
         )
 
@@ -590,8 +596,7 @@ def train(args):
 
         # Evaluate
         is_eval_epoch = (
-            cfg.TRAIN.EVAL_PERIOD > 0
-            and (cur_epoch + 1) % cfg.TRAIN.EVAL_PERIOD == 0
+            cfg.TRAIN.EVAL_PERIOD > 0 and (cur_epoch + 1) % cfg.TRAIN.EVAL_PERIOD == 0
         )
 
         if is_eval_epoch:
@@ -619,7 +624,9 @@ def train(args):
                         },
                         best_path,
                     )
-                logger.info(f"New best model saved: {best_path} (top1={best_top1:.2f}%)")
+                logger.info(
+                    f"New best model saved: {best_path} (top1={best_top1:.2f}%)"
+                )
 
         # Save checkpoint
         is_checkpoint_epoch = (

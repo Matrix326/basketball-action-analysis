@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
-import numpy as np
 import time
-import torch
-import tqdm
 
+import numpy as np
 from slowfast.utils import logging
 from slowfast.visualization.async_predictor import AsyncDemo, AsyncVis
 from slowfast.visualization.ava_demo_precomputed_boxes import (
@@ -14,6 +12,8 @@ from slowfast.visualization.ava_demo_precomputed_boxes import (
 from slowfast.visualization.demo_loader import ThreadVideoManager, VideoManager
 from slowfast.visualization.predictor import ActionPredictor
 from slowfast.visualization.video_visualizer import VideoVisualizer
+import torch
+import tqdm
 
 logger = logging.get_logger(__name__)
 
@@ -37,9 +37,7 @@ def run_demo(cfg, frame_provider):
     logger.info("Run demo with config:")
     logger.info(cfg)
     common_classes = (
-        cfg.DEMO.COMMON_CLASS_NAMES
-        if len(cfg.DEMO.LABEL_FILE_PATH) != 0
-        else None
+        cfg.DEMO.COMMON_CLASS_NAMES if len(cfg.DEMO.LABEL_FILE_PATH) != 0 else None
     )
 
     video_vis = VideoVisualizer(
@@ -62,9 +60,9 @@ def run_demo(cfg, frame_provider):
 
     seq_len = cfg.DATA.NUM_FRAMES * cfg.DATA.SAMPLING_RATE
 
-    assert (
-        cfg.DEMO.BUFFER_SIZE <= seq_len // 2
-    ), "Buffer size cannot be greater than half of sequence length."
+    assert cfg.DEMO.BUFFER_SIZE <= seq_len // 2, (
+        "Buffer size cannot be greater than half of sequence length."
+    )
     num_task = 0
     # Start reading frames.
     frame_provider.start()

@@ -15,10 +15,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-import sys
 from collections import Counter, defaultdict
+import json
 from pathlib import Path
+import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -53,8 +53,9 @@ def timecode_to_frame(tc: str, fps: int = 30) -> int:
     return ((hh * 60 + mm) * 60 + ss) * fps + ff
 
 
-def event_matches(a: dict, etype: str, gt_ids: list[str], id_map: dict,
-                  three_point: bool = False) -> bool:
+def event_matches(
+    a: dict, etype: str, gt_ids: list[str], id_map: dict, three_point: bool = False
+) -> bool:
     if a["type"] not in (etype if isinstance(etype, tuple) else (etype,)):
         return False
     if three_point and not a.get("three_point"):
@@ -109,10 +110,15 @@ def main() -> None:
             continue
         if end < start:
             per_category[action_name]["bad_annotation"] += 1
-            mismatches.append({
-                "gt_action": action_name, "gt_start": start, "gt_end": end,
-                "gt_id": gt["ID"], "reason": "bad_annotation (end < start)",
-            })
+            mismatches.append(
+                {
+                    "gt_action": action_name,
+                    "gt_start": start,
+                    "gt_end": end,
+                    "gt_id": gt["ID"],
+                    "reason": "bad_annotation (end < start)",
+                }
+            )
             continue
         comparable += 1
         three_point = action_name == "Shooting-Three-pointer"
@@ -134,16 +140,21 @@ def main() -> None:
             per_category[action_name]["matched"] += 1
             continue
         per_category[action_name]["missed"] += 1
-        nearby = []
+        nearby: list[dict] = []
         for etype in expected:
             for a in ours_by_type.get(etype, []):
                 d = abs(a["frame"] - start)
                 if d <= 150:
-                    nearby.append({
-                        "type": a["type"], "frame": a["frame"],
-                        "end_frame": a.get("end_frame"), "actor_id": a.get("actor_id"),
-                        "offset": d, "three_point": a.get("three_point", False),
-                    })
+                    nearby.append(
+                        {
+                            "type": a["type"],
+                            "frame": a["frame"],
+                            "end_frame": a.get("end_frame"),
+                            "actor_id": a.get("actor_id"),
+                            "offset": d,
+                            "three_point": a.get("three_point", False),
+                        }
+                    )
         nearby.sort(key=lambda x: x["offset"])
         reason = "no_event"
         if nearby:
@@ -151,8 +162,15 @@ def main() -> None:
             if best["offset"] > args.tolerance:
                 reason = f"time_offset_{best['offset']} (> {args.tolerance})"
             elif not event_matches(
-                {"type": best["type"], "actor_id": best["actor_id"], "three_point": best["three_point"]},
-                best["type"], gt_ids, id_map, three_point,
+                {
+                    "type": best["type"],
+                    "actor_id": best["actor_id"],
+                    "three_point": best["three_point"],
+                },
+                best["type"],
+                gt_ids,
+                id_map,
+                three_point,
             ):
                 if three_point and not best["three_point"]:
                     reason = "not_three_point"
@@ -160,11 +178,16 @@ def main() -> None:
                     reason = "wrong_player"
             else:
                 reason = "ambiguous"
-        mismatches.append({
-            "gt_action": action_name, "gt_start": start, "gt_end": end,
-            "gt_id": gt["ID"], "reason": reason,
-            "nearest_ours": nearby[:3],
-        })
+        mismatches.append(
+            {
+                "gt_action": action_name,
+                "gt_start": start,
+                "gt_end": end,
+                "gt_id": gt["ID"],
+                "reason": reason,
+                "nearest_ours": nearby[:3],
+            }
+        )
 
     used = set()
     for gt in gt_actions:
@@ -177,7 +200,9 @@ def main() -> None:
         three_point = action_name == "Shooting-Three-pointer"
         for etype in GT_TO_OURS[action_name]:
             for a in ours_by_type.get(etype, []):
-                if abs(a["frame"] - start) <= args.tolerance and event_matches(a, etype, gt_ids, id_map, three_point):
+                if abs(a["frame"] - start) <= args.tolerance and event_matches(
+                    a, etype, gt_ids, id_map, three_point
+                ):
                     used.add(id(a))
     extras = []
     for a in ours:
@@ -185,11 +210,16 @@ def main() -> None:
             continue
         if id(a) in used:
             continue
-        extras.append({
-            "type": a["type"], "frame": a["frame"], "end_frame": a.get("end_frame"),
-            "actor_id": a.get("actor_id"),
-            "result": a.get("result"), "three_point": a.get("three_point", False),
-        })
+        extras.append(
+            {
+                "type": a["type"],
+                "frame": a["frame"],
+                "end_frame": a.get("end_frame"),
+                "actor_id": a.get("actor_id"),
+                "result": a.get("result"),
+                "three_point": a.get("three_point", False),
+            }
+        )
 
     report = {
         "summary": {
@@ -206,8 +236,10 @@ def main() -> None:
     }
     with open(args.output, "w", encoding="utf-8") as handle:
         json.dump(report, handle, ensure_ascii=False, indent=1)
-    print(f"matched {matched}/{comparable} ({matched / max(comparable, 1):.0%}) "
-          f"| mismatches {len(mismatches)} | extras {len(extras)}")
+    print(
+        f"matched {matched}/{comparable} ({matched / max(comparable, 1):.0%}) "
+        f"| mismatches {len(mismatches)} | extras {len(extras)}"
+    )
     print(f"[ok] report -> {args.output}")
 
 

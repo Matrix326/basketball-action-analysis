@@ -29,7 +29,7 @@ dependencies = [
 # 如需启用：uv sync --extra tensorrt
 tensorrt = ["tensorrt-cu12==11.2.1.2"]
 [tool.hatch.build]
-root = "." 
+root = "."
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/track"]

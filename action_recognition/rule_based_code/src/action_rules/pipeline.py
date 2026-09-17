@@ -14,10 +14,10 @@ Inputs (all frame-aligned with the same frame indices):
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 
@@ -25,22 +25,22 @@ import numpy as np
 # defaults (tuned on synthetic + one real clip; adjust per dataset)
 
 DEFAULTS: dict[str, Any] = {
-    "hold_reach_m": 0.45,        # ball in hand distance
-    "release_distance_m": 0.6,   # ball left the hand
-    "catch_reach_m": 0.5,        # ball caught within this distance
-    "dribble_reach_m": 1.2,      # handler stays within this during dribble
+    "hold_reach_m": 0.45,  # ball in hand distance
+    "release_distance_m": 0.6,  # ball left the hand
+    "catch_reach_m": 0.5,  # ball caught within this distance
+    "dribble_reach_m": 1.2,  # handler stays within this during dribble
     "possess_switch_frames": 5,  # handler switches only after N consistent frames
-    "possess_hold_frames": 30,   # keep possession up to 1 s after losing touch
-    "flight_min_seconds": 0.3,   # a flight shorter than this is not an event
+    "possess_hold_frames": 30,  # keep possession up to 1 s after losing touch
+    "flight_min_seconds": 0.3,  # a flight shorter than this is not an event
     "pass_min_horizontal_m": 1.5,
-    "shoot_hoop_distance_m": 2.0,   # min horizontal dist to hoop during flight
-    "shoot_min_apex_m": 2.0,        # a real shot arcs above ~2 m
-    "layup_release_dist_m": 3.0,    # release close to the hoop -> layup
+    "shoot_hoop_distance_m": 2.0,  # min horizontal dist to hoop during flight
+    "shoot_min_apex_m": 2.0,  # a real shot arcs above ~2 m
+    "layup_release_dist_m": 1.6,  # release close to the hoop -> layup
     "layup_max_seconds": 0.8,
     "rebound_hoop_distance_m": 2.0,
     "hand_fallback_shoulder_drop_m": 0.3,
     # fallback dribble detection when the trajectory classifier missed it
-    "dribble_fallback_max_z": 1.2,   # ball must run low
+    "dribble_fallback_max_z": 1.2,  # ball must run low
     "dribble_fallback_min_speed": 0.5,
     "dribble_fallback_confirm_frames": 5,
     # a flight segment followed by someone gaining the ball counts as a pass
@@ -56,7 +56,7 @@ DEFAULTS: dict[str, Any] = {
     "make_landing_reach_m": 1.0,
     "make_2d_min_z_m": 3.0,
     "make_fall_through_reach_m": 0.5,  # after flying over the rim, the ball
-                                       # must fall THROUGH the opening
+    # must fall THROUGH the opening
     "make_probe_frames": 40,
     # flight arcs: walk a flight segment backward while the ball is still in
     # the air so release/apex/rim-crossing are all covered
@@ -79,20 +79,17 @@ DEFAULTS: dict[str, Any] = {
     "low_pass_max_frames": 60,
     # follow-up (补篮): a short tip-arc at the rim right after a MISSED shot
     "follow_up_max_gap_frames": 90,
-    "follow_up_max_seconds": 4.0,   # the arc includes the grab-and-raise phase
+    "follow_up_max_seconds": 4.0,  # the arc includes the grab-and-raise phase
     "follow_up_max_release_dist_m": 2.0,
     # block (盖帽): a deflection with a defender's hand at the contact point
     "block_hand_reach_m": 0.5,
     "rebound_probe_frames": 40,
-    "rebound_hoop_distance_m": 2.0,
-    "hand_fallback_shoulder_drop_m": 0.3,
-    "launch_min_z_m": 1.8,   # semantic arc scan: a ball reaching this height
-                             # was LAUNCHED (a dribble never gets that high)
+    "launch_min_z_m": 1.8,  # semantic arc scan: a ball reaching this height
+    # was LAUNCHED (a dribble never gets that high)
     "shot_near_rim_reach_m": 1.2,
     "shot_approach_min_fraction": 0.15,
     "shot_min_rim_apex_m": 2.9,
     "three_point_radius_m": 6.54,
-    "layup_release_dist_m": 1.6,
     "layup_max_release_dist_m": 1.5,
     "layup_drive_speed_m_s": 2.5,
     "layup_fallback_min_apex_m": 1.8,
@@ -153,6 +150,7 @@ def parse_hand_positions(poses_3d: dict) -> HandPositions:
 
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Action:
     type: str
@@ -172,7 +170,12 @@ class Action:
             record["actor_id"] = self.actor_id
         if self.receiver_id is not None:
             record["receiver_id"] = self.receiver_id
-        record.update({k: round(v, 3) if isinstance(v, float) else v for k, v in self.params.items()})
+        record.update(
+            {
+                k: round(v, 3) if isinstance(v, float) else v
+                for k, v in self.params.items()
+            }
+        )
         return record
 
 
@@ -185,19 +188,23 @@ class ActionRuleEngine:
             return DEFAULTS.get(key, default)
         if hasattr(self.config, "get"):
             try:
-                return self.config.get(f"action_rules.{key}", DEFAULTS.get(key, default))
+                return self.config.get(
+                    f"action_rules.{key}", DEFAULTS.get(key, default)
+                )
             except Exception:
                 return DEFAULTS.get(key, default)
-        section = self.config.get("action_rules", {}) if isinstance(self.config, dict) else {}
+        section = (
+            self.config.get("action_rules", {}) if isinstance(self.config, dict) else {}
+        )
         return section.get(key, DEFAULTS.get(key, default))
 
     # ------------------------------------------------------------------ core
 
-
     # ------------------------------------------------------------------ motion
 
-    def _radial_leave_speed(self, actor_id: int, start: int, hoop2: np.ndarray,
-                            poses_3d: dict, fps: float) -> Optional[float]:
+    def _radial_leave_speed(
+        self, actor_id: int, start: int, hoop2: np.ndarray, poses_3d: dict, fps: float
+    ) -> Optional[float]:
         """Player's radial speed away from/toward the hoop around release."""
         skel = poses_3d.get(str(start), {}).get(str(actor_id))
         if skel is None:
@@ -216,7 +223,7 @@ class ActionRuleEngine:
         return (d0 - d1) / dt if dt > 0 else None
 
     def _release_hand_feature(
-        self, actor_id: int, start: int, ball_pos: dict, poses_3d: dict
+        self, actor_id: int, start: int, ball_pos: dict | np.ndarray, poses_3d: dict
     ) -> Optional[str]:
         """One-hand vs two-hand release from the skeleton at the release frame."""
         skel = poses_3d.get(str(start), {}).get(str(actor_id))
@@ -229,7 +236,10 @@ class ActionRuleEngine:
         reach = float(self._cfg("hand_on_ball_reach_m", 1.35))
         near = 0
         for idx in (9, 10):
-            if np.isfinite(k[idx]).all() and float(np.linalg.norm(k[idx] - ball)) <= reach:
+            if (
+                np.isfinite(k[idx]).all()
+                and float(np.linalg.norm(k[idx] - ball)) <= reach
+            ):
                 near += 1
         if near >= 2:
             return "two"
@@ -238,8 +248,7 @@ class ActionRuleEngine:
         return None
 
     def _approach_speed(
-        self, actor_id: int, start: int, hoop2: np.ndarray,
-        poses_3d: dict, fps: float
+        self, actor_id: int, start: int, hoop2: np.ndarray, poses_3d: dict, fps: float
     ) -> Optional[float]:
         """Approach speed of the shooter toward the hoop over the frames
         before release — a driving layup closes distance quickly."""
@@ -272,15 +281,27 @@ class ActionRuleEngine:
         return (p_far[0] - float(np.linalg.norm(foot0[:2] - hoop2))) / dt
 
     def _shot_kind(
-        self, release_actor: int, start: int, start_pos: np.ndarray,
-        release_dist_hoop: float, duration_s: float, poses_3d: dict,
-        fps: float, hoop2: np.ndarray
+        self,
+        release_actor: int,
+        start: int,
+        start_pos: np.ndarray,
+        release_dist_hoop: float,
+        duration_s: float,
+        poses_3d: dict,
+        fps: float,
+        hoop2: np.ndarray,
     ) -> str:
         """shoot vs layup: a layup releases CLOSE to the rim while the
         shooter is DRIVING (approach speed >= threshold)."""
-        near_rim = release_dist_hoop <= float(self._cfg("layup_max_release_dist_m", 1.5))
+        near_rim = release_dist_hoop <= float(
+            self._cfg("layup_max_release_dist_m", 1.5)
+        )
         drive = self._approach_speed(release_actor, start, hoop2, poses_3d, fps)
-        if near_rim and drive is not None and drive >= float(self._cfg("layup_drive_speed_m_s", 2.5)):
+        if (
+            near_rim
+            and drive is not None
+            and drive >= float(self._cfg("layup_drive_speed_m_s", 2.5))
+        ):
             return "layup"
         if near_rim and duration_s <= float(self._cfg("layup_max_seconds", 0.8)):
             hand = self._release_hand_feature(release_actor, start, start_pos, poses_3d)
@@ -289,7 +310,6 @@ class ActionRuleEngine:
         return "shoot"
 
     # ------------------------------------------------------------------ arcs
-
 
     def _scan_launch_arcs(
         self,
@@ -316,7 +336,9 @@ class ActionRuleEngine:
         for f in grid:
             if f not in ball_pos:
                 if in_arc and prev_f is not None and f - prev_f > 8:
-                    arcs.append({"type": "flight", "start_frame": start, "end_frame": prev_f})
+                    arcs.append(
+                        {"type": "flight", "start_frame": start, "end_frame": prev_f}
+                    )
                     in_arc, start = False, None
                 continue
             prev_f = f
@@ -333,7 +355,9 @@ class ActionRuleEngine:
                     _, d_prev = hands.nearest(f - 1, ball_pos[f - 1])
                 caught = pid is not None and d <= 0.5 and d_prev <= 0.5
                 if caught or z < end_z:
-                    arcs.append({"type": "flight", "start_frame": start, "end_frame": f})
+                    arcs.append(
+                        {"type": "flight", "start_frame": start, "end_frame": f}
+                    )
                     in_arc, start = False, None
         if in_arc and start is not None and prev_f is not None:
             arcs.append({"type": "flight", "start_frame": start, "end_frame": prev_f})
@@ -355,7 +379,6 @@ class ActionRuleEngine:
                 s -= 1
             out.append({"type": "flight", "start_frame": s, "end_frame": e})
         return out
-
 
     def _extend_flight_segments(
         self,
@@ -400,11 +423,12 @@ class ActionRuleEngine:
         merged: list[dict] = []
         for seg in out:
             if merged and int(seg["start_frame"]) <= int(merged[-1]["end_frame"]) + 1:
-                merged[-1]["end_frame"] = max(int(merged[-1]["end_frame"]), int(seg["end_frame"]))
+                merged[-1]["end_frame"] = max(
+                    int(merged[-1]["end_frame"]), int(seg["end_frame"])
+                )
             else:
                 merged.append(dict(seg))
         return merged
-
 
     def _low_pass_events(
         self,
@@ -435,8 +459,11 @@ class ActionRuleEngine:
             if prev_f is not None and prev_pos is not None:
                 v = float(np.linalg.norm(pos - prev_pos) * fps)
                 if not in_run:
-                    if (pos[2] <= max_z and v >= release_speed
-                            and ball_state.get(f, "unknown") not in ("held",)):
+                    if (
+                        pos[2] <= max_z
+                        and v >= release_speed
+                        and ball_state.get(f, "unknown") not in ("held",)
+                    ):
                         in_run, run_start = True, f
                 elif pos[2] > max_z:
                     in_run, run_start = False, None
@@ -447,17 +474,24 @@ class ActionRuleEngine:
                     if pid is not None and d <= catch_reach_lp:
                         rel = None
                         if run_start is not None and run_start - 1 in ball_pos:
-                            rp, rd = hands.nearest(run_start - 1, ball_pos[run_start - 1])
+                            rp, rd = hands.nearest(
+                                run_start - 1, ball_pos[run_start - 1]
+                            )
                             if rp is not None and rd <= hand_reach:
                                 rel = rp
                         if rel is not None and rel != pid:
-                            events.append(Action(
-                                "pass", run_start, f,
-                                actor_id=rel, receiver_id=pid,
-                                params={"low": True},
-                            ))
+                            events.append(
+                                Action(
+                                    "pass",
+                                    cast(int, run_start),
+                                    f,
+                                    actor_id=rel,
+                                    receiver_id=pid,
+                                    params={"low": True},
+                                )
+                            )
                     in_run, run_start = False, None
-                elif f - run_start > max_frames:
+                elif f - cast(int, run_start) > max_frames:
                     in_run, run_start = False, None
             prev_f, prev_pos = f, pos
         return events
@@ -484,8 +518,13 @@ class ActionRuleEngine:
             )
             merged: list[dict] = [dict(flight_segments[0])]
             for seg in flight_segments[1:]:
-                if int(seg["start_frame"]) <= int(merged[-1]["end_frame"]) + max_split_gap:
-                    merged[-1]["end_frame"] = max(int(merged[-1]["end_frame"]), int(seg["end_frame"]))
+                if (
+                    int(seg["start_frame"])
+                    <= int(merged[-1]["end_frame"]) + max_split_gap
+                ):
+                    merged[-1]["end_frame"] = max(
+                        int(merged[-1]["end_frame"]), int(seg["end_frame"])
+                    )
                 else:
                     merged.append(dict(seg))
             flight_segments = merged
@@ -522,9 +561,11 @@ class ActionRuleEngine:
         handler_missing = 0
         candidate: Optional[int] = None
         candidate_frames = 0
-        last_contact_frame = -10**6
+        _last_contact_frame = -(10**6)
         prev_hands: Optional[dict[int, np.ndarray]] = None
-        prev_hands_history: list[tuple[int, dict[int, np.ndarray]]] = []  # (frame, hands)
+        prev_hands_history: list[
+            tuple[int, dict[int, np.ndarray]]
+        ] = []  # (frame, hands)
         dribble_tracking: Optional[int] = None  # fallback dribble in progress
         pending_catches: list[tuple[int, int]] = []  # (frame, player_id)
 
@@ -560,7 +601,11 @@ class ActionRuleEngine:
                 # ball in hands. A pickup or a change of hands is a catch
                 # (not on the very first frame of the clip). A change of
                 # hands WITHOUT a flight in between is a handoff pass.
-                prev_d = prev_max_dist(nearest_id) if prev_hands_history else float("inf")
+                prev_d = (
+                    prev_max_dist(cast(int, nearest_id))
+                    if prev_hands_history
+                    else float("inf")
+                )
                 if handler != nearest_id and prev_d > hold_reach and prev_hands_history:
                     actions.append(Action("catch", frame, frame, actor_id=nearest_id))
                     if handler is not None and not any(
@@ -569,15 +614,20 @@ class ActionRuleEngine:
                     ):
                         actions.append(
                             Action(
-                                "pass", frame, frame,
-                                actor_id=handler, receiver_id=nearest_id,
+                                "pass",
+                                frame,
+                                frame,
+                                actor_id=handler,
+                                receiver_id=nearest_id,
                                 params={"handoff": True},
                             )
                         )
                 handler = nearest_id
                 handler_missing = 0
-                last_contact_frame = frame
-            elif state == "dribble" and point is not None and nearest_d <= dribble_reach:
+                _last_contact_frame = frame
+            elif (
+                state == "dribble" and point is not None and nearest_d <= dribble_reach
+            ):
                 # dribbling: switch handler only after N consistent frames
                 if candidate == nearest_id:
                     candidate_frames += 1
@@ -585,16 +635,20 @@ class ActionRuleEngine:
                     candidate, candidate_frames = nearest_id, 1
                 if candidate_frames >= switch_frames:
                     if handler is not None and handler != candidate:
-                        actions.append(Action("catch", frame, frame, actor_id=candidate))
+                        actions.append(
+                            Action("catch", frame, frame, actor_id=candidate)
+                        )
                     handler = candidate
                     handler_missing = 0
-                    last_contact_frame = frame
+                    _last_contact_frame = frame
             elif state == "flight":
                 candidate, candidate_frames = None, 0
                 if handler is not None:
                     # the ball leaves the handler's hands -> release
                     if dist_to_player(frame, handler) > release_dist:
-                        actions.append(Action("release", frame, frame, actor_id=handler))
+                        actions.append(
+                            Action("release", frame, frame, actor_id=handler)
+                        )
                         handler = None
                 # a catch is the ball ENTERING someone's hands from afar and
                 # STAYING (the next frame must not show the ball leaving again)
@@ -621,42 +675,59 @@ class ActionRuleEngine:
                     and nearest_d <= dribble_reach
                     and point[2] < float(self._cfg("dribble_fallback_max_z"))
                     and ball_vel.get(frame) is not None
-                    and float(np.linalg.norm(ball_vel[frame])) > float(
-                        self._cfg("dribble_fallback_min_speed")
-                    )
+                    and float(np.linalg.norm(ball_vel[frame]))
+                    > float(self._cfg("dribble_fallback_min_speed"))
                 )
                 if fallback_dribble:
                     if candidate == nearest_id:
                         candidate_frames += 1
                     else:
                         candidate, candidate_frames = nearest_id, 1
-                    if candidate_frames >= int(self._cfg("dribble_fallback_confirm_frames")):
+                    if candidate_frames >= int(
+                        self._cfg("dribble_fallback_confirm_frames")
+                    ):
                         if dribble_tracking is None:
                             actions.append(
-                                Action("dribble_start", frame, frame, actor_id=nearest_id,
-                                       params={"fallback": True})
+                                Action(
+                                    "dribble_start",
+                                    frame,
+                                    frame,
+                                    actor_id=nearest_id,
+                                    params={"fallback": True},
+                                )
                             )
                             dribble_tracking = nearest_id
                         if handler != candidate:
-                            prev_d = prev_max_dist(candidate) if prev_hands_history else float("inf")
+                            prev_d = (
+                                prev_max_dist(candidate)
+                                if prev_hands_history
+                                else float("inf")
+                            )
                             if prev_d > hold_reach and not any(
                                 ball_state.get(f, "") == "flight"
                                 for f in range(max(frame - 10, 0), frame)
                             ):
                                 actions.append(
                                     Action(
-                                        "pass", frame, frame,
-                                        actor_id=handler, receiver_id=candidate,
+                                        "pass",
+                                        frame,
+                                        frame,
+                                        actor_id=handler,
+                                        receiver_id=candidate,
                                         params={"handoff": True},
                                     )
                                 )
                         handler = candidate
                         handler_missing = 0
-                        last_contact_frame = frame
+                        _last_contact_frame = frame
                 else:
                     candidate, candidate_frames = None, 0
                     if dribble_tracking is not None:
-                        actions.append(Action("dribble_end", frame, frame, actor_id=dribble_tracking))
+                        actions.append(
+                            Action(
+                                "dribble_end", frame, frame, actor_id=dribble_tracking
+                            )
+                        )
                         dribble_tracking = None
                     handler_missing += 1
                     if handler_missing > hold_frames:
@@ -673,7 +744,8 @@ class ActionRuleEngine:
                         if hand is not None and np.isfinite(hand).all():
                             d_now = float(np.linalg.norm(hand - point))
                             already = any(
-                                a.type == "catch" and a.actor_id == pid
+                                a.type == "catch"
+                                and a.actor_id == pid
                                 and pf <= a.start_frame <= pf + 2
                                 for a in actions
                             )
@@ -681,7 +753,7 @@ class ActionRuleEngine:
                                 actions.append(Action("catch", pf, pf, actor_id=pid))
                                 handler = pid
                                 handler_missing = 0
-                                last_contact_frame = pf
+                                _last_contact_frame = pf
                                 continue
                 remaining.append((pf, pid))
             pending_catches = remaining
@@ -699,12 +771,12 @@ class ActionRuleEngine:
         # count. Arcs the classifier already covers are dropped (duplicates).
         fps = float(ball_traj.get("source", {}).get("fps", 30.0))
         scanned = self._scan_launch_arcs(ball_pos, ball_state, hands, grid, fps)
-        seg_ranges = [(int(s["start_frame"]), int(s["end_frame"])) for s in flight_segments]
+        seg_ranges = [
+            (int(s["start_frame"]), int(s["end_frame"])) for s in flight_segments
+        ]
         for arc in scanned:
             s, e = int(arc["start_frame"]), int(arc["end_frame"])
-            covered = sum(
-                max(0, min(e, se) - max(s, ss) + 1) for ss, se in seg_ranges
-            )
+            covered = sum(max(0, min(e, se) - max(s, ss) + 1) for ss, se in seg_ranges)
             if covered < 0.6 * (e - s + 1):
                 flight_segments.append(arc)
         catch_frames = {a.start_frame for a in actions if a.type == "catch"}
@@ -724,7 +796,9 @@ class ActionRuleEngine:
             start_pos = points[0]
             end_pos = points[-1]
             horizontal_displacement = float(np.linalg.norm(end_pos[:2] - start_pos[:2]))
-            hoop_horizontal = float(np.min(np.linalg.norm(points[:, :2] - hoop[:2], axis=1)))
+            hoop_horizontal = float(
+                np.min(np.linalg.norm(points[:, :2] - hoop[:2], axis=1))
+            )
             release_dist_hoop = float(np.linalg.norm(start_pos[:2] - hoop[:2]))
 
             # who released and who caught
@@ -738,8 +812,11 @@ class ActionRuleEngine:
                     hand = hands.data.get(start - 1, {}).get(release_actor)
                 if hand is None or not np.isfinite(hand).all():
                     release_actor = None
-                elif (start in ball_pos
-                        and float(np.linalg.norm(hand - ball_pos[start])) > release_dist * 2.5):
+                elif (
+                    start in ball_pos
+                    and float(np.linalg.norm(hand - ball_pos[start]))
+                    > release_dist * 2.5
+                ):
                     release_actor = None
             if release_actor is None:
                 # catch-and-shoot: the ball leaves the handler right after the
@@ -764,15 +841,15 @@ class ActionRuleEngine:
             action: Optional[Action] = None
             near_hoop = hoop_horizontal < float(self._cfg("shoot_hoop_distance_m"))
             near_rim = hoop_horizontal <= float(self._cfg("shot_near_rim_reach_m"))
-            min_hoop_idx = int(np.argmin(np.linalg.norm(points[:, :2] - hoop[:2], axis=1)))
+            min_hoop_idx = int(
+                np.argmin(np.linalg.norm(points[:, :2] - hoop[:2], axis=1))
+            )
             approaches_hoop = min_hoop_idx >= max(
                 2, int(float(self._cfg("shot_approach_min_fraction")) * len(frames_in))
             )
-            deflected = (
-                start - 1 in ball_pos
-                and abs(float(ball_pos[start][2]) - float(ball_pos[start - 1][2]))
-                > float(self._cfg("deflect_z_jump_m"))
-            )
+            deflected = start - 1 in ball_pos and abs(
+                float(ball_pos[start][2]) - float(ball_pos[start - 1][2])
+            ) > float(self._cfg("deflect_z_jump_m"))
             if deflected:
                 # a sudden vertical pop at the arc start is a tip/deflection
                 # (抢球), not a shot — a ball leaves a player's hands smoothly.
@@ -792,7 +869,10 @@ class ActionRuleEngine:
                             and d <= float(self._cfg("block_hand_reach_m", 0.5))
                         ):
                             action = Action(
-                                "block", start, end, actor_id=pid,
+                                "block",
+                                start,
+                                end,
+                                actor_id=pid,
                                 params={
                                     "after": "deflection",
                                     "apex_z": apex_z,
@@ -810,17 +890,30 @@ class ActionRuleEngine:
                         if d < cd:
                             catcher, cframe, cd = pid, f, d
                     if catcher is None or cd > catch_reach * 2.0:
-                        for probe in range(end + 1, min(end + 1 + int(self._cfg("pass_post_segment_frames")), grid[-1] + 1)):
+                        for probe in range(
+                            end + 1,
+                            min(
+                                end + 1 + int(self._cfg("pass_post_segment_frames")),
+                                grid[-1] + 1,
+                            ),
+                        ):
                             if probe not in ball_pos:
                                 continue
                             pid, d = hands.nearest(probe, ball_pos[probe])
-                            if pid is not None and pid != release_actor and d <= float(self._cfg("pass_post_segment_reach_m")):
+                            if (
+                                pid is not None
+                                and pid != release_actor
+                                and d <= float(self._cfg("pass_post_segment_reach_m"))
+                            ):
                                 catcher, cframe, cd = pid, probe, d
                                 break
                     if catcher is not None and catcher != release_actor:
                         action = Action(
-                            "pass", start, cframe or end,
-                            actor_id=release_actor, receiver_id=catcher,
+                            "pass",
+                            start,
+                            cframe or end,
+                            actor_id=release_actor,
+                            receiver_id=catcher,
                             params={
                                 "apex_z": apex_z,
                                 "horizontal_displacement_m": horizontal_displacement,
@@ -837,14 +930,18 @@ class ActionRuleEngine:
             fu_actor = release_actor
             if fu_actor is None:
                 for prev_a in reversed(actions):
-                    if prev_a.type in ("catch", "rebound") and prev_a.end_frame <= start:
+                    if (
+                        prev_a.type in ("catch", "rebound")
+                        and prev_a.end_frame <= start
+                    ):
                         fu_actor = prev_a.actor_id
                         break
             follow_up = False
             if (
                 fu_actor is not None
                 and apex_z >= float(self._cfg("shoot_min_apex_m"))
-                and release_dist_hoop <= float(self._cfg("follow_up_max_release_dist_m"))
+                and release_dist_hoop
+                <= float(self._cfg("follow_up_max_release_dist_m"))
                 and duration_s <= float(self._cfg("follow_up_max_seconds"))
             ):
                 for prev_a in reversed(actions):
@@ -879,7 +976,10 @@ class ActionRuleEngine:
 
             if follow_up:
                 action = Action(
-                    "follow_up", start, end, actor_id=fu_actor,
+                    "follow_up",
+                    start,
+                    end,
+                    actor_id=fu_actor,
                     params={
                         "apex_z": apex_z,
                         "hoop_distance_m": hoop_horizontal,
@@ -892,15 +992,22 @@ class ActionRuleEngine:
                 )
             elif deflected:
                 action = None
-            
+
             elif (
-                (near_hoop and near_rim
-                 or release_dist_hoop >= float(self._cfg("three_point_radius_m")))
+                (
+                    near_hoop
+                    and near_rim
+                    or release_dist_hoop >= float(self._cfg("three_point_radius_m"))
+                )
                 and approaches_hoop
-                and (hoop_horizontal
-                     <= (float(self._cfg("shot_high_arc_miss_distance_m", 1.6))
-                         if apex_z >= 3.5
-                         else float(self._cfg("shot_max_miss_distance_m", 0.7))))
+                and (
+                    hoop_horizontal
+                    <= (
+                        float(self._cfg("shot_high_arc_miss_distance_m", 1.6))
+                        if apex_z >= 3.5
+                        else float(self._cfg("shot_max_miss_distance_m", 0.7))
+                    )
+                )
                 and apex_z > float(self._cfg("shoot_min_apex_m"))
                 and release_actor is not None
                 # a caught arc is a pass UNLESS it crossed the rim (shot
@@ -909,13 +1016,15 @@ class ActionRuleEngine:
                 # nobody — it is a shot attempt that fell short/wide). The
                 # 2D signal additionally rejects arcs caught right at the
                 # rim mouth (ball stops in the hoop's 2D projection).
-                and (apex_z >= float(self._cfg("shot_min_rim_apex_m", 2.9))
-                     or not (
-                         catch_actor is not None
-                         and catch_actor != release_actor
-                         and catch_d <= 0.5
-                     )
-                     or release_dist_hoop >= float(self._cfg("three_point_radius_m")))
+                and (
+                    apex_z >= float(self._cfg("shot_min_rim_apex_m", 2.9))
+                    or not (
+                        catch_actor is not None
+                        and catch_actor != release_actor
+                        and catch_d <= 0.5
+                    )
+                    or release_dist_hoop >= float(self._cfg("three_point_radius_m"))
+                )
             ):
                 # shoot / layup — requires someone who released the ball (a
                 # ball falling from the rim without a shooter is NOT a shot),
@@ -923,7 +1032,14 @@ class ActionRuleEngine:
                 # the hoop (a toss leaving the rim outward is a pass). The
                 # release motion (one hand vs two hands) picks layup vs shoot.
                 kind = self._shot_kind(
-                    release_actor, start, start_pos, release_dist_hoop, duration_s, poses_3d, fps, hoop[:2]
+                    release_actor,
+                    start,
+                    start_pos,
+                    release_dist_hoop,
+                    duration_s,
+                    poses_3d,
+                    fps,
+                    hoop[:2],
                 )
                 # three-pointer: the ball came from behind the measured arc
                 # (radius 6.54 m from the rim centre) — use the ball's
@@ -939,7 +1055,10 @@ class ActionRuleEngine:
                     and max(arc_probe) >= float(self._cfg("three_point_radius_m"))
                 )
                 action = Action(
-                    kind, start, end, actor_id=release_actor,
+                    kind,
+                    start,
+                    end,
+                    actor_id=release_actor,
                     params={
                         "apex_z": apex_z,
                         "hoop_distance_m": hoop_horizontal,
@@ -958,6 +1077,7 @@ class ActionRuleEngine:
                 # grab a few frames past the flight segment).
                 if action.params.get("result") == "miss":
                     rb_actor, rb_frame = None, None
+
                     # A rebound is an AIR grab near the rim: the ball must be
                     # falling (not still rising), still airborne, and close to
                     # the hoop. A shot that missed wide and is picked up on
@@ -965,19 +1085,27 @@ class ActionRuleEngine:
                     def _air_grab(f: int) -> bool:
                         if f not in ball_pos:
                             return False
-                        return (float(ball_pos[f][2]) >= 0.8
-                                and float(np.linalg.norm(ball_pos[f][:2] - hoop[:2]))
-                                <= float(self._cfg("rebound_hoop_distance_m", 1.2)))
+                        return float(ball_pos[f][2]) >= 0.8 and float(
+                            np.linalg.norm(ball_pos[f][:2] - hoop[:2])
+                        ) <= float(self._cfg("rebound_hoop_distance_m", 1.2))
+
                     # in-segment catch near the segment end (ball falling off
                     # the rim) — a catch during the rising arc is a contest
-                    if (catch_actor is not None and catch_actor != release_actor
-                            and catch_frame is not None and catch_frame >= end - 15
-                            and catch_d <= float(self._cfg("catch_reach_m", 0.5)) * 1.5
-                            and _air_grab(catch_frame)):
+                    if (
+                        catch_actor is not None
+                        and catch_actor != release_actor
+                        and catch_frame is not None
+                        and catch_frame >= end - 15
+                        and catch_d <= float(self._cfg("catch_reach_m", 0.5)) * 1.5
+                        and _air_grab(catch_frame)
+                    ):
                         rb_actor, rb_frame = catch_actor, catch_frame
                     else:
                         # post-segment probe: ball still airborne near the rim
-                        for probe_f in range(end + 1, end + 1 + int(self._cfg("rebound_probe_frames", 40))):
+                        for probe_f in range(
+                            end + 1,
+                            end + 1 + int(self._cfg("rebound_probe_frames", 40)),
+                        ):
                             if probe_f not in ball_pos:
                                 continue
                             if float(ball_pos[probe_f][2]) < 0.4:
@@ -992,10 +1120,15 @@ class ActionRuleEngine:
                                 rb_actor, rb_frame = pid, probe_f
                                 break
                     if rb_actor is not None and rb_actor != release_actor:
-                        actions.append(Action(
-                            "rebound", rb_frame, rb_frame, actor_id=rb_actor,
-                            params={"after": "shoot"},
-                        ))
+                        actions.append(
+                            Action(
+                                "rebound",
+                                cast(int, rb_frame),
+                                cast(int, rb_frame),
+                                actor_id=rb_actor,
+                                params={"after": "shoot"},
+                            )
+                        )
 
             elif action is None and (
                 catch_actor is not None
@@ -1004,21 +1137,31 @@ class ActionRuleEngine:
                 and horizontal_displacement > float(self._cfg("pass_min_horizontal_m"))
             ):
                 action = Action(
-                    "pass", start, end,
-                    actor_id=release_actor, receiver_id=catch_actor,
+                    "pass",
+                    start,
+                    end,
+                    actor_id=release_actor,
+                    receiver_id=catch_actor,
                     params={
                         "apex_z": apex_z,
                         "horizontal_displacement_m": horizontal_displacement,
                         "duration_s": duration_s,
                     },
                 )
-            elif action is None and near_hoop and release_actor is not None \
-                    and apex_z >= float(self._cfg("layup_min_apex_m", 1.5)) \
-                    and release_dist_hoop <= float(self._cfg("layup_release_dist_m", 2.5)):
+            elif (
+                action is None
+                and near_hoop
+                and release_actor is not None
+                and apex_z >= float(self._cfg("layup_min_apex_m", 1.5))
+                and release_dist_hoop <= float(self._cfg("layup_release_dist_m", 2.5))
+            ):
                 # a real arc released close to the hoop with no receiver ->
                 # layup attempt (a flat ground pass near the hoop is not one)
                 action = Action(
-                    "layup", start, end, actor_id=release_actor,
+                    "layup",
+                    start,
+                    end,
+                    actor_id=release_actor,
                     params={
                         "apex_z": apex_z,
                         "hoop_distance_m": hoop_horizontal,
@@ -1028,8 +1171,6 @@ class ActionRuleEngine:
                 action.params["result"] = _shot_result(
                     ball_pos, frames_in, end, hoop, self._cfg, ctx_2d=ctx_2d
                 )
-
-
 
             if action is not None:
                 actions.append(action)
@@ -1042,14 +1183,18 @@ class ActionRuleEngine:
         stats = {
             "actions": len(actions),
             "by_type": _count_by_type(actions),
-            "frames_with_possession": sum(1 for v in possession.values() if v is not None),
+            "frames_with_possession": sum(
+                1 for v in possession.values() if v is not None
+            ),
         }
         return {
             "schema_version": "actions/v1",
             "actions": [a.to_dict() for a in actions],
             # per-frame handler (the possession state machine's current
             # player) — used by visualizations to draw the handler box
-            "possession": {str(k): v for k, v in sorted(possession.items()) if v is not None},
+            "possession": {
+                str(k): v for k, v in sorted(possession.items()) if v is not None
+            },
             "stats": stats,
         }
 
@@ -1097,7 +1242,8 @@ def _shot_result(
     reach = float(cfg("make_horizontal_reach_m", 0.6))
     probe = int(cfg("make_probe_frames", 40))
     probe_frames = sorted(
-        set(segment_frames) | {f for f in range(segment_end + 1, segment_end + 1 + probe) if f in ball_pos}
+        set(segment_frames)
+        | {f for f in range(segment_end + 1, segment_end + 1 + probe) if f in ball_pos}
     )
     for index in range(len(probe_frames) - 1):
         f0, f1 = probe_frames[index], probe_frames[index + 1]
@@ -1119,7 +1265,8 @@ def _shot_result(
     fall_through = float(cfg("make_fall_through_reach_m", 0.5))
     overhead = float(cfg("make_overhead_reach_m", 0.7))
     over_rim = [
-        f for f in probe_frames
+        f
+        for f in probe_frames
         if float(ball_pos[f][2]) >= rim_height - 0.02
         and float(np.linalg.norm(ball_pos[f][:2] - hoop[:2])) <= overhead
     ]
@@ -1147,6 +1294,8 @@ def _shot_result(
         if fall_through_ok:
             return "make"
     return "miss"
+
+
 def _shot_result_2d(
     ctx_2d: dict,
     ball_pos: dict,
@@ -1158,6 +1307,7 @@ def _shot_result_2d(
     """2D rim-line crossing (open-source style): in ANY view the ball
     descends through the hoop's 2D rim line within the rim's 2D width."""
     import numpy as _np
+
     for view, rec in ctx_2d.items():
         line = rec.get("rim_line")
         if not line:
@@ -1204,6 +1354,7 @@ def _load_2d_context(self, ball_traj_path: Path) -> Optional[dict]:
         if not ctx_path.exists():
             return None
         import json as _json
+
         return _json.load(open(ctx_path, encoding="utf-8"))
     except Exception:
         return None

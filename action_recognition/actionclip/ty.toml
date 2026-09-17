@@ -1,0 +1,4 @@
+# Script entry points add these directories to sys.path at runtime.
+[environment]
+python-version = "3.10"
+extra-paths = ["."]

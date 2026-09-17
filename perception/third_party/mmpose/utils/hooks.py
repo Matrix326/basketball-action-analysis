@@ -3,7 +3,6 @@ import functools
 
 
 class OutputHook:
-
     def __init__(self, module, outputs=None, as_tensor=False):
         self.outputs = outputs
         self.as_tensor = as_tensor
@@ -23,8 +22,7 @@ class OutputHook:
                             out.detach().cpu().numpy() for out in output
                         ]
                     else:
-                        self.layer_outputs[name] = output.detach().cpu().numpy(
-                        )
+                        self.layer_outputs[name] = output.detach().cpu().numpy()
 
             return hook
 
@@ -36,7 +34,8 @@ class OutputHook:
                     h = layer.register_forward_hook(hook_wrapper(name))
                 except ModuleNotFoundError as module_not_found:
                     raise ModuleNotFoundError(
-                        f'Module {name} not found') from module_not_found
+                        f"Module {name} not found"
+                    ) from module_not_found
                 self.handles.append(h)
 
     def remove(self):
@@ -65,7 +64,7 @@ def rsetattr(obj, attr, val):
         attr (str): The attribute path in dot notation (e.g., 'x.y.z').
         val (any): The value to set at the specified attribute path.
     """
-    pre, _, post = attr.rpartition('.')
+    pre, _, post = attr.rpartition(".")
     return setattr(rgetattr(obj, pre) if pre else obj, post, val)
 
 
@@ -87,4 +86,4 @@ def rgetattr(obj, attr, *args):
     def _getattr(obj, attr):
         return getattr(obj, attr, *args)
 
-    return functools.reduce(_getattr, [obj] + attr.split('.'))
+    return functools.reduce(_getattr, [obj] + attr.split("."))

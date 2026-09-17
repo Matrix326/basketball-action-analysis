@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 
+from collections import defaultdict
 import logging
-import numpy as np
 import os
 import random
 import time
-from collections import defaultdict
+from typing import BinaryIO, TextIO, cast
+
 import cv2
+import numpy as np
 import torch
 from torch.utils.data.distributed import DistributedSampler
-
 from torchvision import transforms
 
 from slowfast.utils.env import pathmgr
 
 from . import transform as transform
-
 from .random_erasing import RandomErasing
 from .transform import create_random_augment
-
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ def retry_load_images(image_paths, retry=10, backend="pytorch"):
     for i in range(retry):
         imgs = []
         for image_path in image_paths:
-            with pathmgr.open(image_path, "rb") as f:
+            with cast(BinaryIO, pathmgr.open(image_path, "rb")) as f:
                 img_str = np.frombuffer(f.read(), np.uint8)
                 img = cv2.imdecode(img_str, flags=cv2.IMREAD_COLOR)
             imgs.append(img)
@@ -48,7 +47,7 @@ def retry_load_images(image_paths, retry=10, backend="pytorch"):
                 imgs = torch.as_tensor(np.stack(imgs))
             return imgs
         else:
-            logger.warn("Reading failed. Will retry.")
+            logger.warning("Reading failed. Will retry.")
             time.sleep(1.0)
         if i == retry - 1:
             raise Exception("Failed to load images {}".format(image_paths))
@@ -213,8 +212,8 @@ def aggregate_labels(label_list):
     """
     all_labels = []
     for labels in label_list:
-        for l in labels:
-            all_labels.append(l)
+        for item in labels:
+            all_labels.append(item)
     return list(set(all_labels))
 
 
@@ -251,7 +250,7 @@ def load_image_lists(frame_list_file, prefix="", return_list=False):
     """
     image_paths = defaultdict(list)
     labels = defaultdict(list)
-    with pathmgr.open(frame_list_file, "r") as f:
+    with cast(TextIO, pathmgr.open(frame_list_file, "r")) as f:
         assert f.readline().startswith("original_vido_id")
         for line in f:
             row = line.split()
@@ -265,9 +264,7 @@ def load_image_lists(frame_list_file, prefix="", return_list=False):
             image_paths[video_name].append(path)
             frame_labels = row[-1].replace('"', "")
             if frame_labels != "":
-                labels[video_name].append(
-                    [int(x) for x in frame_labels.split(",")]
-                )
+                labels[video_name].append([int(x) for x in frame_labels.split(",")])
             else:
                 labels[video_name].append([])
 
@@ -290,9 +287,9 @@ def tensor_normalize(tensor, mean, std, func=None):
     if tensor.dtype == torch.uint8:
         tensor = tensor.float()
         tensor = tensor / 255.0
-    if type(mean) == list:
+    if type(mean) is list:
         mean = torch.tensor(mean)
-    if type(std) == list:
+    if type(std) is list:
         std = torch.tensor(std)
     if func is not None:
         tensor = func(tensor)
@@ -321,9 +318,9 @@ def revert_tensor_normalize(tensor, mean, std):
         mean (tensor or list): mean value to add.
         std (tensor or list): std to multiply.
     """
-    if type(mean) == list:
+    if type(mean) is list:
         mean = torch.tensor(mean)
-    if type(std) == list:
+    if type(std) is list:
         std = torch.tensor(std)
     tensor = tensor * std
     tensor = tensor + mean
@@ -420,9 +417,7 @@ def aug_frame(
         inverse_uniform_sampling=cfg.DATA.INV_UNIFORM_SAMPLE,
         aspect_ratio=relative_aspect,
         scale=relative_scales,
-        motion_shift=cfg.DATA.TRAIN_JITTER_MOTION_SHIFT
-        if mode in ["train"]
-        else False,
+        motion_shift=cfg.DATA.TRAIN_JITTER_MOTION_SHIFT if mode in ["train"] else False,
     )
 
     if rand_erase:
@@ -441,9 +436,7 @@ def aug_frame(
 
 
 def _frame_to_list_img(frames):
-    img_list = [
-        transforms.ToPILImage()(frames[i]) for i in range(frames.size(0))
-    ]
+    img_list = [transforms.ToPILImage()(frames[i]) for i in range(frames.size(0))]
     return img_list
 
 

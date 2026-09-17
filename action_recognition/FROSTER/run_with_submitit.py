@@ -2,27 +2,26 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 import argparse
+import multiprocessing as multiprocessing
 import os
 from pathlib import Path
-import shutil
-import submitit
-import multiprocessing
-import sys
+import shutil as shutil
+import subprocess
+import sys as sys
 import uuid
 
-import torch
-import slowfast.utils.checkpoint as cu
-import slowfast.utils.multiprocessing as mpu
+import slowfast.utils.checkpoint as cu  # noqa: F401
 from slowfast.utils.misc import launch_job
+import slowfast.utils.multiprocessing as mpu  # noqa: F401
 from slowfast.utils.parser import load_config
-
+import submitit
 from tools.test_net import test
 from tools.train_net import train
+import torch
+
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        "Submitit for onestage training", add_help=False
-    )
+    parser = argparse.ArgumentParser("Submitit for onestage training", add_help=False)
     parser.add_argument(
         "--num_gpus",
         help="Number of GPUs",
@@ -36,34 +35,26 @@ def parse_args():
         type=int,
     )
     parser.add_argument(
-        "--partition", 
-        default="learnfair", 
-        type=str, 
-        help="Partition where to submit"
+        "--partition", default="learnfair", type=str, help="Partition where to submit"
     )
     parser.add_argument(
-        "--timeout", 
-        default=60 * 48, 
-        type=int, 
-        help="Duration of the job"
+        "--timeout", default=60 * 48, type=int, help="Duration of the job"
     )
     parser.add_argument(
-        "--cfg", 
-        dest="cfg_file", 
+        "--cfg",
+        dest="cfg_file",
         help="Path to the config file",
-        default="configs/test_R50_8GPU.yaml", type=str
+        default="configs/test_R50_8GPU.yaml",
+        type=str,
     )
     parser.add_argument(
-        "--job_dir", 
-        default="/checkpoint/mandelapatrick/slowfast_ssv2", 
-        type=str, 
-        help="Job dir. Leave empty for automatic."
+        "--job_dir",
+        default="/checkpoint/mandelapatrick/slowfast_ssv2",
+        type=str,
+        help="Job dir. Leave empty for automatic.",
     )
     parser.add_argument(
-        "--name", 
-        default="", 
-        type=str, 
-        help="Job dir. Leave empty for automatic."
+        "--name", default="", type=str, help="Job dir. Leave empty for automatic."
     )
     parser.add_argument(
         "--resume-from",
@@ -75,31 +66,25 @@ def parse_args():
         ),
     )
     parser.add_argument(
-        "--resume-job", 
-        default="", 
-        type=str, 
-        help="resume training from the job")
-    parser.add_argument(
-        "--use_volta32", 
-        action='store_true', 
-        help="Big models? Use this")
-    parser.add_argument(
-        "--postfix", 
-        default="experiment", 
-        type=str, 
-        help="Postfix of the jobs"
+        "--resume-job", default="", type=str, help="resume training from the job"
     )
     parser.add_argument(
-        "--mail", 
-        default="", 
-        type=str,
-        help="Email this user when the job finishes if specified"
+        "--use_volta32", action="store_true", help="Big models? Use this"
     )
     parser.add_argument(
-        '--comment', 
-        default="", 
+        "--postfix", default="experiment", type=str, help="Postfix of the jobs"
+    )
+    parser.add_argument(
+        "--mail",
+        default="",
         type=str,
-        help='Comment to pass to scheduler, e.g. priority message'
+        help="Email this user when the job finishes if specified",
+    )
+    parser.add_argument(
+        "--comment",
+        default="",
+        type=str,
+        help="Comment to pass to scheduler, e.g. priority message",
     )
     parser.add_argument(
         "opts",
@@ -119,7 +104,7 @@ def get_shared_folder() -> Path:
     raise RuntimeError("No shared folder available")
 
 
-def get_init_file():    
+def get_init_file():
     # Init file must not exist, but it's parent dir must exist.
     os.makedirs(str(get_shared_folder()), exist_ok=True)
     init_file = get_shared_folder() / f"{uuid.uuid4().hex}_init"
@@ -131,14 +116,12 @@ def get_init_file():
 def launch(shard_id, num_shards, cfg, init_method):
     os.environ["NCCL_MIN_NRINGS"] = "8"
 
-    print ("Pytorch version: ", torch.__version__)
+    print("Pytorch version: ", torch.__version__)
     cfg.SHARD_ID = shard_id
     cfg.NUM_SHARDS = num_shards
     cfg.USE_SBATCH = False
 
-    print([
-        shard_id, num_shards, cfg
-    ])
+    print([shard_id, num_shards, cfg])
 
     # train, test = get_func(cfg)
     # Launch job.
@@ -155,14 +138,24 @@ class Trainer(object):
 
     def __call__(self):
 
-        socket_name = os.popen("ip r | grep default | awk '{print $5}'").read().strip('\n')
+        socket_name = subprocess.run(
+            "ip r | grep default | awk '{print $5}'",
+            shell=True,
+            stdout=subprocess.PIPE,
+            text=True,
+            check=False,
+        ).stdout.strip("\n")
         print("Setting GLOO and NCCL sockets IFNAME to: {}".format(socket_name))
         os.environ["GLOO_SOCKET_IFNAME"] = socket_name
         os.environ["NCCL_SOCKET_IFNAME"] = socket_name
 
-        hostname_first_node = os.popen(
-            "scontrol show hostnames $SLURM_JOB_NODELIST"
-        ).read().split("\n")[0]
+        hostname_first_node = subprocess.run(
+            "scontrol show hostnames $SLURM_JOB_NODELIST",
+            shell=True,
+            stdout=subprocess.PIPE,
+            text=True,
+            check=False,
+        ).stdout.split("\n")[0]
         dist_url = "tcp://{}:12399".format(hostname_first_node)
         print("We will use the following dist url: {}".format(dist_url))
 
@@ -193,7 +186,9 @@ class Trainer(object):
         print(self.args)
 
         self.args.machine_rank = job_env.global_rank
-        self.args.output_dir = str(self.args.output_dir).replace("%j", str(job_env.job_id))
+        self.args.output_dir = str(self.args.output_dir).replace(
+            "%j", str(job_env.job_id)
+        )
         print(f"Process rank: {job_env.global_rank}")
 
 
@@ -202,7 +197,7 @@ def main():
 
     if args.name == "":
         cfg_name = os.path.splitext(os.path.basename(args.cfg_file))[0]
-        args.name = '_'.join([cfg_name, args.postfix])
+        args.name = "_".join([cfg_name, args.postfix])
 
     assert args.job_dir != ""
 
@@ -217,9 +212,9 @@ def main():
     timeout_min = args.timeout
     kwargs = {}
     if args.use_volta32:
-        kwargs['slurm_constraint'] = 'volta32gb'
+        kwargs["slurm_constraint"] = "volta32gb"
     if args.comment:
-        kwargs['slurm_comment'] = args.comment
+        kwargs["slurm_comment"] = args.comment
 
     executor.update_parameters(
         mem_gb=60 * num_gpus_per_node,
@@ -230,9 +225,8 @@ def main():
         timeout_min=timeout_min,  # max is 60 * 72
         slurm_partition=partition,
         slurm_signal_delay_s=120,
-        **kwargs
+        **kwargs,
     )
-
 
     print(args.name)
     executor.update_parameters(name=args.name)

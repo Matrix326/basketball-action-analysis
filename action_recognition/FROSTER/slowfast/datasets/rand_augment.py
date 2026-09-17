@@ -27,9 +27,11 @@ Hacked together by / Copyright 2020 Ross Wightman
 """
 
 import math
-import numpy as np
 import random
 import re
+from typing import cast
+
+import numpy as np
 import PIL
 from PIL import Image, ImageEnhance, ImageOps
 
@@ -46,11 +48,11 @@ _HPARAMS_DEFAULT = {
     "img_mean": _FILL,
 }
 
-_RANDOM_INTERPOLATION = (Image.BILINEAR, Image.BICUBIC)
+_RANDOM_INTERPOLATION = (Image.Resampling.BILINEAR, Image.Resampling.BICUBIC)
 
 
 def _interpolation(kwargs):
-    interpolation = kwargs.pop("resample", Image.BILINEAR)
+    interpolation = kwargs.pop("resample", Image.Resampling.BILINEAR)
     if isinstance(interpolation, (list, tuple)):
         return random.choice(interpolation)
     else:
@@ -66,14 +68,14 @@ def _check_args_tf(kwargs):
 def shear_x(img, factor, **kwargs):
     _check_args_tf(kwargs)
     return img.transform(
-        img.size, Image.AFFINE, (1, factor, 0, 0, 1, 0), **kwargs
+        img.size, Image.Transform.AFFINE, (1, factor, 0, 0, 1, 0), **kwargs
     )
 
 
 def shear_y(img, factor, **kwargs):
     _check_args_tf(kwargs)
     return img.transform(
-        img.size, Image.AFFINE, (1, 0, 0, factor, 1, 0), **kwargs
+        img.size, Image.Transform.AFFINE, (1, 0, 0, factor, 1, 0), **kwargs
     )
 
 
@@ -81,7 +83,7 @@ def translate_x_rel(img, pct, **kwargs):
     pixels = pct * img.size[0]
     _check_args_tf(kwargs)
     return img.transform(
-        img.size, Image.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs
+        img.size, Image.Transform.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs
     )
 
 
@@ -89,21 +91,21 @@ def translate_y_rel(img, pct, **kwargs):
     pixels = pct * img.size[1]
     _check_args_tf(kwargs)
     return img.transform(
-        img.size, Image.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs
+        img.size, Image.Transform.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs
     )
 
 
 def translate_x_abs(img, pixels, **kwargs):
     _check_args_tf(kwargs)
     return img.transform(
-        img.size, Image.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs
+        img.size, Image.Transform.AFFINE, (1, 0, pixels, 0, 1, 0), **kwargs
     )
 
 
 def translate_y_abs(img, pixels, **kwargs):
     _check_args_tf(kwargs)
     return img.transform(
-        img.size, Image.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs
+        img.size, Image.Transform.AFFINE, (1, 0, 0, 0, 1, pixels), **kwargs
     )
 
 
@@ -136,7 +138,7 @@ def rotate(img, degrees, **kwargs):
         )
         matrix[2] += rotn_center[0]
         matrix[5] += rotn_center[1]
-        return img.transform(img.size, Image.AFFINE, matrix, **kwargs)
+        return img.transform(img.size, Image.Transform.AFFINE, matrix, **kwargs)
     else:
         return img.rotate(degrees, resample=kwargs["resample"])
 
@@ -349,9 +351,7 @@ class AugmentOp:
         self.magnitude = magnitude
         self.hparams = hparams.copy()
         self.kwargs = {
-            "fillcolor": hparams["img_mean"]
-            if "img_mean" in hparams
-            else _FILL,
+            "fillcolor": hparams["img_mean"] if "img_mean" in hparams else _FILL,
             "resample": hparams["interpolation"]
             if "interpolation" in hparams
             else _RANDOM_INTERPOLATION,
@@ -361,7 +361,7 @@ class AugmentOp:
         # in the usually fixed policy and sample magnitude from a normal distribution
         # with mean `magnitude` and std-dev of `magnitude_std`.
         # NOTE This is my own hack, being tested, not in papers or reference impls.
-        self.magnitude_std = self.hparams.get("magnitude_std", 0)
+        self.magnitude_std = cast(float, self.hparams.get("magnitude_std", 0))
 
     def __call__(self, img_list):
         if self.prob < 1.0 and random.random() > self.prob:
@@ -371,15 +371,11 @@ class AugmentOp:
             magnitude = random.gauss(magnitude, self.magnitude_std)
         magnitude = min(_MAX_LEVEL, max(0, magnitude))  # clip to valid range
         level_args = (
-            self.level_fn(magnitude, self.hparams)
-            if self.level_fn is not None
-            else ()
+            self.level_fn(magnitude, self.hparams) if self.level_fn is not None else ()
         )
 
         if isinstance(img_list, list):
-            return [
-                self.aug_fn(img, *level_args, **self.kwargs) for img in img_list
-            ]
+            return [self.aug_fn(img, *level_args, **self.kwargs) for img in img_list]
         else:
             return self.aug_fn(img_list, *level_args, **self.kwargs)
 
@@ -527,7 +523,5 @@ def rand_augment_transform(config_str, hparams):
     ra_ops = rand_augment_ops(
         magnitude=magnitude, hparams=hparams, transforms=transforms
     )
-    choice_weights = (
-        None if weight_idx is None else _select_rand_weights(weight_idx)
-    )
+    choice_weights = None if weight_idx is None else _select_rand_weights(weight_idx)
     return RandAugment(ra_ops, num_layers, choice_weights=choice_weights)

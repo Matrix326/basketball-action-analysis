@@ -3,14 +3,15 @@
 
 """Data loader."""
 
-import itertools
-import numpy as np
 from functools import partial
-from typing import List
+import itertools
+from typing import List as List
+
+import numpy as np
 import torch
 from torch.utils.data._utils.collate import default_collate
 from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data.sampler import RandomSampler, Sampler
+from torch.utils.data.sampler import RandomSampler, Sampler as Sampler
 
 from slowfast.datasets.multigrid_helper import ShortCycleBatchSampler
 
@@ -75,9 +76,9 @@ def detection_collate(batch):
             bboxes = np.concatenate(bboxes, axis=0)
             collated_extra_data[key] = torch.tensor(bboxes).float()
         elif key == "metadata":
-            collated_extra_data[key] = torch.tensor(
-                list(itertools.chain(*data))
-            ).view(-1, 2)
+            collated_extra_data[key] = torch.tensor(list(itertools.chain(*data))).view(
+                -1, 2
+            )
         else:
             collated_extra_data[key] = default_collate(data)
 
@@ -100,8 +101,16 @@ def construct_loader(cfg, split, is_precise_bn=False):
         shuffle = True
         drop_last = True
     elif split in ["val"]:
-        dataset_name = cfg.TRAIN.DATASET if cfg.TRAIN.DATASET != 'kinectis_metazs' else cfg.TEST.DATASET
-        batch_size = int(cfg.TRAIN.BATCH_SIZE / max(1, cfg.NUM_GPUS)) if cfg.TRAIN.DATASET != 'kinectis_metazs' else int(cfg.TEST.BATCH_SIZE / max(1, cfg.NUM_GPUS))
+        dataset_name = (
+            cfg.TRAIN.DATASET
+            if cfg.TRAIN.DATASET != "kinectis_metazs"
+            else cfg.TEST.DATASET
+        )
+        batch_size = (
+            int(cfg.TRAIN.BATCH_SIZE / max(1, cfg.NUM_GPUS))
+            if cfg.TRAIN.DATASET != "kinectis_metazs"
+            else int(cfg.TEST.BATCH_SIZE / max(1, cfg.NUM_GPUS))
+        )
         shuffle = False
         drop_last = False
     elif split in ["test", "test_openset"]:
@@ -124,11 +133,7 @@ def construct_loader(cfg, split, is_precise_bn=False):
             worker_init_fn=utils.loader_worker_init_fn(dataset),
         )
     else:
-        if (
-            cfg.MULTIGRID.SHORT_CYCLE
-            and split in ["train"]
-            and not is_precise_bn
-        ):
+        if cfg.MULTIGRID.SHORT_CYCLE and split in ["train"] and not is_precise_bn:
             # Create a sampler for multi-process training
             sampler = utils.create_sampler(dataset, shuffle, cfg)
             batch_sampler = ShortCycleBatchSampler(
@@ -178,14 +183,15 @@ def construct_loader(cfg, split, is_precise_bn=False):
 
 def construct_frame_loader(cfg, split, is_precise_bn=False):
     """
-        Constructs the data loader for the given dataset.
-        Args:
-            cfg (CfgNode): configs. Details can be found in
-                slowfast/config/defaults.py
-            split (str): the split of the data loader. Options include `train`,
-                `val`, and `test`.
-        """
+    Constructs the data loader for the given dataset.
+    Args:
+        cfg (CfgNode): configs. Details can be found in
+            slowfast/config/defaults.py
+        split (str): the split of the data loader. Options include `train`,
+            `val`, and `test`.
+    """
     from .video_dataset import Video_dataset, get_augmentation
+
     assert split in ["train", "val", "test", "test_openset"]
     if split in ["train"]:
         dataset_name = cfg.TRAIN.DATASET
@@ -193,10 +199,16 @@ def construct_frame_loader(cfg, split, is_precise_bn=False):
         shuffle = True
         drop_last = True
     elif split in ["val"]:
-        dataset_name = cfg.TRAIN.DATASET if cfg.TRAIN.DATASET != 'kinectis_metazs' else cfg.TEST.DATASET
-        batch_size = int(
-            cfg.TRAIN.BATCH_SIZE / max(1, cfg.NUM_GPUS)) if cfg.TRAIN.DATASET != 'kinectis_metazs' else int(
-            cfg.TEST.BATCH_SIZE / max(1, cfg.NUM_GPUS))
+        dataset_name = (
+            cfg.TRAIN.DATASET
+            if cfg.TRAIN.DATASET != "kinectis_metazs"
+            else cfg.TEST.DATASET
+        )
+        batch_size = (
+            int(cfg.TRAIN.BATCH_SIZE / max(1, cfg.NUM_GPUS))
+            if cfg.TRAIN.DATASET != "kinectis_metazs"
+            else int(cfg.TEST.BATCH_SIZE / max(1, cfg.NUM_GPUS))
+        )
         shuffle = False
         drop_last = False
     elif split in ["test", "test_openset"]:
@@ -209,17 +221,22 @@ def construct_frame_loader(cfg, split, is_precise_bn=False):
     # dataset = build_dataset(dataset_name, cfg, split)
     transform_val = get_augmentation(False, cfg)
     if cfg.MODEL.NUM_CLASSES == 400:
-        image_tmpl='{:06d}.jpg'
+        image_tmpl = "{:06d}.jpg"
     else:
-        image_tmpl='frame{:06d}.jpg'
+        image_tmpl = "frame{:06d}.jpg"
     dataset = Video_dataset(
-                cfg.DATA.PATH_PREFIX, cfg.DATA.PATH_TO_DATA_DIR, cfg.DATA.INDEX_LABEL_MAPPING_FILE,
-                random_shift=False, num_segments=cfg.DATA.NUM_FRAMES,
-                modality='RGB', image_tmpl=image_tmpl, test_mode=True,
-                transform=transform_val,
-                dense_sample=False,
-                test_clips=cfg.TEST.NUM_ENSEMBLE_VIEWS
-            )
+        cfg.DATA.PATH_PREFIX,
+        cfg.DATA.PATH_TO_DATA_DIR,
+        cfg.DATA.INDEX_LABEL_MAPPING_FILE,
+        random_shift=False,
+        num_segments=cfg.DATA.NUM_FRAMES,
+        modality="RGB",
+        image_tmpl=image_tmpl,
+        test_mode=True,
+        transform=transform_val,
+        dense_sample=False,
+        test_clips=cfg.TEST.NUM_ENSEMBLE_VIEWS,
+    )
 
     if isinstance(dataset, torch.utils.data.IterableDataset):
         loader = torch.utils.data.DataLoader(
@@ -232,11 +249,7 @@ def construct_frame_loader(cfg, split, is_precise_bn=False):
             worker_init_fn=utils.loader_worker_init_fn(dataset),
         )
     else:
-        if (
-                cfg.MULTIGRID.SHORT_CYCLE
-                and split in ["train"]
-                and not is_precise_bn
-        ):
+        if cfg.MULTIGRID.SHORT_CYCLE and split in ["train"] and not is_precise_bn:
             # Create a sampler for multi-process training
             sampler = utils.create_sampler(dataset, shuffle, cfg)
             batch_sampler = ShortCycleBatchSampler(
@@ -257,13 +270,13 @@ def construct_frame_loader(cfg, split, is_precise_bn=False):
             if cfg.DETECTION.ENABLE:
                 collate_func = detection_collate
             elif (
-                    (
-                            cfg.AUG.NUM_SAMPLE > 1
-                            or cfg.DATA.TRAIN_CROP_NUM_TEMPORAL > 1
-                            or cfg.DATA.TRAIN_CROP_NUM_SPATIAL > 1
-                    )
-                    and split in ["train"]
-                    and not cfg.MODEL.MODEL_NAME == "ContrastiveModel"
+                (
+                    cfg.AUG.NUM_SAMPLE > 1
+                    or cfg.DATA.TRAIN_CROP_NUM_TEMPORAL > 1
+                    or cfg.DATA.TRAIN_CROP_NUM_SPATIAL > 1
+                )
+                and split in ["train"]
+                and not cfg.MODEL.MODEL_NAME == "ContrastiveModel"
             ):
                 collate_func = partial(
                     multiple_samples_collate, fold="imagenet" in dataset_name
@@ -283,6 +296,7 @@ def construct_frame_loader(cfg, split, is_precise_bn=False):
             )
     return loader
 
+
 def shuffle_dataset(loader, cur_epoch):
     """
     Shuffles the data.
@@ -290,10 +304,7 @@ def shuffle_dataset(loader, cur_epoch):
         loader (loader): data loader to perform shuffle.
         cur_epoch (int): number of the current epoch.
     """
-    if (
-        loader._dataset_kind
-        == torch.utils.data.dataloader._DatasetKind.Iterable
-    ):
+    if loader._dataset_kind == torch.utils.data.dataloader._DatasetKind.Iterable:
         if hasattr(loader.dataset, "sampler"):
             sampler = loader.dataset.sampler
         else:
@@ -306,9 +317,9 @@ def shuffle_dataset(loader, cur_epoch):
             if isinstance(loader.batch_sampler, ShortCycleBatchSampler)
             else loader.sampler
         )
-    assert isinstance(
-        sampler, (RandomSampler, DistributedSampler)
-    ), "Sampler type '{}' not supported".format(type(sampler))
+    assert isinstance(sampler, (RandomSampler, DistributedSampler)), (
+        "Sampler type '{}' not supported".format(type(sampler))
+    )
     # RandomSampler handles shuffling automatically
     if isinstance(sampler, DistributedSampler):
         # DistributedSampler shuffles data based on epoch

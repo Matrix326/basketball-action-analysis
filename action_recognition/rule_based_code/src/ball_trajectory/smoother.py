@@ -19,6 +19,7 @@ import numpy as np
 
 GRAVITY = 9.81
 
+
 def _process_noise_per_step(
     sigma_base: float,
     is_bounce: bool,
@@ -74,10 +75,10 @@ def rts_smooth(
     B[5] = -9.81 * dt
     H = np.zeros((3, 6))
     H[0, 0] = H[1, 1] = H[2, 2] = 1.0
-    R = np.eye(3) * (measurement_noise_m ** 2)
+    R = np.eye(3) * (measurement_noise_m**2)
     Q = np.eye(6)
     Q[3, 3] = Q[4, 4] = Q[5, 5] = (process_noise_other_m_s2 * dt) ** 2
-    Q[:3, :3] *= (dt * dt)
+    Q[:3, :3] *= dt * dt
     # initial
     first = None
     for i in range(n):
@@ -164,7 +165,7 @@ def rts_smooth(
         v0 = (positions[nxt] - y0) / (float(frames[nxt] - frames[first_meas]) / fps)
     x = np.concatenate([y0, v0])
     P = np.zeros((6, 6))
-    P[0:3, 0:3] = sigma_meas ** 2 * np.eye(3)
+    P[0:3, 0:3] = sigma_meas**2 * np.eye(3)
     P[3:6, 3:6] = (2.0 * sigma_meas / dt) ** 2 * np.eye(3)
     x_filt[first_meas] = x
     P_filt[first_meas] = P
@@ -172,7 +173,9 @@ def rts_smooth(
 
     for i in range(first_meas + 1, n):
         sigma_a = sigma_flight if seg_kinds[i] in ("flight", "dribble") else sigma_other
-        Q = _process_noise_per_step(sigma_a, int(frames[i]) in bounce_frames, bounce_q_multiplier, dt)
+        Q = _process_noise_per_step(
+            sigma_a, int(frames[i]) in bounce_frames, bounce_q_multiplier, dt
+        )
         x_pred[i] = F @ x + u
         P_pred[i] = F @ P @ F.T + Q
         if observed[i]:

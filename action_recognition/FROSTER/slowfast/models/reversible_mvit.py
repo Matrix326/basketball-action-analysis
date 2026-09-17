@@ -1,5 +1,7 @@
-import sys
 from functools import partial
+import sys
+from typing import Literal, cast
+
 import torch
 from torch import nn
 from torch.autograd import Function as Function
@@ -62,9 +64,7 @@ class ReversibleMViT(nn.Module):
         for i in range(len(self.cfg.MVIT.DIM_MUL)):
             dim_mul[self.cfg.MVIT.DIM_MUL[i][0]] = self.cfg.MVIT.DIM_MUL[i][1]
         for i in range(len(self.cfg.MVIT.HEAD_MUL)):
-            head_mul[self.cfg.MVIT.HEAD_MUL[i][0]] = self.cfg.MVIT.HEAD_MUL[i][
-                1
-            ]
+            head_mul[self.cfg.MVIT.HEAD_MUL[i][0]] = self.cfg.MVIT.HEAD_MUL[i][1]
 
         pool_q = model.pool_q
         pool_kv = model.pool_kv
@@ -72,7 +72,6 @@ class ReversibleMViT(nn.Module):
         stride_kv = model.stride_kv
 
         for i in range(depth):
-
             num_heads = round_width(num_heads, head_mul[i])
 
             # Upsampling inside the MHPA, input to the Q-pooling block is lower C dimension
@@ -118,12 +117,11 @@ class ReversibleMViT(nn.Module):
                 )
             )
             # F is the attention block
-            self.layers[-1].F.thw = input_size
+            cast(ReversibleBlock, self.layers[-1]).F.thw = input_size
 
             if len(stride_q[i]) > 0:
                 input_size = [
-                    size // stride
-                    for size, stride in zip(input_size, stride_q[i])
+                    size // stride for size, stride in zip(input_size, stride_q[i])
                 ]
 
         embed_dim = dim_out
@@ -145,17 +143,19 @@ class ReversibleMViT(nn.Module):
     def forward(self, x):
 
         # process the layers in a reversible stack and an irreversible stack.
-        stack = []
+        stack: list[
+            tuple[Literal["StageTransition"], int]
+            | tuple[Literal["Reversible"], list[int]]
+        ] = []
         for l_i in range(len(self.layers)):
             if isinstance(self.layers[l_i], StageTransitionBlock):
                 stack.append(("StageTransition", l_i))
             else:
                 if len(stack) == 0 or stack[-1][0] == "StageTransition":
                     stack.append(("Reversible", []))
-                stack[-1][1].append(l_i)
+                cast(list[int], stack[-1][1]).append(l_i)
 
         for layer_seq in stack:
-
             if layer_seq[0] == "StageTransition":
                 x = self.layers[layer_seq[1]](x)
 
@@ -207,7 +207,6 @@ class RevBackProp(Function):
         intermediate = []
 
         for layer in layers:
-
             X_1, X_2 = layer(X_1, X_2)
 
             if layer.layer_id in buffer_layers:
@@ -225,7 +224,8 @@ class RevBackProp(Function):
         return torch.cat([X_1, X_2], dim=-1)
 
     @staticmethod
-    def backward(ctx, dx):
+    # Autograd fixes backward arity from this Function\'s forward outputs.
+    def backward(ctx, dx):  # ty: ignore[invalid-method-override]
         """
         Reversible Backward pass. Any intermediate activations from `buffer_layers` are
         recovered from ctx. Each layer implements its own loic for backward pass (both
@@ -246,22 +246,15 @@ class RevBackProp(Function):
         layers = ctx.layers
 
         for _, layer in enumerate(layers[::-1]):
-
             if layer.layer_id in buffer_layers:
-
                 X_1, X_2, dX_1, dX_2 = layer.backward_pass(
-                    Y_1=int_tensors[
-                        buffer_layers.index(layer.layer_id) * 2 + 1
-                    ],
-                    Y_2=int_tensors[
-                        buffer_layers.index(layer.layer_id) * 2 + 2
-                    ],
+                    Y_1=int_tensors[buffer_layers.index(layer.layer_id) * 2 + 1],
+                    Y_2=int_tensors[buffer_layers.index(layer.layer_id) * 2 + 2],
                     dY_1=dX_1,
                     dY_2=dX_2,
                 )
 
             else:
-
                 X_1, X_2, dX_1, dX_2 = layer.backward_pass(
                     Y_1=X_1,
                     Y_2=X_2,
@@ -344,9 +337,19 @@ class StageTransitionBlock(nn.Module):
             self.res_conv = False
             self.pool_skip = nn.MaxPool3d(
                 # self.attention.attn.pool_q.kernel_size,
-                [s + 1 if s > 1 else s for s in self.F.attn.pool_q.stride],
-                self.F.attn.pool_q.stride,
-                [int(k // 2) for k in self.F.attn.pool_q.stride],
+                tuple(
+                    s + 1 if s > 1 else s
+                    for s in cast(
+                        tuple[int, ...], cast(nn.MaxPool3d, self.F.attn.pool_q).stride
+                    )
+                ),
+                cast(tuple[int, ...], cast(nn.MaxPool3d, self.F.attn.pool_q).stride),
+                tuple(
+                    int(k // 2)
+                    for k in cast(
+                        tuple[int, ...], cast(nn.MaxPool3d, self.F.attn.pool_q).stride
+                    )
+                ),
                 # self.attention.attn.pool_q.padding,
                 ceil_mode=False,
             )
@@ -379,7 +382,6 @@ class StageTransitionBlock(nn.Module):
             x_res = self.res_proj(x_res)
 
         if self.res_conv:
-
             # Pooling the hidden features with the same conv as Q
             N, L, C = x_res.shape
 
@@ -390,9 +392,7 @@ class StageTransitionBlock(nn.Module):
                 fold_dim = self.F.attn.num_heads
 
             # Output is (B, N, L, C)
-            x_res = x_res.reshape(N, L, fold_dim, C // fold_dim).permute(
-                0, 2, 1, 3
-            )
+            x_res = x_res.reshape(N, L, fold_dim, C // fold_dim).permute(0, 2, 1, 3)
 
             x_res, _ = attention_pool(
                 x_res,
@@ -400,9 +400,7 @@ class StageTransitionBlock(nn.Module):
                 # thw_shape = self.attention.attn.thw,
                 thw_shape=self.F.thw,
                 has_cls_embed=self.has_cls_embed,
-                norm=self.F.attn.norm_q
-                if hasattr(self.F.attn, "norm_q")
-                else None,
+                norm=self.F.attn.norm_q if hasattr(self.F.attn, "norm_q") else None,
             )
             x_res = x_res.permute(0, 2, 1, 3).reshape(N, x_res.shape[2], C)
 
@@ -451,7 +449,7 @@ class ReversibleBlock(nn.Module):
         cfg,
         norm_layer=nn.LayerNorm,
         layer_id=0,
-        **kwargs
+        **kwargs,
     ):
         """
         Block is composed entirely of function F (Attention
@@ -560,7 +558,6 @@ class ReversibleBlock(nn.Module):
         # temporarily record intermediate activation for G
         # and use them for gradient calculcation of G
         with torch.enable_grad():
-
             Y_1.requires_grad = True
 
             torch.manual_seed(self.seeds["FFN"])
@@ -576,7 +573,6 @@ class ReversibleBlock(nn.Module):
         # activation recomputation is by design and not part of
         # the computation graph in forward pass.
         with torch.no_grad():
-
             X_2 = Y_2 - g_Y_1
             del g_Y_1
 
@@ -600,7 +596,6 @@ class ReversibleBlock(nn.Module):
         # propagate reverse computed acitvations at the start of
         # the previou block for backprop.s
         with torch.no_grad():
-
             X_1 = Y_1 - f_X_2
 
             del f_X_2, Y_1
