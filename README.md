@@ -80,9 +80,11 @@ CUDA_VISIBLE_DEVICES=0 python src/run_rfdetr_full_pipeline.py \
   --config config/config.yaml --start-frame 0 --end-frame 19739 \
   --output-base output/full
 
-# 篮筐定位（YOLO 检测 + 标定三角化 → hoop_3d.json）
+# 篮筐定位（YOLO 检测 + 标定三角化 → poses 同级的 hoop_3d.json）
+# --poses 让输出落在动作识别模块会复用的位置，并提供 balls_3d 用于锁定真篮筐
 python src/hoop_detection/run_hoop_detection.py \
-  --config config/config.yaml --start-frame 900 --end-frame 1800
+  --config config/config.yaml --poses output/full/poses/poses_3d.json \
+  --start-frame 900 --end-frame 1800
 ```
 
 产物：`output/full/poses/poses_3d.json` + 各视角轨迹视频 + 俯视轨迹 + 3D 骨架动画。

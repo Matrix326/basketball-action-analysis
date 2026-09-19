@@ -1,6 +1,6 @@
 # RF-DETR-Seg 2XL + RTMPose multi-view basketball configuration
 project_root: auto
-data_root: /data/tt/data/videodata/11.19
+data_root: /data/ljy23/data/videodata/11.19
 
 model:
   insightface_name: buffalo_l

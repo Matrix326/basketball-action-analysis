@@ -11,10 +11,15 @@ imageio-ffmpeg>=0.6.0
 
 # RF-DETR-Seg runtime
 supervision>=0.28.0
+# 微调球检测（rfdetr.backend: hybrid）按 PyTorch 权重加载，走 rfdetr.variants
+rfdetr==1.9.1
 
 # RTMPose runtime (MMPose source is vendored under third_party/)
 mmengine>=0.6.0,<1.0.0
 mmcv-lite>=2.0.0rc4,<=2.3.0
+
+# 篮筐定位工具（src/hoop_detection/run_hoop_detection.py）
+ultralytics==8.4.123
 
 # ReID and GPU inference
 insightface>=0.7.3

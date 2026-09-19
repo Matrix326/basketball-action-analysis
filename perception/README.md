@@ -95,13 +95,26 @@ python src/run_rfdetr_full_pipeline.py \
 
 ```bash
 python src/hoop_detection/run_hoop_detection.py \
-  --config config/config.yaml --start-frame 900 --end-frame 1800
+  --config config/config.yaml --poses <OUTPUT_BASE>/poses/poses_3d.json \
+  --start-frame 900 --end-frame 1800
 ```
+
+`--poses` 指向本次运行的 `poses_3d.json`，有两个作用：
+
+- 输出写到它的同级目录，正好对上动作识别模块"同级 `hoop_3d.json` 自动复用"
+  的约定（否则会落到 `output.reid_3d_dir`，两个模块对不上）；
+- 从它的 `balls_3d` 读取球的观测位置，用于在候选中锁定真篮筐。
 
 用 YOLO（`models/hoop_yolo.pt`）在四视角检测篮筐 → 每视角候选聚类 →
 跨视角三角化（共识 + 球场范围/高度过滤）→ 用球的飞行轨迹锁定真篮筐。
 权重与球轨迹路径可在配置 `hoop_detection:` 段设置；也可由动作识别模块的
 桥接器直接从标注像素三角化（见 `action_recognition/rule_based_code/tools/`）。
+
+没有球证据时（既没有 `ball_trajectory.json`，`poses_3d.json` 里也没有
+`balls_3d`），只剩视角支持数可用，而单个视角的误检就能让错误候选胜出——
+此时会打印警告并在输出里标 `"ambiguous": true`，该位置可能不落在任何篮筐上。
+用 `--hoop-3d <文件>`（`hoop_3d.json` 或只含 `[x, y, z]` 的 JSON）可直接指定
+篮筐位置并跳过检测与三角化。
 
 其他参数：
 

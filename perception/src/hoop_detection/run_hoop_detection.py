@@ -4,8 +4,16 @@
 Stage 1: YOLO hoop/ball detection on every frame of the requested range.
 Stage 2: per-view candidate clustering (the hoop is static -> stable boxes).
 Stage 3: cross-view triangulation of the per-view cluster bottoms using the
-         existing calibration; consensus 3D point within the court bounds and
-         hoop height (~3.05 m) is the hoop.
+         existing calibration; candidates within the court bounds and hoop
+         height range are kept, then filtered by how many views they reproject
+         onto a detected cluster.
+Stage 4: pick the true hoop among the survivors. The ball flies to the real
+         hoop, so the action module's ball_trajectory.json is the reliable
+         signal; without it only view support remains, which a single false
+         detection can corrupt — the run warns and flags the result.
+
+Pass --hoop-3d (or set hoop_detection.hoop_3d_path) to skip stages 1-4 and use
+an existing hoop position instead.
 
 Output: output/rfdetr_multiview/poses/hoop_3d.json
 """
@@ -17,7 +25,7 @@ from collections import defaultdict
 import json
 from pathlib import Path
 import sys
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Callable, cast
 
 import cv2
 import numpy as np
@@ -54,6 +62,86 @@ def triangulate(
     return point if np.isfinite(point).all() else None
 
 
+def read_hoop_file(path: Path) -> list[float]:
+    """Read a hoop position from a hoop_3d.json or a bare [x, y, z] JSON file."""
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    point = data.get("hoop_center") if isinstance(data, dict) else data
+    if not isinstance(point, (list, tuple)) or len(point) != 3:
+        raise ValueError(f"{path}: expected 'hoop_center' or a bare [x, y, z]")
+    try:
+        values = [float(v) for v in point]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{path}: hoop position is not numeric ({exc})") from exc
+    if not np.isfinite(values).all():
+        raise ValueError(f"{path}: hoop position is not finite")
+    return values
+
+
+def ball_positions_from_trajectory(path: Path) -> list[list[float]]:
+    """Observed ball positions from the action module's ball_trajectory.json."""
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    return [
+        [float(v) for v in record["position"]]
+        for record in (data.get("frames") or {}).values()
+        if record.get("position") is not None
+    ]
+
+
+def ball_positions_from_poses(path: Path) -> list[list[float]]:
+    """Observed ball positions straight from a perception poses_3d.json.
+
+    This lets hoop detection run before the action module: the ball flies to
+    the real hoop, and `balls_3d` already carries that evidence. Filtered and
+    predicted frames are skipped, as in ball_trajectory.json.
+    """
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    predicted = data.get("balls_3d_predicted") or {}
+    positions = []
+    for frame, xyz in (data.get("balls_3d") or {}).items():
+        if xyz is None or predicted.get(frame, False):
+            continue
+        values = [float(v) for v in xyz]
+        if np.isfinite(values).all():
+            positions.append(values)
+    return positions
+
+
+def write_hoop_json(
+    path: Path,
+    hoop: list[float],
+    *,
+    start_frame: int,
+    end_frame: int,
+    candidates: list[dict],
+    source: str,
+    ambiguous: bool,
+) -> None:
+    output = {
+        "schema_version": "hoop-3d/v1",
+        "hoop_center": hoop,
+        "hoop_bottom": [hoop[0], hoop[1], hoop[2]],
+        "height_m": round(float(hoop[2]), 3),
+        "frame_range": [start_frame, end_frame],
+        "source": source,
+        "ambiguous": ambiguous,
+        "candidates": [
+            {
+                "point": [round(v, 3) for v in c["point"]],
+                "views": c.get("supporting_views", c["views"]),
+            }
+            for c in candidates
+        ],
+        "coordinate_system": "calibrated world metres, z up",
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(output, handle, ensure_ascii=False, indent=1)
+    print(f"[ok] hoop 3D -> {path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hoop detection and 3D triangulation")
     parser.add_argument(
@@ -71,18 +159,64 @@ def main() -> None:
     parser.add_argument(
         "--sample-every", type=int, default=5, help="process every Nth frame"
     )
+    parser.add_argument(
+        "--poses",
+        default=None,
+        help="poses_3d.json of the run this hoop belongs to. Writes hoop_3d.json "
+        "next to it (the action module reuses a sibling hoop_3d.json) and looks "
+        "for a sibling ball_trajectory.json there.",
+    )
+    parser.add_argument(
+        "--ball-trajectory",
+        default=None,
+        help="ball_trajectory.json from the action module. The ball flies to the "
+        "real hoop, so it disambiguates among candidate hoops. Default: "
+        "hoop_detection.ball_trajectory_path, else a sibling of --poses, else "
+        "<output.reid_3d_dir>/ball_trajectory.json",
+    )
+    parser.add_argument(
+        "--hoop-3d",
+        default=None,
+        help="Existing hoop position: a hoop_3d.json (schema hoop-3d/v1) or a "
+        "bare [x, y, z] JSON file. Skips YOLO detection and triangulation.",
+    )
     parser.add_argument("--output", default=None)
     args = parser.parse_args()
 
-    from ultralytics import YOLO
-
     config = load_config(args.config)
+
+    # Resolve the output path first: an external hoop or a --poses anchor can
+    # settle the answer without importing or running the detector at all.
+    if args.output:
+        output_path = Path(args.output)
+    elif args.poses:
+        output_path = Path(args.poses).parent / "hoop_3d.json"
+    else:
+        output_path = Path(config.get("output.reid_3d_dir")) / "hoop_3d.json"
+
+    external_hoop = args.hoop_3d or config.get("hoop_detection.hoop_3d_path")
+    if external_hoop:
+        hoop = read_hoop_file(Path(external_hoop))
+        print(f"[info] external hoop {external_hoop} -> {[round(v, 3) for v in hoop]}")
+        write_hoop_json(
+            output_path,
+            hoop,
+            start_frame=args.start_frame,
+            end_frame=args.end_frame,
+            candidates=[],
+            source=f"external:{external_hoop}",
+            ambiguous=False,
+        )
+        return
+
     weights = (
         args.weights
         or config.get("hoop_detection.weights")
         or str(PROJECT_ROOT / "models" / "hoop_yolo.pt")
     )
     print(f"hoop weights: {weights}")
+    from ultralytics import YOLO
+
     model = YOLO(weights)
     print("classes:", model.names)
 
@@ -188,7 +322,14 @@ def main() -> None:
 
     # Consensus: the true hoop reprojects onto a detected cluster in every
     # view that can see it (B3 sees none). Count supporting views per point.
-    support_px = 250.0
+    #
+    # Clusters are medians over hundreds of frames, so a matching projection
+    # lands within a few pixels. The original 250 px accepted unrelated
+    # clusters: on the 11.19 clip the true hoop reprojected within 6 px while a
+    # false candidate was credited with a view 173 px away, which let two
+    # spurious candidates outrank the real hoop. 60 px keeps ~10x headroom over
+    # the observed match error without swallowing unrelated clusters.
+    support_px = float(config.get("hoop_detection.support_px", 60.0))
     supported: list[dict] = []
     for c in plausible:
         point = np.asarray(c["point"])
@@ -220,19 +361,56 @@ def main() -> None:
     # The ball trajectory is produced by the action module (ljy/rule_based_code);
     # point this at that output when it is available — it helps pick the true
     # hoop among candidates (shots fly toward it).
-    ball_traj_path = Path(
-        config.get("hoop_detection.ball_trajectory_path")
-        or (Path(config.get("output.reid_3d_dir")) / "ball_trajectory.json")
+    # Ball evidence, in order of preference. A trajectory from the action
+    # module is filtered and gap-filled; `balls_3d` inside the poses file is
+    # raw but available immediately, which is what makes the documented order
+    # (perception -> hoop detection) work without waiting for the action
+    # module.
+    ball_sources: list[tuple[str, Path, Callable[[Path], list[list[float]]]]] = []
+    if args.ball_trajectory:
+        ball_sources.append(
+            ("trajectory", Path(args.ball_trajectory), ball_positions_from_trajectory)
+        )
+    if config.get("hoop_detection.ball_trajectory_path"):
+        ball_sources.append(
+            (
+                "trajectory",
+                Path(config.get("hoop_detection.ball_trajectory_path")),
+                ball_positions_from_trajectory,
+            )
+        )
+    if args.poses:
+        ball_sources.append(
+            (
+                "trajectory",
+                Path(args.poses).parent / "ball_trajectory.json",
+                ball_positions_from_trajectory,
+            )
+        )
+        ball_sources.append(("poses", Path(args.poses), ball_positions_from_poses))
+    ball_sources.append(
+        (
+            "trajectory",
+            Path(config.get("output.reid_3d_dir")) / "ball_trajectory.json",
+            ball_positions_from_trajectory,
+        )
     )
+
     ball_positions: list[list[float]] = []
-    if ball_traj_path.exists():
-        with open(ball_traj_path, encoding="utf-8") as handle:
-            ball_traj = json.load(handle)
-        ball_positions = [
-            record["position"]
-            for record in ball_traj.get("frames", {}).values()
-            if record.get("position") is not None
-        ]
+    ball_source = ""
+    for kind, path, reader in ball_sources:
+        if not path.exists():
+            continue
+        try:
+            ball_positions = [
+                position for position in reader(path) if position is not None
+            ]
+        except (KeyError, TypeError, ValueError) as exc:
+            print(f"[warn] ignoring unreadable ball source {path}: {exc}")
+            continue
+        if ball_positions:
+            ball_source = f"{kind}:{path}"
+            break
     if ball_positions:
         ball_arr = np.asarray(ball_positions)
         for c in supported:
@@ -264,43 +442,58 @@ def main() -> None:
             ]
         print(
             f"ball-based selection: min ball distance {min_ball_d:.2f} m "
-            f"({len(best)}/{len(supported)} candidates)"
+            f"({len(best)}/{len(supported)} candidates) from {ball_source}"
         )
+        source = ball_source
     else:
-        # fallback: the most-supported candidate group
+        # Without the ball trajectory the only signal left is view support,
+        # which is weak: one false detection in a single view promotes every
+        # candidate triangulated from it. Fail loudly rather than silently.
+        print(
+            "[warn] no ball evidence: no ball_trajectory.json and no balls_3d in "
+            "the poses file. Falling back to view support only, which does not "
+            "reliably identify the hoop. Pass --poses (so balls_3d is read), "
+            "--ball-trajectory, or --hoop-3d to pin it."
+        )
         max_support = max(len(c.get("supporting_views", c["views"])) for c in supported)
         best = [
             c
             for c in supported
             if len(c.get("supporting_views", c["views"])) == max_support
         ]
+        source = "view_support"
+
+    # Candidates are mutually exclusive hypotheses (which one is the hoop), so
+    # the median is only meaningful when they already agree. Averaging two
+    # hoops 1.5 m apart lands on neither rim (a rim is 0.45 m across).
+    rim_diameter_m = 0.45
+    ambiguous = False
+    if len(best) > 1:
+        spread = max(
+            float(np.linalg.norm(np.asarray(a["point"]) - np.asarray(b["point"])))
+            for index, a in enumerate(best)
+            for b in best[index + 1 :]
+        )
+        if spread > rim_diameter_m:
+            ambiguous = True
+            print(
+                f"[warn] {len(best)} equally-ranked candidates disagree by "
+                f"{spread:.2f} m (> rim diameter {rim_diameter_m} m); the median "
+                "below lies on no rim. Re-run with --ball-trajectory, or supply "
+                "--hoop-3d (an existing hoop_3d.json or a bare [x, y, z])."
+            )
     points = np.asarray([c["point"] for c in best])
     hoop = np.median(points, axis=0).tolist()
 
-    output = {
-        "schema_version": "hoop-3d/v1",
-        "hoop_center": hoop,
-        "hoop_bottom": [hoop[0], hoop[1], hoop[2]],
-        "height_m": round(float(hoop[2]), 3),
-        "frame_range": [args.start_frame, args.end_frame],
-        "candidates": [
-            {
-                "point": [round(v, 3) for v in c["point"]],
-                "views": c.get("supporting_views", c["views"]),
-            }
-            for c in supported
-        ],
-        "coordinate_system": "calibrated world metres, z up",
-    }
-    output_path = (
-        Path(args.output)
-        if args.output
-        else (Path(config.get("output.reid_3d_dir")) / "hoop_3d.json")
+    write_hoop_json(
+        output_path,
+        hoop,
+        start_frame=args.start_frame,
+        end_frame=args.end_frame,
+        candidates=supported,
+        source=source,
+        ambiguous=ambiguous,
     )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as handle:
-        json.dump(output, handle, ensure_ascii=False, indent=1)
-    print(f"[ok] hoop 3D -> {output_path}")
 
 
 if __name__ == "__main__":

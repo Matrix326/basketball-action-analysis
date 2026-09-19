@@ -1,0 +1,45 @@
+# 本机 11.19 数据、perception output/demo_900_1200 区间（同步帧 900-1200）。
+# rim 沿用同场地同标定的已标注值（与三角化篮筐反投影吻合，纵向误差 <6px）。
+poses: ../../perception/output/demo_900_1200/poses/poses_3d.json
+views:
+  view1:
+    rim:
+    - 798.1540820520515
+    - 187.42123693597537
+    - 66.0
+    - 8.0
+    path: "/data/ljy23/data/videodata/11.19/A1/A1-1_camera1_undistorted.mp4"
+    frame_zero: 0
+  view2:
+    rim:
+    - 1142.8968543487179
+    - 118.44984660524604
+    - 66.0
+    - 8.0
+    path: "/data/ljy23/data/videodata/11.19/A2/A2-1_camera1_undistorted.mp4"
+    frame_zero: 0
+  view3:
+    rim:
+    - 355.13268449414284
+    - 159.28662596090325
+    - 66.0
+    - 8.0
+    path: "/data/ljy23/data/videodata/11.19/B3/B3-1_camera1_undistorted.mp4"
+    frame_zero: 0
+  view4:
+    rim:
+    - 1257.343570058536
+    - 223.6723205531199
+    - 66.0
+    - 8.0
+    path: "/data/ljy23/data/videodata/11.19/B4/B4-1_camera1_undistorted.mp4"
+    frame_zero: 0
+teams: {}
+rules:
+  budget_seconds: null
+  result_view: view1
+  net_roi: [765, 220, 830, 275]
+  net_motion_ratio: 1.8
+  net_motion_peak: 2.0
+  net_motion_seconds: 0.5
+  observation_gap_seconds: 0.3

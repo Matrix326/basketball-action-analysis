@@ -62,15 +62,35 @@ def check_inputs(
         resolved[key] = str(Path(value).resolve())
     backend = str(config.get("rfdetr.backend", "auto")).lower()
     options = {"tensorrt": "rfdetr.engine_path", "onnx": "rfdetr.onnx_path"}
-    if backend not in {"auto", *options}:
+    if backend not in {"auto", "hybrid", *options}:
         raise ValueError(f"Unsupported perception detector backend: {backend}")
-    candidates = list(options.values()) if backend == "auto" else [options[backend]]
+    if backend == "auto":
+        candidates = list(options.values())
+    elif backend == "hybrid":
+        # detector.py loads the person detector through ONNX for hybrid; the
+        # TensorRT engine is not part of that path.
+        candidates = [options["onnx"]]
+    else:
+        candidates = [options[backend]]
     available = [
         key for key in candidates if config.get(key) and Path(config.get(key)).is_file()
     ]
     if not available:
         raise FileNotFoundError(f"No model file for {backend}: {candidates}")
     resolved.update({key: str(Path(config.get(key)).resolve()) for key in available})
+    if backend == "hybrid":
+        # An empty path means the caller opted into the single-model fallback.
+        # A path that is set but missing also degrades ball detection, but the
+        # detector only warns, so fail fast here instead.
+        ball_checkpoint = config.get("rfdetr.ball_checkpoint_path")
+        if ball_checkpoint:
+            if not Path(ball_checkpoint).is_file():
+                raise FileNotFoundError(
+                    f"rfdetr.ball_checkpoint_path: {ball_checkpoint}"
+                )
+            resolved["rfdetr.ball_checkpoint_path"] = str(
+                Path(ball_checkpoint).resolve()
+            )
     if config.get("reid.use_face_embeddings", True):
         face_root = (
             Path(config.get("reid.insightface_root"))
