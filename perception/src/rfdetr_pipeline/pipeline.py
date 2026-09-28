@@ -413,6 +413,10 @@ class RFDetrPoseMultiViewPipeline:
         balls_2d: dict[int, dict[str, Any]] = {}
         balls_3d: dict[int, list[float]] = {}
         balls_3d_predicted: dict[int, bool] = {}
+        # Keep real image observations even when the temporal 3D filter rejects
+        # a measurement. The legacy balls_2d field retains its old semantics.
+        ball_evidence_path = output / "ball_evidence.jsonl"
+        ball_evidence_file = ball_evidence_path.open("w", encoding="utf-8")
         quality: dict[int, dict[int, Any]] = {}
         ball_3d_filter = Ball3DTemporalFilter(
             float(self.config.get("ball.smoothing_alpha", 0.70)),
@@ -503,6 +507,36 @@ class RFDetrPoseMultiViewPipeline:
                 )
                 measured_ball_3d = self.geometry.triangulate_ball(selected_balls)
                 ball_3d, ball_predicted = ball_3d_filter.update(measured_ball_3d)
+                def ball_record(ball: BallDetection) -> dict[str, Any]:
+                    return {
+                        "center_xy": list(map(float, ball.center_xy)),
+                        "bbox": ball.bbox_xyxy.astype(float).tolist(),
+                        "confidence": float(ball.confidence or 0.0),
+                    }
+                raw_candidates = {
+                    view: [ball_record(ball) for ball in sorted(
+                        extraction.balls,
+                        key=lambda item: float(item.confidence or 0.0),
+                        reverse=True,
+                    )[:5]]
+                    for view, extraction in zip(views, extractions)
+                }
+                observed_selection = {
+                    view: ball_record(ball) for view, ball in selected_balls.items()
+                }
+                measured_record = None
+                if measured_ball_3d is not None and np.isfinite(measured_ball_3d).all():
+                    measured_record = np.asarray(measured_ball_3d, dtype=float).tolist()
+                ball_evidence_file.write(json.dumps({
+                    "schema_version": "ball-evidence-1",
+                    "frame": frame_number,
+                    "candidates": raw_candidates,
+                    "selected_observed_2d": observed_selection,
+                    "measured_3d": measured_record,
+                    "filtered_3d_predicted": bool(ball_predicted),
+                    "selection_note": "3d_filter_rejected_2d_retained"
+                    if ball_predicted and observed_selection else "normal",
+                }, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n")
                 if ball_predicted:
                     selected_balls = {}
                 for view in views:
@@ -688,6 +722,7 @@ class RFDetrPoseMultiViewPipeline:
                     )
                     writers[view].write(canvas)
         finally:
+            ball_evidence_file.close()
             for capture in captures.values():
                 capture.release()
             for writer in writers.values():

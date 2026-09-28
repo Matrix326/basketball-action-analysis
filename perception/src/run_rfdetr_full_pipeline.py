@@ -48,6 +48,10 @@ def main() -> None:
     )
     parser.add_argument("--skip-smoothing", action="store_true")
     parser.add_argument("--skip-3d-animation", action="store_true")
+    parser.add_argument(
+        "--skip-trajectories", action="store_true",
+        help="Stop after the multi-view perception JSON and ball evidence sidecar.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -90,6 +94,8 @@ def main() -> None:
             start,
             end,
         )
+    if args.skip_trajectories:
+        return
 
     process_frames = max(0, end - start)
     fps = float(config.get("trajectory.fps", 30))
