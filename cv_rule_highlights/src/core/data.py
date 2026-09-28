@@ -1,8 +1,9 @@
 """The adapter for perception's 2.0-rfdetr-rtmpose output."""
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import yaml
@@ -51,11 +52,21 @@ class Game:
     end: int
     poses_path: Path
     config_path: Path
+    court: dict = field(default_factory=dict)
+    ball_evidence: dict[int, dict[str, Any]] | None = None
+    control_segments: list | None = None
+    _sample_cache: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
 
     @classmethod
     def load(cls, config_path):
         config_path = Path(config_path).resolve()
         config = yaml.safe_load(config_path.read_text())
+        if not isinstance(config, dict):
+            raise ValueError("Game configuration must be a mapping")
+        forbidden = {"annotations", "annotation_path", "annotation_root", "ground_truth",
+                     "manual_events", "manual_identity_map", "player_reference_images"}
+        if forbidden.intersection(config):
+            raise ValueError("Event annotations and manual identity mappings are forbidden inputs")
 
         def path(value):
             return (config_path.parent / value).resolve()
@@ -95,31 +106,61 @@ class Game:
                 raise ValueError("inside_arc_polygon needs at least three world XY points")
             if not np.isfinite(polygon).all():
                 raise ValueError("inside_arc_polygon must be finite")
-        return cls(
+        game = cls(
             data, views, Rules(**config.get("rules", {})),
             {str(k): v for k, v in config.get("teams", {}).items()}, polygon,
             fps_values.pop(), frames[0], frames[-1] + 1, poses_path, config_path,
         )
+        game.court = config.get("court", {})
+        if config.get("ball_evidence"):
+            game.attach_ball_evidence(path(config["ball_evidence"]))
+        return game
+
+    def attach_ball_evidence(self, path):
+        sidecar = {}
+        with Path(path).open(encoding="utf-8") as stream:
+            for line in stream:
+                row = json.loads(line)
+                if row.get("schema_version") != "ball-evidence-1":
+                    raise ValueError("Unsupported ball evidence schema")
+                frame = int(row["frame"])
+                if not self.start <= frame < self.end:
+                    raise ValueError(f"Ball evidence frame outside perception range: {frame}")
+                sidecar[frame] = row
+        self.ball_evidence = sidecar
+        self._sample_cache.clear()
 
     def players(self, frame):
         return self.data["poses_2d"].get(str(frame), {})
 
     def balls(self, frame):
+        selected = dict(self.data.get("balls_2d", {}).get(str(frame), {}))
+        if self.ball_evidence and frame in self.ball_evidence:
+            for view, ball in self.ball_evidence[frame].get("selected_observed_2d", {}).items():
+                if view not in selected:
+                    selected[view] = ball
         return {
-            view: ball for view, ball in self.data["balls_2d"].get(str(frame), {}).items()
+            view: ball for view, ball in selected.items()
             if view in self.views and ball["confidence"] >= self.rules.ball_confidence
             and np.isfinite(ball["center_xy"]).all()
             and np.isfinite(ball["bbox"]).all()
         }
 
     def ball_samples(self, view):
+        if view in self._sample_cache:
+            return self._sample_cache[view]
         result = []
-        for key in sorted(self.data["balls_2d"], key=int):
-            ball = self.balls(int(key)).get(view)
+        keys = {int(key) for key in self.data.get("balls_2d", {})}
+        if self.ball_evidence:
+            keys.update(self.ball_evidence)
+        for key in sorted(keys):
+            ball = self.balls(key).get(view)
             if ball:
                 x1, y1, x2, y2 = ball["bbox"]
-                result.append([int(key), *ball["center_xy"], ((x2 - x1) + (y2 - y1)) / 4])
-        return np.asarray(result, dtype=float).reshape(-1, 4)
+                result.append([key, *ball["center_xy"], ((x2 - x1) + (y2 - y1)) / 4])
+        samples = np.asarray(result, dtype=float).reshape(-1, 4)
+        self._sample_cache[view] = samples
+        return samples
 
 
 def save_json(path, value):

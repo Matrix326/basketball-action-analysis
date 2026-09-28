@@ -9,27 +9,15 @@ views:
     path: "/data/tt/basketball/data/11.9/1\u89C6\u9891/11.19/A1/A1-1_camera1_undistorted.mp4"
     frame_zero: 0
   view2:
-    rim:
-    - 1142.8968543487179
-    - 118.44984660524604
-    - 66.0
-    - 8.0
+    rim: [1114.0, 108.0, 66.0, 8.0]
     path: "/data/tt/basketball/data/11.9/1\u89C6\u9891/11.19/A2/A2-1_camera1_undistorted.mp4"
     frame_zero: 0
   view3:
-    rim:
-    - 355.13268449414284
-    - 159.28662596090325
-    - 66.0
-    - 8.0
+    rim: [414.0, 178.0, 140.0, 20.0]
     path: "/data/tt/basketball/data/11.9/1\u89C6\u9891/11.19/B3/B3-1_camera1_undistorted.mp4"
     frame_zero: 0
   view4:
-    rim:
-    - 1257.343570058536
-    - 223.6723205531199
-    - 66.0
-    - 8.0
+    rim: [1198.5, 233.5, 124.0, 22.0]
     path: "/data/tt/basketball/data/11.9/1\u89C6\u9891/11.19/B4/B4-1_camera1_undistorted.mp4"
     frame_zero: 0
 teams: {}

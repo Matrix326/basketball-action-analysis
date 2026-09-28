@@ -1,3 +1,9 @@
 output/
 __pycache__/
 .pytest_cache/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+todo/

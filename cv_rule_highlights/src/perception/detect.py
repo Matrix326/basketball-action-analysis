@@ -3,41 +3,8 @@
 import cv2
 import numpy as np
 
-from .data import Game
-
-
-def net_motion(game, frame, track):
-    """Measure localized post-passage net motion against its own baseline."""
-    x1, y1, x2, y2 = game.rules.net_roi
-    polygon = np.array([[0, 0], [x2 - x1 - 1, 0], [x2 - x1 - 12, y2 - y1 - 1], [8, y2 - y1 - 1]], np.int32)
-    region = np.zeros((y2 - y1, x2 - x1), np.uint8)
-    cv2.fillConvexPoly(region, polygon, True)
-    cap = cv2.VideoCapture(game.views[game.rules.result_view]["path"])
-    def image(f):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(f)); ok, bgr = cap.read()
-        return cv2.cvtColor(bgr[y1:y2, x1:x2], cv2.COLOR_BGR2GRAY) if ok else None
-    def score(a, b, f):
-        if a is None or b is None: return 0.0
-        mask = np.ones(a.shape, bool)
-        near = track[np.argmin(np.abs(track[:, 0] - f))] if len(track) else None
-        if near is not None and abs(near[0] - f) <= 2:
-            r = max(near[3] * 1.8, 8); xa, ya = int(near[1] - r - x1), int(near[2] - r - y1)
-            xb, yb = int(near[1] + r - x1), int(near[2] + r - y1)
-            mask[max(0,ya):min(mask.shape[0],yb+1), max(0,xa):min(mask.shape[1],xb+1)] = False
-        # Only the white, low-saturation net fabric is evidence. This rejects
-        # the orange ball and most of the dark backboard/players.
-        fabric = ((a > 105) & (b > 105)) & mask & region.astype(bool)
-        values = np.abs(b.astype(float) - a.astype(float))[fabric]
-        return float(np.mean(values)) if values.size else 0.0
-    before = [score(image(f - 1), image(f), f) for f in range(max(game.start + 1, int(frame - .5 * game.fps)), int(frame))]
-    after = [score(image(f - 1), image(f), f) for f in range(int(frame) + 1, int(frame + game.rules.net_motion_seconds * game.fps))]
-    cap.release()
-    baseline = float(np.median(before)) if before else 0.0
-    peak = float(np.percentile(after, 90)) if after else 0.0
-    ratio = peak / max(baseline, 1.0)
-    sustained = max((float(np.mean(after[i:i + 4])) for i in range(max(0, len(after) - 3))), default=0.0)
-    return {"baseline": round(baseline, 3), "peak": round(peak, 3), "sustained": round(sustained, 3), "ratio": round(ratio, 3),
-            "passed": bool(after and sustained >= game.rules.net_motion_peak and ratio >= game.rules.net_motion_ratio)}
+from ..core.data import Game
+from .shot_evidence import net_motion
 
 
 def controls(game: Game):
@@ -115,7 +82,7 @@ def rim_passages(samples, rim, fps, rules):
         if abs(x - cx) > 2 * width:
             continue
         before = samples[:i]
-        before = before[(crossing - before[:, 0] <= fps * rules.passage_seconds) & (before[:, 2] < cy - height / 2 - radius)]
+        before = before[(crossing - before[:, 0] <= fps * max(1.0, rules.passage_seconds)) & (before[:, 2] < cy - height / 2 - radius)]
         after = samples[i:]
         after = after[(after[:, 0] - crossing <= fps * rules.passage_seconds) & (after[:, 2] > cy + height / 2 + radius)]
         if not len(before) or not len(after):
@@ -123,10 +90,12 @@ def rim_passages(samples, rim, fps, rules):
         support = samples[(samples[:, 0] >= before[-1, 0]) & (samples[:, 0] <= after[0, 0])]
         if np.any(np.diff(support[:, 0]) > fps * rules.observation_gap_seconds + 1e-6):
             continue
-        # Reject a downward passage whose support includes an upward reversal.
-        if np.any(np.diff(support[:, 2]) < -0.05 * width):
-            continue
-        if abs(x - cx) + radius < width / 2:
+        # A ball can bounce on the rim before eventually descending. The
+        # crossing pair is downward; an earlier local reversal is not a veto.
+        exit_x = float(after[0, 1])
+        # The center must continue below the opening. A grazing ball that
+        # escapes sideways can move the net without passing through it.
+        if abs(x - cx) < width / 2 and abs(exit_x - cx) < width / 2:
             result = "inside"
         elif abs(x - cx) - radius > width / 2:
             result = "outside"
@@ -135,7 +104,7 @@ def rim_passages(samples, rim, fps, rules):
         passages.append({
             "frame": float(crossing), "result": result,
             "support_frames": [int(support[0, 0]), int(support[-1, 0])],
-            "crossing_x": float(x),
+            "crossing_x": float(x), "exit_x": exit_x,
         })
     return passages
 
@@ -196,17 +165,17 @@ def detect(game: Game):
     result_view = game.rules.result_view
     if result_view not in game.views:
         raise ValueError(f"result_view {result_view!r} is not configured")
-    samples = {result_view: game.ball_samples(result_view)}
+    samples = {view: game.ball_samples(view) for view in game.views}
     passages = []
     near_frames = set()
-    track = samples[result_view]
-    rim = game.views[result_view]["rim"]
-    for passage in rim_passages(track, rim, game.fps, game.rules):
-        passages.append({**passage, "view": result_view})
-    if len(track):
-        xy = (track[:, 1:3] - rim[:2]) / rim[2]
-        near = (np.abs(xy[:, 0]) < 1.5) & (xy[:, 1] > -2) & (xy[:, 1] < 1.5)
-        near_frames.update(track[near, 0].astype(int).tolist())
+    for view, track in samples.items():
+        rim = game.views[view]["rim"]
+        for passage in rim_passages(track, rim, game.fps, game.rules):
+            passages.append({**passage, "view": view})
+        if len(track):
+            xy = (track[:, 1:3] - rim[:2]) / rim[2]
+            near = (np.abs(xy[:, 0]) < 1.5) & (xy[:, 1] > -2) & (xy[:, 1] < 1.5)
+            near_frames.update(track[near, 0].astype(int).tolist())
 
     proposals = []
     for segment in segments:
@@ -225,14 +194,11 @@ def detect(game: Game):
     events = []
     used = set()
     for begin, end in visits:
-        evidence = [p for p in passages if p["view"] == game.rules.result_view
-                    and begin - game.fps * game.rules.passage_seconds <= p["frame"] <= end]
-        part = track[(track[:, 0] >= begin - 0.5 * game.fps) & (track[:, 0] <= end)]
-        if len(part) < 3:
-            continue
+        evidence = [p for p in passages
+                    if begin - game.fps * game.rules.passage_seconds <= p["frame"] <= end]
         if not evidence:
             continue
-        matches = [i for i, p in enumerate(proposals) if i not in used and begin - game.fps * game.rules.flight_seconds <= p["release_frame"] <= end]
+        matches = [i for i, p in enumerate(proposals) if i not in used and begin - game.fps * game.rules.flight_seconds <= p["release_frame"] < min(q["frame"] for q in evidence)]
         proposal = proposals[matches[-1]] if matches else None
         if matches:
             used.add(matches[-1])
@@ -249,21 +215,31 @@ def detect(game: Game):
         outcome, confidence, resolution = "unknown", "probable", None
         positive_groups = []
         for p in sorted((p for p in evidence if p["result"] == "inside"), key=lambda p: p["frame"]):
-            if not positive_groups or p["frame"] - positive_groups[-1][0]["frame"] > game.fps * game.rules.fusion_seconds:
+            if not positive_groups or p["frame"] - positive_groups[-1][0]["frame"] > game.fps * game.rules.passage_seconds:
                 positive_groups.append([p])
             else:
                 positive_groups[-1].append(p)
         for group in positive_groups:
             t = float(np.median([p["frame"] for p in group]))
-            if len(group) >= game.rules.min_make_views:
-                motion = net_motion(game, t, track)
+            supporting_views = {p["view"] for p in group}
+            conflicting_views = {p["view"] for p in evidence
+                                 if p["result"] == "outside"
+                                 and abs(p["frame"] - t) <= game.fps * game.rules.fusion_seconds}
+            # All scoring paths retain the user's net constraint. Multiple
+            # projections alone also occur for balls falling in front of the hoop.
+            enough_views = len(supporting_views) >= max(2, game.rules.min_make_views)
+            primary_path = result_view in supporting_views and game.rules.min_make_views <= 1
+            if (enough_views or primary_path) and not conflicting_views:
+                primary = [p["frame"] for p in group if p["view"] == result_view]
+                t = float(np.median(primary)) if primary else t
+                motion = net_motion(game, t, samples[result_view])
+                for p in group:
+                    p["net_motion"] = motion
+                    p["projection_conflict_views"] = sorted(conflicting_views)
                 if motion["passed"]:
                     outcome, confidence, resolution = "made", "confirmed", round(t)
-                else:
-                    outcome, confidence = "unknown", "unconfirmed"
-                for p in evidence:
-                    p["net_motion"] = motion
-                break
+                    break
+                outcome, confidence = "unknown", "unconfirmed"
         if outcome != "made":
             outside = [p for p in evidence if p["result"] == "outside"]
             for p in outside:
@@ -271,7 +247,7 @@ def detect(game: Game):
                 # One clear miss is useful, but an inside/outside disagreement
                 # is an unresolved occlusion or calibration conflict.
                 conflict = any(q["result"] == "inside" for q in evidence)
-                if len(group) >= 2 and not conflict:
+                if len({q["view"] for q in group}) >= 2 and not conflict:
                     outcome, confidence = "missed", "confirmed"
                     resolution = round(float(np.median([q["frame"] for q in group])))
                     break

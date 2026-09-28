@@ -1,4 +1,4 @@
-"""Clip planning and constant-frame-rate, silent MP4 rendering."""
+"""Clip planning and constant-frame-rate MP4 rendering with source audio."""
 
 import json
 from pathlib import Path
@@ -6,7 +6,8 @@ import subprocess
 
 import cv2
 
-from .data import save_json
+from ..core.data import save_json
+from ..core.timeline import source_frame
 
 
 def view_quality(game, view, start, end, events):
@@ -20,7 +21,7 @@ def view_quality(game, view, start, end, events):
     coverage = sum(visible(f) for f in frames) / (end - start)
     critical = []
     for event in events:
-        t = event["resolution_frame"] or event["anchor_frame"]
+        t = event["resolution_frame"] if event["resolution_frame"] is not None else event["anchor_frame"]
         critical.extend(range(max(start, t - 3), min(end, t + 4)))
     critical_coverage = sum(visible(f) for f in critical) / len(critical) if critical else 0.0
     # Critical visibility matters more than average coverage over padding.
@@ -65,8 +66,8 @@ def plan_clips(game, report, review=False):
             "id": f"clip_{len(result) + 1:04d}", "event_ids": [e["id"] for e in clip["events"]],
             "view": view, "source": source["path"],
             "sync_start_frame": clip["start"], "sync_end_frame": clip["end"],
-            "source_start_frame": clip["start"] - source["frame_zero"],
-            "source_end_frame": clip["end"] - source["frame_zero"],
+            "source_start_frame": source_frame(clip["start"], source["frame_zero"]),
+            "source_end_frame": source_frame(clip["end"], source["frame_zero"]),
             "view_scores": qualities,
         })
     return {
@@ -97,7 +98,8 @@ def render(plan, output, size=(1280, 720)):
         raise ValueError("Output dimensions must be positive even numbers")
     fps = plan["fps"]
     sources = {}
-    for clip in plan["clips"]:
+    pieces = [piece for clip in plan["clips"] for piece in clip.get("shots", [clip])]
+    for clip in pieces:
         source = clip["source"]
         if source not in sources:
             if not Path(source).is_file():
@@ -107,20 +109,48 @@ def render(plan, output, size=(1280, 720)):
         if any(abs(info[k] - fps) > 1e-3 for k in ("r_frame_rate", "avg_frame_rate")):
             raise ValueError(f"Video FPS does not match perception: {source}")
         if not 0 <= clip["source_start_frame"] < clip["source_end_frame"] <= info["nb_frames"]:
-            raise ValueError(f"Clip {clip['id']} lies outside source video; check frame_zero")
+            raise ValueError(f"Source interval in {source} lies outside video; check frame_zero")
+    preserve_audio = plan.get("audio") != False
+    source_audio = {}
+    for source in sources:
+        audio = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0",
+                                "-show_entries", "stream=index", "-of", "csv=p=0", source],
+                               capture_output=True, text=True, check=True)
+        source_audio[source] = bool(audio.stdout.strip())
+    with_audio = preserve_audio and (any(source_audio.values()) or plan.get("force_audio", False))
     clips_dir = output / "clips"
     clips_dir.mkdir()
     files = []
     total_frames = 0
     for clip in plan["clips"]:
-        count = clip["source_end_frame"] - clip["source_start_frame"]
+        shots = clip.get('shots', [clip])
+        count = sum(s['source_end_frame'] - s['source_start_frame'] for s in shots)
         target = clips_dir / f"{clip['id']}.mp4"
+        if len(shots) > 1:
+            if any(a['sync_end_frame'] != b['sync_start_frame'] for a, b in zip(shots, shots[1:])):
+                raise ValueError('Camera cuts must be contiguous')
+            parts = output / 'camera_parts' / clip['id']
+            parts.mkdir(parents=True)
+            render({'fps': fps, 'audio': plan.get('audio'), 'force_audio': with_audio,
+                    'clips': [{**shot, 'id': f'camera_{i:02d}'} for i, shot in enumerate(shots)]}, parts, size)
+            (parts / 'highlights.mp4').rename(target)
+            files.append(f"file 'clips/{target.name}'")
+            total_frames += count
+            continue
+        clip = {**clip, **shots[0]}
+        inputs = ["-ss", f"{clip['source_start_frame'] / fps:.9f}", "-i", clip["source"]]
+        audio_args = ["-an"]
+        if with_audio:
+            if not source_audio[clip["source"]]:
+                inputs += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+            stream = "0:a:0" if source_audio[clip["source"]] else "1:a:0"
+            audio_args = ["-map", stream, "-af", f"apad,atrim=duration={count / fps:.9f},asetpts=PTS-STARTPTS",
+                          "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2"]
         subprocess.run([
-            "ffmpeg", "-v", "error", "-nostdin", "-n",
-            "-ss", f"{clip['source_start_frame'] / fps:.9f}", "-i", clip["source"],
-            "-map", "0:v:0", "-frames:v", str(count), "-an",
+            "ffmpeg", "-v", "error", "-nostdin", "-n", *inputs,
+            "-map", "0:v:0", "-frames:v", str(count), "-t", f"{count / fps:.9f}", *audio_args,
             "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,setpts=PTS-STARTPTS",
-            "-r", str(fps), "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+            "-r", str(fps), "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-threads", "4",
             "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(target),
         ], check=True)
         if probe(target)["nb_frames"] != count:
@@ -133,12 +163,14 @@ def render(plan, output, size=(1280, 720)):
         target = output / "highlights.mp4"
         subprocess.run([
             "ffmpeg", "-v", "error", "-nostdin", "-n", "-f", "concat", "-safe", "0", "-i", str(concat),
-            "-map", "0:v:0", "-c", "copy", "-movflags", "+faststart", str(target),
+            "-map", "0", "-c", "copy", "-movflags", "+faststart", str(target),
         ], check=True)
         if probe(target)["nb_frames"] != total_frames:
             raise ValueError("Concatenated frame count mismatch")
         subprocess.run(["ffmpeg", "-v", "error", "-xerror", "-nostdin", "-i", str(target), "-f", "null", "-"], check=True)
-    result = {"clips": len(files), "frames": total_frames, "duration_seconds": total_frames / fps}
+    result = {"clips": len(files), "frames": total_frames, "duration_seconds": total_frames / fps,
+              "audio": "source_audio_preserved" if with_audio else "no_audio",
+              "empty_reason": None if files else "No eligible events"}
     save_json(output / "render.json", result)
     return result
 
@@ -147,19 +179,19 @@ def preview(game, output, frame):
     """Rim annotation check on source images, without running any detector."""
     for view, settings in game.views.items():
         cap = cv2.VideoCapture(settings["path"])
-        source_frame = frame - settings["frame_zero"]
-        if source_frame < 0:
+        local_frame = source_frame(frame, settings["frame_zero"])
+        if local_frame < 0:
             cap.release()
             raise ValueError(f"Preview precedes video start: {view}")
-        cap.set(cv2.CAP_PROP_POS_FRAMES, source_frame)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, local_frame)
         ok, image = cap.read()
         cap.release()
         if not ok:
-            raise ValueError(f"Cannot decode {view} at source frame {source_frame}")
+            raise ValueError(f"Cannot decode {view} at source frame {local_frame}")
         if image.shape[:2] != (settings["height"], settings["width"]):
             raise ValueError("Preview source dimensions must match perception coordinates")
         cx, cy, w, h = settings["rim"]
         cv2.ellipse(image, (round(cx), round(cy)), (round(w / 2), max(1, round(h / 2))), 0, 0, 360, (0, 255, 0), 2)
         cv2.line(image, (round(cx - w / 2), round(cy)), (round(cx + w / 2), round(cy)), (255, 255, 0), 1)
-        cv2.putText(image, f"{view} sync={frame} source={source_frame}", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(image, f"{view} sync={frame} source={local_frame}", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.imwrite(str(Path(output) / f"{view}.jpg"), image)
